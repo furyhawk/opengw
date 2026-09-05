@@ -28,6 +28,9 @@ settings::settings()
 {
     mCreditsPerGame = false; // false = Freeplay
 
+    // --- Audio defaults ---------------------------------------------
+    mSoundVolume = 100;
+
     // --- Graphics defaults --------------------------------------------
     mEnableGlow = true; // GPU bloom
     mFullscreen = false;
@@ -100,6 +103,8 @@ void settings::load()
             mPlayerSmoothing = parseBool(value);
         else if (key == "starSmoothing")
             mStarSmoothing = parseBool(value);
+        else if (key == "volume")
+            mSoundVolume = std::atoi(value.c_str());
         else if (key == "width")
             displayWidth = std::atoi(value.c_str());
         else if (key == "height")
@@ -111,6 +116,10 @@ void settings::load()
         displayWidth = 800;
     if (displayHeight < 480 || displayHeight > 4320)
         displayHeight = 600;
+
+    // Sanity check the master volume.
+    if (mSoundVolume < 0 || mSoundVolume > 100)
+        mSoundVolume = 100;
 }
 
 void settings::save() const
@@ -129,6 +138,7 @@ void settings::save() const
     out << "enemySmoothing=" << (mEnemySmoothing ? 1 : 0) << "\n";
     out << "playerSmoothing=" << (mPlayerSmoothing ? 1 : 0) << "\n";
     out << "starSmoothing=" << (mStarSmoothing ? 1 : 0) << "\n";
+    out << "volume=" << mSoundVolume << "\n";
     out << "width=" << displayWidth << "\n";
     out << "height=" << displayHeight << "\n";
 }

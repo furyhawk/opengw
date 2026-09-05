@@ -77,7 +77,7 @@ void sound::bufferCallback(void* userdata, Uint8* stream, int len)
         int lIndex = 0;
 
         if (track.playing && !track.paused) {
-            const auto volume = track.vol / 2.0f / max_int_val;
+            const auto volume = track.vol * thisPtr->mMasterVolume / 2.0f / max_int_val;
 
             for (std::size_t s = 0; s < samplesPerChannel; s++) {
                 // Stream the audio data
@@ -176,6 +176,20 @@ void sound::playTrack(std::size_t track)
 {
     mTracks[track].pos = 0;
     mTracks[track].playing = true;
+}
+
+void sound::setMasterVolume(float volume)
+{
+    if (volume < 0.0f)
+        volume = 0.0f;
+    else if (volume > 1.0f)
+        volume = 1.0f;
+    mMasterVolume = volume;
+}
+
+float sound::getMasterVolume() const
+{
+    return mMasterVolume;
 }
 
 void sound::stopTrack(std::size_t track)

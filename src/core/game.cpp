@@ -17,8 +17,10 @@
 #include "core/settings.hpp"
 #include "entities/spawner.hpp"
 #include "render/stars.hpp"
+#include "ui/menuMain.hpp"
+#include "ui/menuPause.hpp"
 #include "ui/menuSelectGameType.hpp"
-#include "ui/menuGraphicsOptions.hpp"
+#include "ui/menuSettings.hpp"
 
 #include <cstdio>
 #include <memory>
@@ -48,6 +50,8 @@ game::GameType game::mGameType;
 std::vector<game::PointDisplay> game::mPointDisplays;
 bool game::mPaused = false;
 int game::mCredits = 0;
+bool game::mQuitRequested = false;
+game::MenuScreen game::mMenuScreen = game::MENU_NONE;
 
 game::game()
 {
@@ -121,6 +125,9 @@ game::game()
 
     mSound->startSound();
 
+    // Apply the stored master volume.
+    mSound->setMasterVolume(settings::get().mSoundVolume / 100.0f);
+
     mBrightness = 0;
 
     mCamera = std::make_unique<camera>(*this);
@@ -185,23 +192,33 @@ void game::run()
         mCredits = 4;
     }
 
-    // Pause functionality
-    if (mGameMode == GAMEMODE_PLAYING) {
+    // ---- Pause: opening the pause menu during a match ---------------------
+    if ((mGameMode == GAMEMODE_PLAYING) && (mMenuScreen == MENU_NONE)) {
         static bool pauseLast = false;
         bool pause = mControls->getPauseButton(0) || mControls->getPauseButton(1) || mControls->getPauseButton(2) || mControls->getPauseButton(3);
         if (pause && !pauseLast) {
             game::mSound->playTrack(SOUNDID_MENU_SELECT);
-            mPaused = !mPaused;
-            if (mPaused) {
-                mSound->pauseAllTracksBut(SOUNDID_MENU_SELECT);
-            } else {
-                mSound->unpauseAllTracks();
-            }
+            mPaused = true;
+            mMenuScreen = MENU_PAUSE;
+            menuPause::init();
+            mSound->pauseAllTracksBut(SOUNDID_MENU_SELECT);
         }
         pauseLast = pause;
-        if (mPaused) {
-            return;
+    }
+
+    // ---- While a match is paused, freeze the world and drive the menu -----
+    if (mPaused) {
+        switch (mMenuScreen) {
+        case MENU_PAUSE:
+            menuPause::run();
+            break;
+        case MENU_SETTINGS:
+            menuSettings::run();
+            break;
+        default:
+            break;
         }
+        return;
     }
 
     // Run the camera
@@ -222,42 +239,14 @@ void game::run()
         }
     } break;
     case GAMEMODE_CREDITED:
-    {
-        const bool anyStart = mControls->getStartButton(0) || mControls->getStartButton(1) || mControls->getStartButton(2) || mControls->getStartButton(3);
-        const bool openOptions = mControls->getBackButton(0) || mControls->getBackButton(1) || mControls->getBackButton(2) || mControls->getBackButton(3) || mControls->getOptionsButton(0) || mControls->getOptionsButton(1) || mControls->getOptionsButton(2) || mControls->getOptionsButton(3);
-        if (anyStart || openOptions) {
-        } else {
-            mDebounce = false;
+        // Show the title / main menu. Entered once while no menu is up; the
+        // menu itself is driven from the attract block below so the fireworks
+        // keep animating behind the title.
+        if (mMenuScreen == MENU_NONE) {
+            menuMain::init();
+            mMenuScreen = MENU_TITLE;
         }
-        if (!mDebounce) {
-            if (openOptions) {
-                // Open the graphics options screen
-                menuGraphicsOptions::init();
-                mGameMode = GAMEMODE_OPTIONS;
-                mDebounce = true;
-            } else if (mControls->getStartButton(0)) {
-                // Go to game type selection screen
-                menuSelectGameType::init(0);
-                mGameMode = GAMEMODE_CHOOSE_GAMETYPE;
-                mDebounce = true;
-            } else if (mControls->getStartButton(1)) {
-                // Go to game type selection screen
-                menuSelectGameType::init(1);
-                mGameMode = GAMEMODE_CHOOSE_GAMETYPE;
-                mDebounce = true;
-            } else if (mControls->getStartButton(2)) {
-                // Go to game type selection screen
-                menuSelectGameType::init(2);
-                mGameMode = GAMEMODE_CHOOSE_GAMETYPE;
-                mDebounce = true;
-            } else if (mControls->getStartButton(3)) {
-                // Go to game type selection screen
-                menuSelectGameType::init(3);
-                mGameMode = GAMEMODE_CHOOSE_GAMETYPE;
-                mDebounce = true;
-            }
-        }
-    } break;
+        break;
     case GAMEMODE_CHOOSE_GAMETYPE:
         // Handled in menuSelectGameType.cpp
         break;
@@ -297,9 +286,6 @@ void game::run()
             mCamera->mCurrentZoom = 1;
         }
         break;
-    case GAMEMODE_OPTIONS:
-        // Input/backdrop handled below so the attract field keeps moving.
-        break;
     }
 
     if (mGameMode == GAMEMODE_ATTRACT || mGameMode == GAMEMODE_CREDITED) {
@@ -309,7 +295,7 @@ void game::run()
     }
 
     if ((game::mGameMode == game::GAMEMODE_HIGHSCORES_CHECK) || (game::mGameMode == game::GAMEMODE_HIGHSCORES)) {
-    } else if (mGameMode == GAMEMODE_ATTRACT || mGameMode == GAMEMODE_CREDITED || mGameMode == GAMEMODE_CHOOSE_GAMETYPE || mGameMode == GAMEMODE_OPTIONS) {
+    } else if (mGameMode == GAMEMODE_ATTRACT || mGameMode == GAMEMODE_CREDITED || mGameMode == GAMEMODE_CHOOSE_GAMETYPE) {
         static int explosionTimer = 0;
 
         ++explosionTimer;
@@ -322,12 +308,16 @@ void game::run()
 
         mCamera->center();
 
-        // Run the game selection menu
+        // Drive the menus that sit in front of the attract field: the game
+        // type selector, the title main menu and (from the title) the settings
+        // screen. The pause / settings-from-pause paths are handled above
+        // while the world is frozen.
         if (mGameMode == GAMEMODE_CHOOSE_GAMETYPE) {
             menuSelectGameType::run();
-        }
-        if (mGameMode == GAMEMODE_OPTIONS) {
-            menuGraphicsOptions::run();
+        } else if (mMenuScreen == MENU_TITLE) {
+            menuMain::run();
+        } else if (mMenuScreen == MENU_SETTINGS) {
+            menuSettings::run();
         }
 
         // Attractors to wander around the fireworks display
@@ -415,7 +405,7 @@ void game::run()
             mAttractModeBlackHoles[i]->setPos(mPos);
         }
 
-        if (mGameMode != GAMEMODE_CHOOSE_GAMETYPE && mGameMode != GAMEMODE_OPTIONS) {
+        if (mGameMode != GAMEMODE_CHOOSE_GAMETYPE && mMenuScreen != MENU_SETTINGS) {
             // Fireworks display
             static int fw = 99999;
             ++fw;
@@ -476,7 +466,7 @@ void game::draw(int pass)
         // mode renders its arena/world.
         mMode->draw(*this, pass);
     } else if ((mGameMode == GAMEMODE_ATTRACT) || (mGameMode == GAMEMODE_CREDITED) || (mGameMode == GAMEMODE_CHOOSE_GAMETYPE)
-               || (mGameMode == GAMEMODE_OPTIONS) || (mGameMode == GAMEMODE_HIGHSCORES_CHECK) || (mGameMode == GAMEMODE_HIGHSCORES)) {
+               || (mGameMode == GAMEMODE_HIGHSCORES_CHECK) || (mGameMode == GAMEMODE_HIGHSCORES)) {
         // No match running: back the menus with the attract-mode FX.
         drawParticles(pass);
 
@@ -552,6 +542,23 @@ void game::endGame()
     if (mMode) {
         mMode->end_match(*this);
     }
+}
+
+void game::abandonMatch()
+{
+    // Abandon a running match from the pause menu and return to the attract /
+    // title flow. Release any paused audio, then let the mode tear itself down.
+    mSound->unpauseAllTracks();
+    mPaused = false;
+    mMenuScreen = MENU_NONE;
+
+    if (mMode) {
+        mMode->end_match(*this);
+    }
+    mMode.reset();
+
+    mCamera->mCurrentZoom = 1;
+    mGameMode = GAMEMODE_ATTRACT;
 }
 
 void game::showMessageAtLocation(char* message, const Point3d& pos, const vector::pen& pen)

@@ -18,6 +18,9 @@ class settings
 
     bool mCreditsPerGame;
 
+    // --- Audio options ------------------------------------------------
+    int mSoundVolume; // 0..100 master volume
+
     // --- Graphics options ---------------------------------------------
     bool mEnableGlow; // GPU bloom / glow effect
     bool mFullscreen; // start / switch to fullscreen

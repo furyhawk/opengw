@@ -2,8 +2,10 @@
 #include "render/font.hpp"
 #include "core/game.hpp"
 #include "core/highscore.hpp"
+#include "ui/menuMain.hpp"
+#include "ui/menuPause.hpp"
 #include "ui/menuSelectGameType.hpp"
-#include "ui/menuGraphicsOptions.hpp"
+#include "ui/menuSettings.hpp"
 #include "entities/players.hpp"
 #include "render/scene.hpp"
 #include "core/settings.hpp"
@@ -172,7 +174,8 @@ void scene::draw(int pass)
             glVertex2d(1.0, bottom - .005);
             glEnd();
         }
-    } else if ((game::mGameMode == game::GAMEMODE_ATTRACT) || (game::mGameMode == game::GAMEMODE_CREDITED)
+    } else if (((game::mGameMode == game::GAMEMODE_ATTRACT) || (game::mGameMode == game::GAMEMODE_CREDITED))
+               && (theGame->mMenuScreen != game::MENU_SETTINGS)
                /*|| (game::mGameMode == game::GAMEMODE_HIGHSCORES)*/) {
         float top = .65;
         float bottom = -.4;
@@ -255,12 +258,17 @@ void scene::draw(int pass)
         glEnable(GL_LINE_SMOOTH);
         glEnable(GL_MULTISAMPLE);
 
-        if ((game::mGameMode != game::GAMEMODE_HIGHSCORES) && (game::mGameMode != game::GAMEMODE_CHOOSE_GAMETYPE)
-            && (game::mGameMode != game::GAMEMODE_OPTIONS))
+        const bool overlayUp = (theGame->mMenuScreen != game::MENU_NONE);
+
+        if ((game::mGameMode != game::GAMEMODE_HIGHSCORES) && (game::mGameMode != game::GAMEMODE_CHOOSE_GAMETYPE) && !overlayUp)
             drawScores();
 
-        // Game over mode
-        if (game::mGameMode == game::GAMEMODE_HIGHSCORES) {
+        // Front-end overlay menus replace the normal HUD/text.
+        if (theGame->mMenuScreen == game::MENU_PAUSE) {
+            menuPause::draw();
+        } else if (theGame->mMenuScreen == game::MENU_SETTINGS) {
+            menuSettings::draw();
+        } else if (game::mGameMode == game::GAMEMODE_HIGHSCORES) {
             drawCredits();
             theGame->mHighscore->drawEnterScore();
         } else if (game::mGameMode == game::GAMEMODE_GAMEOVER) {
@@ -335,6 +343,9 @@ void scene::draw(int pass)
                     */
                 }
             }
+            // Title / main menu overlay (drawn over the marquee + credits).
+            if (theGame->mMenuScreen == game::MENU_TITLE)
+                menuMain::draw();
         } else if (game::mGameMode == game::GAMEMODE_CHOOSE_GAMETYPE) {
             vector::pen pen = defaultFontPen;
             font::AlphanumericsPrint(font::ALIGN_CENTER, .025, 0, 0, &pen, "Choose Game Type And Players");
@@ -361,8 +372,6 @@ void scene::draw(int pass)
             } else {
                 font::AlphanumericsPrint(font::ALIGN_CENTER, .025, 0, -.9, &pen, "Multiplayer Co-op");
             }
-        } else if (game::mGameMode == game::GAMEMODE_OPTIONS) {
-            menuGraphicsOptions::draw();
         } else // RUNNING
         {
             // Number of lives

@@ -1,21 +1,22 @@
-#include "ui/menuGraphicsOptions.hpp"
+#include "ui/menuSettings.hpp"
 
 #include "core/game.hpp"
-#include "core/controls.hpp"
 #include "core/settings.hpp"
 #include "math/vector.hpp"
 #include "render/font.hpp"
 #include "render/gl3.h"
+#include "ui/menuCommon.hpp"
+#include "ui/menuMain.hpp"
+#include "ui/menuPause.hpp"
 
-#include <cmath>
 #include <cstdio>
 #include <cstring>
 
-namespace menuGraphicsOptions {
+namespace menuSettings {
 
 namespace {
 
-constexpr int kNumRows = 9;
+constexpr int kNumRows = 10;
 
 // Rows
 enum Row
@@ -23,18 +24,20 @@ enum Row
     ROW_FULLSCREEN = 0,
     ROW_WINDOW,
     ROW_BLOOM,
+    ROW_VSYNC,
     ROW_GRID_SMOOTHING,
     ROW_PARTICLE_SMOOTHING,
     ROW_ENEMY_SMOOTHING,
     ROW_PLAYER_SMOOTHING,
     ROW_STAR_SMOOTHING,
-    ROW_VSYNC
+    ROW_SOUND_VOLUME
 };
 
 const char* const kRowLabels[kNumRows] = {
-    "FULLSCREEN",      "WINDOW SIZE",   "BLOOM",
-    "GRID SMOOTHING",  "PARTICLE SMOOTH", "ENEMY SMOOTHING",
-    "PLAYER SMOOTHING", "STAR SMOOTHING", "VSYNC"
+    "FULLSCREEN",       "WINDOW SIZE",     "BLOOM",
+    "VSYNC",            "GRID SMOOTHING",  "PARTICLE SMOOTH",
+    "ENEMY SMOOTHING",  "PLAYER SMOOTHING", "STAR SMOOTHING",
+    "SOUND VOLUME"
 };
 
 struct Res
@@ -49,42 +52,9 @@ const Res kResolutions[] = {
 };
 constexpr int kNumRes = static_cast<int>(sizeof(kResolutions) / sizeof(kResolutions[0]));
 
-// Stick convention used everywhere in this codebase:
-//   x > 0 = up,  x < 0 = down ;  y > 0 = left, y < 0 = right
-int sSelection = 0;
-bool sReady = false; // wait for all input to be released after entering
-int sPrevV = 0;
-int sPrevH = 0;
-int sVHold = 0;
-int sHHold = 0;
-bool sPrevFire = false;
+constexpr int kVolumeStep = 10;
 
-Point3d combinedStick()
-{
-    Point3d v;
-    for (int p = 0; p < 4; ++p) {
-        v += theGame->mControls->getLeftStick(p) + theGame->mControls->getRightStick(p);
-    }
-    return v;
-}
-
-bool anyBack()
-{
-    for (int p = 0; p < 4; ++p) {
-        if (theGame->mControls->getBackButton(p) || theGame->mControls->getOptionsButton(p))
-            return true;
-    }
-    return false;
-}
-
-bool anyFire()
-{
-    for (int p = 0; p < 4; ++p) {
-        if (theGame->mControls->getTriggerButton(p) || theGame->mControls->getStartButton(p))
-            return true;
-    }
-    return false;
-}
+menuCommon::State sState;
 
 int currentResIndex()
 {
@@ -96,7 +66,12 @@ int currentResIndex()
     return 0;
 }
 
-// Set a boolean-style setting from a direction (+1 = on/next, -1 = off/prev).
+void applyMasterVolume()
+{
+    theGame->mSound->setMasterVolume(settings::get().mSoundVolume / 100.0f);
+}
+
+// Apply a directional change (+1 = on/next, -1 = off/prev) to a row.
 void applyValue(int row, int dir)
 {
     settings& s = settings::edit();
@@ -118,6 +93,9 @@ void applyValue(int row, int dir)
         s.mEnableGlow = on;
         gfx_set_glow_enabled(on);
         break;
+    case ROW_VSYNC:
+        s.mVsync = on;
+        break;
     case ROW_GRID_SMOOTHING:
         s.mGridSmoothing = on;
         break;
@@ -133,14 +111,21 @@ void applyValue(int row, int dir)
     case ROW_STAR_SMOOTHING:
         s.mStarSmoothing = on;
         break;
-    case ROW_VSYNC:
-        s.mVsync = on;
+    case ROW_SOUND_VOLUME: {
+        int v = s.mSoundVolume + dir * kVolumeStep;
+        if (v < 0)
+            v = 0;
+        if (v > 100)
+            v = 100;
+        s.mSoundVolume = v;
+        applyMasterVolume();
         break;
+    }
     }
     theGame->mSound->playTrack(SOUNDID_MENU_SELECT);
 }
 
-// Toggle/advance the selected row (used by the fire button).
+// Toggle/advance the selected row (used by the confirm button).
 void toggleRow(int row)
 {
     settings& s = settings::edit();
@@ -148,12 +133,12 @@ void toggleRow(int row)
     case ROW_FULLSCREEN:
         s.mFullscreen = !s.mFullscreen;
         break;
-    case ROW_WINDOW:
-        applyValue(row, +1);
-        return;
     case ROW_BLOOM:
         s.mEnableGlow = !s.mEnableGlow;
         gfx_set_glow_enabled(s.mEnableGlow);
+        break;
+    case ROW_VSYNC:
+        s.mVsync = !s.mVsync;
         break;
     case ROW_GRID_SMOOTHING:
         s.mGridSmoothing = !s.mGridSmoothing;
@@ -170,9 +155,11 @@ void toggleRow(int row)
     case ROW_STAR_SMOOTHING:
         s.mStarSmoothing = !s.mStarSmoothing;
         break;
-    case ROW_VSYNC:
-        s.mVsync = !s.mVsync;
-        break;
+    case ROW_SOUND_VOLUME:
+    case ROW_WINDOW:
+        // Stepped/cycled rows advance one step on confirm too.
+        applyValue(row, +1);
+        return;
     }
     theGame->mSound->playTrack(SOUNDID_MENU_SELECT);
 }
@@ -190,6 +177,9 @@ void valueText(int row, char* out, std::size_t outSize)
     case ROW_BLOOM:
         snprintf(out, outSize, "%s", s.mEnableGlow ? "ON" : "OFF");
         break;
+    case ROW_VSYNC:
+        snprintf(out, outSize, "%s", s.mVsync ? "ON" : "OFF");
+        break;
     case ROW_GRID_SMOOTHING:
         snprintf(out, outSize, "%s", s.mGridSmoothing ? "ON" : "OFF");
         break;
@@ -205,8 +195,8 @@ void valueText(int row, char* out, std::size_t outSize)
     case ROW_STAR_SMOOTHING:
         snprintf(out, outSize, "%s", s.mStarSmoothing ? "ON" : "OFF");
         break;
-    case ROW_VSYNC:
-        snprintf(out, outSize, "%s", s.mVsync ? "ON" : "OFF");
+    case ROW_SOUND_VOLUME:
+        snprintf(out, outSize, "%d%%", s.mSoundVolume);
         break;
     }
 }
@@ -215,132 +205,75 @@ void valueText(int row, char* out, std::size_t outSize)
 
 void init()
 {
-    sSelection = 0;
-    sReady = false;
-    sPrevV = 0;
-    sPrevH = 0;
-    sVHold = 0;
-    sHHold = 0;
-    sPrevFire = false;
+    menuCommon::reset(sState);
+    applyMasterVolume(); // keep the mixer in sync with the stored setting
 }
 
 void run()
 {
-    const Point3d stick = combinedStick();
-
-    int vDir = 0;
-    if (stick.x > 0.5f)
-        vDir = -1; // up
-    else if (stick.x < -0.5f)
-        vDir = 1; // down
-
-    int hDir = 0;
-    if (stick.y > 0.5f)
-        hDir = -1; // left
-    else if (stick.y < -0.5f)
-        hDir = 1; // right
-
-    const bool back = anyBack();
-    const bool fire = anyFire();
-
-    // Wait for everything to be released after entering the screen so a held
-    // button can't immediately trigger an action.
-    if (!sReady) {
-        if (vDir == 0 && hDir == 0 && !back && !fire) {
-            sReady = true;
+    // Wait for all inputs to be released after entering the screen.
+    if (!sState.ready) {
+        if (!menuCommon::anyConfirm() && !menuCommon::anyBack() && !menuCommon::anyPause()
+            && menuCommon::vDir() == 0 && menuCommon::hDir() == 0) {
+            sState.ready = true;
         }
-        sPrevV = vDir;
-        sPrevH = hDir;
-        sPrevFire = fire;
+        menuCommon::snapshot(sState);
         return;
     }
 
-    // Back / options button: save settings and return to the title screen.
-    if (back) {
+    // --- Move between rows -----------------------------------------------
+    if (menuCommon::updateVertical(sState, kNumRows)) {
+        theGame->mSound->playTrack(SOUNDID_MENU_SELECT);
+    }
+
+    // --- Change the selected row's value ---------------------------------
+    const int hDir = menuCommon::updateHorizontal(sState);
+    if (hDir != 0) {
+        applyValue(sState.selection, hDir);
+    }
+
+    // --- Confirm toggles the selected row --------------------------------
+    if (menuCommon::confirmEdge(sState)) {
+        toggleRow(sState.selection);
+    }
+
+    // --- Back: save and return to wherever we came from ------------------
+    if (menuCommon::backEdge(sState)) {
         settings::edit().save();
         theGame->mSound->playTrack(SOUNDID_MENU_SELECT);
-        game::mGameMode = game::GAMEMODE_ATTRACT;
+        if (game::mPaused) {
+            // Came from the pause menu: return to it, still paused.
+            menuPause::init();
+            game::mMenuScreen = game::MENU_PAUSE;
+        } else {
+            // Came from the title main menu.
+            menuMain::init();
+            game::mMenuScreen = game::MENU_TITLE;
+        }
         init();
         return;
     }
 
-    // --- Move between rows (with auto-repeat while held) ----------------
-    bool moved = false;
-    if (vDir != 0) {
-        if (vDir != sPrevV) {
-            moved = true;
-            sVHold = 0;
-        } else if (++sVHold > 20) {
-            moved = true;
-            sVHold = 18;
-        }
-    } else {
-        sVHold = 0;
-    }
-    if (moved) {
-        sSelection += (vDir > 0) ? 1 : -1;
-        if (sSelection < 0)
-            sSelection = kNumRows - 1;
-        if (sSelection >= kNumRows)
-            sSelection = 0;
-        theGame->mSound->playTrack(SOUNDID_MENU_SELECT);
-    }
-
-    // --- Change the selected row's value --------------------------------
-    bool changed = false;
-    if (hDir != 0) {
-        if (hDir != sPrevH) {
-            changed = true;
-            sHHold = 0;
-        } else if (++sHHold > 20) {
-            changed = true;
-            sHHold = 18;
-        }
-    } else {
-        sHHold = 0;
-    }
-    if (changed) {
-        applyValue(sSelection, (hDir > 0) ? 1 : -1);
-    }
-
-    // --- Fire / start toggles the selected row --------------------------
-    if (fire && !sPrevFire) {
-        toggleRow(sSelection);
-    }
-
-    sPrevV = vDir;
-    sPrevH = hDir;
-    sPrevFire = fire;
+    menuCommon::snapshot(sState);
 }
 
 void draw()
 {
-    // --- Scrim so the menu reads cleanly over the attract background -----
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
-    glColor4f(0, 0, 0, 0.8f);
-    glBegin(GL_QUADS);
-    glVertex2d(-1.0, -0.80);
-    glVertex2d(1.0, -0.80);
-    glVertex2d(1.0, 0.80);
-    glVertex2d(-1.0, 0.80);
-    glEnd();
-
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    // --- Scrim so the menu reads cleanly over the background -------------
+    menuCommon::drawScrim(0.86f, -0.86f);
 
     // --- Title -----------------------------------------------------------
     {
         vector::pen pen(0.4f, 1.0f, 0.6f, 1.0f, 3);
-        font::AlphanumericsPrint(font::ALIGN_CENTER, 0.03f, 0.0f, 0.72f, &pen, "Graphics Options");
+        font::AlphanumericsPrint(font::ALIGN_CENTER, 0.03f, 0.0f, 0.72f, &pen, "Settings");
     }
 
-    // --- Rows -------------------------------------------------------------
+    // --- Rows ------------------------------------------------------------
     constexpr float kScale = 0.0135f;
     constexpr float kAdvance = 1.9f; // font cell width in glyph units
-    constexpr float kRowX = -0.62f;
-    constexpr float kRowStep = 0.115f;
-    constexpr float kFirstY = 0.48f;
+    constexpr float kRowX = -0.66f;
+    constexpr float kRowStep = 0.105f;
+    constexpr float kFirstY = 0.5f;
 
     for (int i = 0; i < kNumRows; ++i) {
         char value[32];
@@ -348,7 +281,7 @@ void draw()
 
         const float y = kFirstY - (i * kRowStep);
 
-        const bool selected = (i == sSelection);
+        const bool selected = (i == sState.selection);
         vector::pen labelPen = selected ? vector::pen(1.0f, 1.0f, 1.0f, 1.0f, 3)
                                         : vector::pen(0.55f, 0.75f, 0.9f, 0.5f, 3);
         vector::pen valuePen = selected ? vector::pen(1.0f, 0.9f, 0.5f, 1.0f, 3)
@@ -365,12 +298,19 @@ void draw()
         font::AlphanumericsPrint(font::ALIGN_LEFT, kScale, kRowX + labelWidth + 0.10f, y, &valuePen, "%s", value);
     }
 
-    // --- Help footer -------------------------------------------------------
+    // --- Group caption for the audio section -----------------------------
+    {
+        vector::pen pen(0.45f, 0.6f, 0.8f, 0.5f, 2);
+        const float y = kFirstY - (static_cast<int>(ROW_SOUND_VOLUME) * kRowStep) + 0.045f;
+        font::AlphanumericsPrint(font::ALIGN_LEFT, 0.009f, kRowX, y, &pen, "AUDIO");
+    }
+
+    // --- Help footer ------------------------------------------------------
     {
         vector::pen pen(0.6f, 0.8f, 1.0f, 0.6f, 2);
-        font::AlphanumericsPrint(font::ALIGN_CENTER, 0.012f, 0.0f, -0.58f, &pen, "Arrows or WASD Move   Left Right or Space Change");
-        font::AlphanumericsPrint(font::ALIGN_CENTER, 0.012f, 0.0f, -0.66f, &pen, "Backspace or Back Button Returns");
+        font::AlphanumericsPrint(font::ALIGN_CENTER, 0.012f, 0.0f, -0.66f, &pen, "Arrows or WASD Move   Left Right or Space Change");
+        font::AlphanumericsPrint(font::ALIGN_CENTER, 0.012f, 0.0f, -0.74f, &pen, "Backspace or Back Button Returns");
     }
 }
 
-} // namespace menuGraphicsOptions
+} // namespace menuSettings

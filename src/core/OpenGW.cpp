@@ -299,6 +299,12 @@ static void run()
             }
 
             oglScene->run();
+
+            // The front-end menus (pause menu / title menu) can request a
+            // clean shutdown of the whole application.
+            if (game::mQuitRequested) {
+                running = false;
+            }
         }
         if ((now - lastLogicUpdate) > logicPeriod)
             lastLogicUpdate = now;

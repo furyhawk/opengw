@@ -98,9 +98,19 @@ class game
         GAMEMODE_HIGHSCORES_CHECK,
         GAMEMODE_HIGHSCORES,
         GAMEMODE_GAMEOVER_TRANSITION,
-        GAMEMODE_GAMEOVER,
-        GAMEMODE_OPTIONS
+        GAMEMODE_GAMEOVER
     } GameMode;
+
+    // Which front-end overlay menu (if any) is currently shown. When one is up
+    // the world is frozen while it is driven; the menu screen decides what to
+    // do (resume, change settings, quit).
+    typedef enum
+    {
+        MENU_NONE = 0,
+        MENU_TITLE,    // main menu on the title screen
+        MENU_PAUSE,    // pause menu over a running match
+        MENU_SETTINGS  // combined settings screen (from title or pause)
+    } MenuScreen;
 
     typedef enum
     {
@@ -118,6 +128,11 @@ class game
 
     void startGame(GameType gameType);
     void endGame();
+
+    // Abandon the running match (from the pause menu) and return to attract /
+    // title mode. Stops the match music, releases any paused tracks and drops
+    // the active gameplay mode.
+    void abandonMatch();
 
     static void showMessageAtLocation(char* message, const Point3d& pos, const vector::pen& pen);
 
@@ -155,6 +170,13 @@ class game
     static bool mPaused;
 
     static int mCredits;
+
+    // Set to request a clean shutdown of the whole application (checked by the
+    // host main loop in OpenGW.cpp).
+    static bool mQuitRequested;
+
+    // The front-end overlay currently shown (see MenuScreen).
+    static MenuScreen mMenuScreen;
 
   private:
     // classical_mode is granted access so it can drive the shared subsystems

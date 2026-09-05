@@ -15,6 +15,10 @@ class sound
     void stopTrack(std::size_t track);
     void stopAllTracks();
     void stopAllTracksBut(std::size_t track);
+
+    // Master volume for every track (0.0f .. 1.0f, default 1.0f).
+    void setMasterVolume(float volume);
+    float getMasterVolume() const;
     int playTrackGroup(std::size_t trackFirst, std::size_t trackLast);
     void pauseTrack(std::size_t track);
     void unpauseTrack(std::size_t track);
@@ -48,6 +52,8 @@ class sound
 
     std::vector<float> mLeftSamples;
     std::vector<float> mRightSamples;
+
+    float mMasterVolume { 1.0f };
 
     SDL_AudioStream* stream { nullptr };
 };
