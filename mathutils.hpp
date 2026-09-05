@@ -2,6 +2,8 @@
 
 #include "point3d.hpp"
 
+#include <cstdlib>
+
 namespace mathutils
 {
 float wrapRadians(float radians);
