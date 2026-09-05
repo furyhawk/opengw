@@ -1,6 +1,7 @@
 #include "core/gamemodes.hpp"
 
 #include "core/gamemodeClassical.hpp"
+#include "core/gamemodeEndless.hpp"
 
 // gameplaymodes -------------------------------------------------------------
 // The selectable modes, in menu order. A mode's index (its position in this
@@ -19,8 +20,8 @@ struct Entry
 Entry kTable[] = {
     // The original Trigonometry Wars match rules; the default mode.
     { "Classical", []() -> std::unique_ptr<gameplay_mode> { return std::make_unique<classical_mode>(); } },
-    // Future modes (e.g. the planned fast-pace "Endless" mode with new
-    // weapon power-ups) are appended here, one row each.
+    // Faster-pace survival with weapon/shield/laser power-up drops.
+    { "Endless", []() -> std::unique_ptr<gameplay_mode> { return std::make_unique<endless_mode>(); } },
 };
 
 } // namespace

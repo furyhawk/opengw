@@ -61,6 +61,8 @@ void player::initPlayerForGame()
 
     mMultiplier = 1;
 
+    mShieldCharges = 0;
+
     mFiringTimer = 0;
 
     mKillCounter = 0;
@@ -222,6 +224,16 @@ void player::run()
                     theGame->mSound->stopTrack(SOUNDID_PLAYERFIRE2);
                 }
                 break;
+            case 3:
+                firePattern4(rightStick, playerSpeed);
+                {
+                    if (!theGame->mSound->isTrackPlaying(SOUNDID_PLAYERFIRE3))
+                        theGame->mSound->playTrack(SOUNDID_PLAYERFIRE3);
+
+                    theGame->mSound->stopTrack(SOUNDID_PLAYERFIRE1);
+                    theGame->mSound->stopTrack(SOUNDID_PLAYERFIRE2);
+                }
+                break;
             }
         } else {
             theGame->mSound->stopTrack(SOUNDID_PLAYERFIRE1);
@@ -321,6 +333,22 @@ void player::draw()
             for (float angle = 0; angle < 2 * PI; angle += delta_theta)
                 glVertex3f(mPos.x + (r * get_cos(angle)), mPos.y + (r * get_sin(angle)), 0);
 
+            glEnd();
+        }
+
+        // Dashed ring showing remaining shield charges (Endless pickups).
+        if ((mShieldCharges > 0) && (getState() == entity::ENTITY_STATE_RUNNING)) {
+            float r = 3.0f;
+            glLineWidth(2);
+            glColor4f(mPen.r * .5f + .5f, mPen.g * .5f + .5f, mPen.b * .5f + .5f, .9f);
+            glBegin(GL_LINES);
+            for (float angle = 0; angle < 2 * PI; angle += 0.05f) {
+                bool solid = (static_cast<int>(angle / 0.25f) & 1) == 0;
+                if (!solid)
+                    continue;
+                glVertex3f(mPos.x + (r * get_cos(angle)), mPos.y + (r * get_sin(angle)), 0);
+                glVertex3f(mPos.x + (r * get_cos(angle + 0.05f)), mPos.y + (r * get_sin(angle + 0.05f)), 0);
+            }
             glEnd();
         }
     }
@@ -700,6 +728,47 @@ void player::firePattern3(const Point3d& fireAngle, const Point3d& playerSpeed)
     }
 }
 
+void player::firePattern4(const Point3d& fireAngle, const Point3d& playerSpeed)
+{
+    // Laser: a fast, piercing straight beam. A bolt keeps going until it
+    // leaves the grid, so one at a time is plenty.
+    constexpr int kLaserInterval = 4;
+    constexpr float kLaserSpeed = 1.6f;
+    constexpr float kLaserOffset = 1.0f;
+    constexpr float kLaserInherit = 0.5f;
+
+    if (--mFiringTimer <= 0) {
+        mFiringTimer = kLaserInterval;
+
+        entityPlayerMissile* missile = nullptr;
+        for (std::size_t i = 0; i < missiles.size(); i++) {
+            if (!missiles[i].getEnabled()) {
+                missile = &missiles[i];
+                missile->setState(ENTITY_STATE_SPAWN_TRANSITION);
+                missile->mType = 3;
+                missile->mPlayerSource = mPlayerAssignment;
+                break;
+            }
+        }
+
+        if (missile) {
+            float angle = mathutils::calculate2dAngle(Point3d(0, 0, 0), fireAngle) + mathutils::DegreesToRads(90);
+
+            Point3d missilePos;
+            Point3d missileSpeedVector(kLaserSpeed, 0, 0);
+            Point3d missileOffsetVector(kLaserOffset, 0, 0);
+
+            missilePos = this->getPos() + mathutils::rotate2dPoint(missileOffsetVector, angle);
+            missileSpeedVector = mathutils::rotate2dPoint(missileSpeedVector, angle);
+
+            missile->setPos(missilePos);
+            missile->setAngle(angle - mathutils::DegreesToRads(90));
+            missile->setSpeed(missileSpeedVector + (playerSpeed * kLaserInherit));
+            missile->mVelocity = kLaserSpeed;
+        }
+    }
+}
+
 void player::destroyTransition()
 {
     entity::destroyTransition();
@@ -709,6 +778,9 @@ void player::destroyTransition()
     // Reset the multipler stuff
     mMultiplier = 1;
     mKillCounter = 0;
+
+    // Shield charges (Endless) are also spent on death.
+    mShieldCharges = 0;
 
     attractor::Attractor* att = theGame->mAttractors->getAttractor();
     if (att) {
@@ -781,7 +853,12 @@ void player::addKillAtLocation(int points, Point3d pos)
 
     if (mWeaponCounter >= p.playerWeaponChangeScore) {
         mWeaponCounter = 0;
-        switchWeapons();
+        // Weapon changes at score milestones are a Classical rule. Modes with
+        // pickup-driven upgrades (Endless) leave weapon choice to the player.
+        gameplay_mode* mode = theGame->activeMode();
+        if (!mode || mode->weapon_auto_advances()) {
+            switchWeapons();
+        }
     }
 
     if (mBombCounter >= p.playerExtraBombScore) {
@@ -891,4 +968,35 @@ void player::switchWeapons()
     } else {
         mCurrentWeapon = (mathutils::frandFrom0To1() * 100) < p.playerWeapon1Chance ? 1 : 2;
     }
+}
+
+void player::setWeapon(int weapon)
+{
+    if (weapon < WEAPON_TWIN)
+        weapon = WEAPON_TWIN;
+    if (weapon > WEAPON_LASER)
+        weapon = WEAPON_LASER;
+    mCurrentWeapon = weapon;
+}
+
+void player::upgradeWeapon()
+{
+    if (mCurrentWeapon < WEAPON_LASER) {
+        ++mCurrentWeapon;
+    }
+}
+
+void player::addShieldCharges(int amount)
+{
+    mShieldCharges += amount;
+    if (mShieldCharges > maxShieldCharges())
+        mShieldCharges = maxShieldCharges();
+}
+
+bool player::useShieldCharge()
+{
+    if (mShieldCharges <= 0)
+        return false;
+    --mShieldCharges;
+    return true;
 }

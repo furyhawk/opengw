@@ -9,6 +9,8 @@
 #include "entities/particle.hpp"
 #include "entities/players.hpp"
 
+#include "render/gl3.h"
+
 entityPlayerMissile::entityPlayerMissile()
     : entity()
 {
@@ -45,6 +47,10 @@ entityPlayerMissile::entityPlayerMissile()
 void entityPlayerMissile::run()
 {
     mLastPos = mPos;
+
+    // Lasers fly straight: they ignore repulsor deflection and black-hole
+    // warping so they read as a clean beam.
+    if (mType != 3) {
 
     // Check for repulsors that may effect us
     for (int i = 0; i < NUM_ENEMIES; i++) {
@@ -89,6 +95,8 @@ void entityPlayerMissile::run()
         mSpeed = mathutils::rotate2dPoint(vector, mAngle + mathutils::DegreesToRads(90));
     }
 
+    } // end: lasers fly straight
+
     mPos += mSpeed;
     mPos += mDrift;
     mAngle -= mRotationRate;
@@ -113,8 +121,11 @@ void entityPlayerMissile::run()
 
             entity* enemy = theGame->mEnemies->hitTestEnemiesAtPosition(pos, getRadius(), true);
             if (enemy) {
-                // We hit an enemy - destroy it and ourselves
-                setState(ENTITY_STATE_DESTROY_TRANSITION);
+                // Lasers pierce: they damage every enemy in their path and
+                // only stop when they leave the grid.
+                if (mType != 3) {
+                    setState(ENTITY_STATE_DESTROY_TRANSITION);
+                }
                 enemy->hit(this);
             }
         }
@@ -206,6 +217,60 @@ void entityPlayerMissile::draw()
         case 3:
             mPen = theGame->getPlayer4()->getMissilesPen();
             break;
+        }
+
+        if (mType == 3) {
+            // Laser: a bright glowing streak aimed along our velocity, with a
+            // hot white core and a wide coloured glow (additive blending).
+            Point3d dir = mSpeed;
+            float len = mathutils::calculate2dDistance(Point3d(0, 0, 0), dir);
+            if (len > 0.0001f) {
+                dir.x /= len;
+                dir.y /= len;
+            } else {
+                dir = Point3d(1, 0, 0);
+            }
+
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+            Point3d tip = mPos;
+            Point3d tail = Point3d(tip.x - (dir.x * 24), tip.y - (dir.y * 24), 0);
+            Point3d mid = Point3d(tip.x - (dir.x * 15), tip.y - (dir.y * 15), 0);
+            Point3d core = Point3d(tip.x - (dir.x * 7), tip.y - (dir.y * 7), 0);
+
+            // Outer glow
+            glLineWidth(11);
+            glColor4f(mPen.r, mPen.g, mPen.b, 0.20f);
+            glBegin(GL_LINES);
+            glVertex3f(tail.x, tail.y, 0);
+            glVertex3f(tip.x, tip.y, 0);
+            glEnd();
+
+            // Mid glow
+            glLineWidth(6);
+            glColor4f(mPen.r, mPen.g, mPen.b, 0.55f);
+            glBegin(GL_LINES);
+            glVertex3f(mid.x, mid.y, 0);
+            glVertex3f(tip.x, tip.y, 0);
+            glEnd();
+
+            // Hot white core
+            glLineWidth(2);
+            glColor4f(1.0f, 1.0f, 1.0f, 0.95f);
+            glBegin(GL_LINES);
+            glVertex3f(core.x, core.y, 0);
+            glVertex3f(tip.x, tip.y, 0);
+            glEnd();
+
+            // Bright tip
+            glPointSize(6);
+            glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+            glBegin(GL_POINTS);
+            glVertex3f(tip.x, tip.y, 0);
+            glEnd();
+
+            return;
         }
 
         mPen.lineRadius = 12;

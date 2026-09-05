@@ -37,6 +37,11 @@ class spawner
 
     int getSpawnIndex() const;
 
+    // Push the difficulty clock forward by `amount` (in addition to the
+    // normal spawnerIndexRate advance in run()). Used by the Endless mode for
+    // its faster pace. Clamped to spawnerMaxIndex.
+    void accelerateSpawnIndex(float amount);
+
   private:
     void transition();
 

@@ -50,4 +50,10 @@ class gameplay_mode
     virtual void take_shared_life() {}
     virtual void add_shared_bomb() {}
     virtual void take_shared_bomb() {}
+
+    // Whether scoring milestones may automatically change/reroll the player's
+    // weapon (the Classical behaviour, where 10k points can swap weapons).
+    // Modes that hand out weapon upgrades as pickups (e.g. Endless) return
+    // false so weapon choice stays player-driven.
+    virtual bool weapon_auto_advances() const { return true; }
 };

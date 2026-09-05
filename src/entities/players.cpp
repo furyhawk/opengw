@@ -80,6 +80,11 @@ void players::run()
                     if (currentPlayer->shields()) {
                         // We hit an enemy with shields still on
                         enemy->hit(currentPlayer);
+                    } else if (currentPlayer->useShieldCharge()) {
+                        // A shield charge (Endless "shield upgrade" pickups)
+                        // absorbs the hit and destroys the colliding enemy,
+                        // leaving the player alive.
+                        enemy->hit(currentPlayer);
                     } else {
                         // We hit an enemy
 

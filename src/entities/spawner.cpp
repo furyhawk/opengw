@@ -36,6 +36,26 @@ int spawner::getSpawnIndex() const
     return floor(mSpawnIndex);
 }
 
+void spawner::accelerateSpawnIndex(float amount)
+{
+    const auto& p = classical_params::get();
+
+    if (amount <= 0 || getSpawnIndex() >= p.spawnerMaxIndex)
+        return;
+
+    mSpawnIndex += amount;
+    if (mSpawnIndex > p.spawnerMaxIndex)
+        mSpawnIndex = p.spawnerMaxIndex;
+
+    if (getSpawnIndex() > mLastSpawnIndex) {
+        mLastSpawnIndex = getSpawnIndex();
+        mSpawnProgress = mSpawnIndex / p.spawnerMaxIndex;
+        if (mSpawnProgress > 1)
+            mSpawnProgress = 1;
+        transition();
+    }
+}
+
 void spawner::run(void)
 {
     const auto& p = classical_params::get();
