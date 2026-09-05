@@ -41,14 +41,21 @@ void controls::scanForGamepads()
 
     // Open any available gamepads
     for (int j = 0; j < count && mNumGamepads < MAX_GAMEPADS; j++) {
-        if (SDL_IsGamepad(j)) {
+        // SDL_IsGamepad()/SDL_OpenGamepad() take a joystick instance ID, not
+        // an index into the list returned by SDL_GetJoysticks(). Passing the
+        // raw loop index only worked for a pad whose ID happened to equal its
+        // array position (e.g. the very first device); Bluetooth controllers
+        // usually get non-zero/higher IDs and were silently never opened.
+        SDL_JoystickID instanceId = joysticks[j];
+
+        if (SDL_IsGamepad(instanceId)) {
             // Check if this device is already opened
             bool alreadyOpen = false;
 
             for (auto& pad: mGamepads) {
                 if (pad) {
                     SDL_Joystick* joy = SDL_GetGamepadJoystick(pad);
-                    if (SDL_GetJoystickID(joy) == joysticks[j]) {
+                    if (SDL_GetJoystickID(joy) == instanceId) {
                         alreadyOpen = true;
                         break;
                     }
@@ -59,11 +66,14 @@ void controls::scanForGamepads()
                 // Find first free slot
                 for (int i = 0; i < MAX_GAMEPADS; i++) {
                     if (!mGamepads[i]) {
-                        mGamepads[i] = SDL_OpenGamepad(j);
+                        mGamepads[i] = SDL_OpenGamepad(instanceId);
                         if (mGamepads[i]) {
                             printf("Gamepad %d: %s\n", i,
                                    SDL_GetGamepadName(mGamepads[i]));
                             mNumGamepads++;
+                        } else {
+                            printf("Failed to open gamepad (id=%u): %s\n",
+                                   (unsigned)instanceId, SDL_GetError());
                         }
                         break;
                     }
