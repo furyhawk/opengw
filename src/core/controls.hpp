@@ -16,6 +16,7 @@ class controls
     bool getStartButton(int player);
     bool getBackButton(int player);
     bool getPauseButton(int player);
+    bool getOptionsButton(int player);
 
     // Hot-plugging support
     void handleGamepadAdded(SDL_JoystickID instanceId);
@@ -30,6 +31,7 @@ class controls
     bool readKeyboardStart(int player);
     bool readKeyboardBack(int player);
     bool readKeyboardPause(int player);
+    bool readKeyboardOptions(int player);
 
     // Gamepads (modern API)
     Point3d readGamepadLeftStick(int player);
@@ -38,6 +40,7 @@ class controls
     bool readGamepadStart(int player);
     bool readGamepadBack(int player);
     bool readGamepadPause(int player);
+    bool readGamepadOptions(int player);
 
     static constexpr int MAX_GAMEPADS { 4 };
 

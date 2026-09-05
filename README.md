@@ -26,6 +26,9 @@ more per-frame CPU image read-back.
   - Multiplayer versus
 - Keyboard **and** gamepad (hot-plug support for up to 4 pads)
 - Attract mode and persistent high scores
+- **Graphics options screen** (press `Backspace`/`O` or the gamepad **Back**
+  button on the title screen): fullscreen, window resolution, glow/bloom,
+  per-system smoothing and vsync — saved to `settings.cfg`
 - Cross-platform: macOS, Linux, Windows (MSVC) and AmigaOS 4
 
 ## Dependencies
@@ -101,6 +104,7 @@ Use `makefile.os4`.
 | Start player  | `1` `2` `3` `4`       | Start                 |
 | Back / cancel | `Backspace`           | Back                  |
 | Pause         | `P`                   | Pause                 |
+| Options       | `O` / `Backspace` on the title screen | Back on the title screen |
 
 ## Project layout
 

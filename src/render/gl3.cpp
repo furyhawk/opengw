@@ -77,6 +77,13 @@ using PFNGLBINDFRAMEBUFFER = void (*)(GLenum, GLuint);
 using PFNGLFRAMEBUFFERTEXTURE2D = void (*)(GLenum, GLenum, GLenum, GLuint, GLint);
 using PFNGLCHECKFRAMEBUFFERSTATUS = GLenum (*)(GLenum);
 using PFNGLDRAWARRAYS = void (*)(GLenum, GLint, GLsizei);
+using PFNGLGETSTRING = const GLubyte* (*)(GLenum);
+
+// Internal-only GL constants (GL_RENDERER etc.) used for diagnostics.
+constexpr GLenum GL_DIAG_RENDERER = 0x1F01;
+constexpr GLenum GL_DIAG_VERSION = 0x1F02;
+constexpr GLenum GL_DIAG_VENDOR = 0x1F00;
+constexpr GLenum GL_DIAG_FRAMEBUFFER_COMPLETE = 0x8CD5;
 
 struct GLProcs
 {
@@ -87,7 +94,6 @@ struct GLProcs
     PFNGLCLEAR pClear { nullptr };
     PFNGLVIEWPORT pViewport { nullptr };
     PFNGLGETINTEGERV pGetIntegerv { nullptr };
-    PFNGLREADPIXELS pReadPixels { nullptr };
     PFNGLGENVERTEXARRAYS pGenVertexArrays { nullptr };
     PFNGLDELETEVERTEXARRAYS pDeleteVertexArrays { nullptr };
     PFNGLBINDVERTEXARRAY pBindVertexArray { nullptr };
@@ -131,6 +137,7 @@ struct GLProcs
     PFNGLFRAMEBUFFERTEXTURE2D pFramebufferTexture2D { nullptr };
     PFNGLCHECKFRAMEBUFFERSTATUS pCheckFramebufferStatus { nullptr };
     PFNGLDRAWARRAYS pDrawArrays { nullptr };
+    PFNGLGETSTRING pGetString { nullptr };
 };
 
 static GLProcs P;
@@ -913,20 +920,25 @@ void gfx_texenvf(GLenum /*target*/, GLenum /*pname*/, GLfloat /*param*/)
 
 void gfx_gentextures(GLsizei n, GLuint* textures)
 {
+    // Slot 0 is reserved (it means "no texture bound"), so ensure a dummy
+    // entry exists and hand out ids starting at 1.
+    if (g_tex.empty())
+        g_tex.push_back(TexRec {});
+
     for (GLsizei i = 0; i < n; ++i) {
-        std::size_t slot = 0;
+        GLuint slot = 0;
         for (std::size_t k = 1; k < g_tex.size(); ++k) {
             if (!g_tex[k].valid) {
-                slot = k;
+                slot = static_cast<GLuint>(k);
                 break;
             }
         }
         if (slot == 0) {
-            slot = g_tex.size();
+            slot = static_cast<GLuint>(g_tex.size());
             g_tex.push_back(TexRec {});
         }
         g_tex[slot].valid = true;
-        textures[i] = static_cast<GLuint>(slot);
+        textures[i] = slot;
     }
 }
 
@@ -1145,12 +1157,17 @@ GLuint createGlowTexture(int w, int h)
     return tex;
 }
 
-GLuint createGlowFbo(GLuint tex)
+GLuint createGlowFbo(GLuint tex, const char* name)
 {
     GLuint fbo = 0;
     P.pGenFramebuffers(1, &fbo);
     P.pBindFramebuffer(GL_FRAMEBUFFER, fbo);
     P.pFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+    if (P.pCheckFramebufferStatus) {
+        const GLenum st = P.pCheckFramebufferStatus(GL_FRAMEBUFFER);
+        if (st != GL_DIAG_FRAMEBUFFER_COMPLETE)
+            printf("[gfx] %s FBO incomplete: 0x%x\n", name, st);
+    }
     P.pBindFramebuffer(GL_FRAMEBUFFER, 0);
     return fbo;
 }
@@ -1184,7 +1201,6 @@ void gfx_context_init()
     loadProc(P.pClear, "glClear");
     loadProc(P.pViewport, "glViewport");
     loadProc(P.pGetIntegerv, "glGetIntegerv");
-    loadProc(P.pReadPixels, "glReadPixels");
     loadProc(P.pGenVertexArrays, "glGenVertexArrays");
     loadProc(P.pDeleteVertexArrays, "glDeleteVertexArrays");
     loadProc(P.pBindVertexArray, "glBindVertexArray");
@@ -1228,6 +1244,7 @@ void gfx_context_init()
     loadProc(P.pFramebufferTexture2D, "glFramebufferTexture2D");
     loadProc(P.pCheckFramebufferStatus, "glCheckFramebufferStatus");
     loadProc(P.pDrawArrays, "glDrawArrays");
+    loadProc(P.pGetString, "glGetString");
 
     g_loaded = true;
 
@@ -1240,6 +1257,14 @@ void gfx_context_init()
     g_solidProg = buildProgram(kSolidVS, kSolidFS);
     g_texProg = buildProgram(kTexVS, kTexFS);
     g_blurProg = buildProgram(kBlurVS, kBlurFS);
+
+    if (P.pGetString) {
+        const char* ver = reinterpret_cast<const char*>(P.pGetString(GL_DIAG_VERSION));
+        const char* ren = reinterpret_cast<const char*>(P.pGetString(GL_DIAG_RENDERER));
+        const char* ven = reinterpret_cast<const char*>(P.pGetString(GL_DIAG_VENDOR));
+        printf("gl3: GL %s | %s | %s\n", ver ? ver : "?", ven ? ven : "?", ren ? ren : "?");
+    }
+    printf("gl3: programs solid=%u tex=%u blur=%u\n", g_solidProg, g_texProg, g_blurProg);
 
     // Solid VAO/VBO: 2 attributes (vec4 pos, vec4 color)
     P.pGenVertexArrays(1, &g_solidVAO);
@@ -1326,8 +1351,8 @@ void gfx_resize(int width, int height)
 
     g_texGlow = createGlowTexture(gw, gh);
     g_texPing = createGlowTexture(gw, gh);
-    g_fboGlow = createGlowFbo(g_texGlow);
-    g_fboPing = createGlowFbo(g_texPing);
+    g_fboGlow = createGlowFbo(g_texGlow, "glow");
+    g_fboPing = createGlowFbo(g_texPing, "blur");
 
     P.pBindFramebuffer(GL_FRAMEBUFFER, 0);
     P.pViewport(0, 0, width, height);
@@ -1433,6 +1458,25 @@ void gfx_glow_size(int* width, int* height)
         *width = g_glowW;
     if (height)
         *height = g_glowH;
+}
+
+void gfx_begin_frame()
+{
+    if (!g_loaded)
+        return;
+    // Always draw to the default framebuffer, sized to the full back buffer.
+    P.pBindFramebuffer(GL_FRAMEBUFFER, 0);
+    P.pViewport(0, 0, g_fbW, g_fbH);
+    g_viewport[2] = g_fbW;
+    g_viewport[3] = g_fbH;
+    P.pDisable(GL_DEPTH_TEST);
+    P.pClearColor(0, 0, 0, 1);
+    P.pClear(GL_COLOR_BUFFER_BIT);
+}
+
+bool gfx_healthy()
+{
+    return g_loaded && g_solidProg != 0 && g_texProg != 0 && g_blurProg != 0;
 }
 
 } // extern "C"

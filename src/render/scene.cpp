@@ -3,6 +3,7 @@
 #include "core/game.hpp"
 #include "core/highscore.hpp"
 #include "ui/menuSelectGameType.hpp"
+#include "ui/menuGraphicsOptions.hpp"
 #include "entities/players.hpp"
 #include "render/scene.hpp"
 #include "core/settings.hpp"
@@ -254,7 +255,8 @@ void scene::draw(int pass)
         glEnable(GL_LINE_SMOOTH);
         glEnable(GL_MULTISAMPLE);
 
-        if ((game::mGameMode != game::GAMEMODE_HIGHSCORES) && (game::mGameMode != game::GAMEMODE_CHOOSE_GAMETYPE))
+        if ((game::mGameMode != game::GAMEMODE_HIGHSCORES) && (game::mGameMode != game::GAMEMODE_CHOOSE_GAMETYPE)
+            && (game::mGameMode != game::GAMEMODE_OPTIONS))
             drawScores();
 
         // Game over mode
@@ -359,6 +361,8 @@ void scene::draw(int pass)
             } else {
                 font::AlphanumericsPrint(font::ALIGN_CENTER, .025, 0, -.9, &pen, "Multiplayer Co-op");
             }
+        } else if (game::mGameMode == game::GAMEMODE_OPTIONS) {
+            menuGraphicsOptions::draw();
         } else // RUNNING
         {
             // Number of lives

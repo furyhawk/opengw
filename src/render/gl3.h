@@ -253,6 +253,10 @@ void gfx_context_shutdown();
 // Window (back buffer) size changed — rebuilds GPU glow/blur targets.
 void gfx_resize(int width, int height);
 
+// Bind the default framebuffer, size the viewport to the full back buffer and
+// clear it to black. Call at the start of every rendered frame.
+void gfx_begin_frame();
+
 // Bind/unbind the glow render target (used to render the RENDERPASS_BLUR pass
 // into a low-resolution texture instead of reading pixels back to the CPU).
 void gfx_glow_bind();
@@ -269,6 +273,9 @@ void gfx_draw_blurred_glow(float alpha);
 bool gfx_glow_enabled();
 void gfx_set_glow_enabled(bool enabled);
 void gfx_glow_size(int* width, int* height);
+
+// True once the backend is fully initialised (GL entry points + shaders).
+bool gfx_healthy();
 
 #ifdef __cplusplus
 }

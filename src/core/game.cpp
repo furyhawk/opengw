@@ -17,6 +17,7 @@
 #include "entities/spawner.hpp"
 #include "render/stars.hpp"
 #include "ui/menuSelectGameType.hpp"
+#include "ui/menuGraphicsOptions.hpp"
 
 #include <cstdio>
 #include <memory>
@@ -225,12 +226,19 @@ void game::run()
     } break;
     case GAMEMODE_CREDITED:
     {
-        if (mControls->getStartButton(0) || mControls->getStartButton(1) || mControls->getStartButton(2) || mControls->getStartButton(3)) {
+        const bool anyStart = mControls->getStartButton(0) || mControls->getStartButton(1) || mControls->getStartButton(2) || mControls->getStartButton(3);
+        const bool openOptions = mControls->getBackButton(0) || mControls->getBackButton(1) || mControls->getBackButton(2) || mControls->getBackButton(3) || mControls->getOptionsButton(0) || mControls->getOptionsButton(1) || mControls->getOptionsButton(2) || mControls->getOptionsButton(3);
+        if (anyStart || openOptions) {
         } else {
             mDebounce = false;
         }
         if (!mDebounce) {
-            if (mControls->getStartButton(0)) {
+            if (openOptions) {
+                // Open the graphics options screen
+                menuGraphicsOptions::init();
+                mGameMode = GAMEMODE_OPTIONS;
+                mDebounce = true;
+            } else if (mControls->getStartButton(0)) {
                 // Go to game type selection screen
                 menuSelectGameType::init(0);
                 mGameMode = GAMEMODE_CHOOSE_GAMETYPE;
@@ -346,16 +354,12 @@ void game::run()
 
         ++mGameOverTimer;
         if (mGameOverTimer > 180) {
-            /*
-                            // TURNING OFF HIGH SCORES FOR NOW UNTIL I FIGURE OUT A WAY TO DO THEM WITH MULTIPLAYER
-
-                                    if (numPlayers() == 1)
-                                                    game::mGameMode = game::GAMEMODE_HIGHSCORES_CHECK;
-                            else // TODO - MULTIPLAYER HIGH SCORES?????
-            */
             mGameMode = GAMEMODE_ATTRACT;
             mCamera->mCurrentZoom = 1;
         }
+        break;
+    case GAMEMODE_OPTIONS:
+        // Input/backdrop handled below so the attract field keeps moving.
         break;
     }
 
@@ -366,7 +370,7 @@ void game::run()
     }
 
     if ((game::mGameMode == game::GAMEMODE_HIGHSCORES_CHECK) || (game::mGameMode == game::GAMEMODE_HIGHSCORES)) {
-    } else if (mGameMode == GAMEMODE_ATTRACT || mGameMode == GAMEMODE_CREDITED || mGameMode == GAMEMODE_CHOOSE_GAMETYPE) {
+    } else if (mGameMode == GAMEMODE_ATTRACT || mGameMode == GAMEMODE_CREDITED || mGameMode == GAMEMODE_CHOOSE_GAMETYPE || mGameMode == GAMEMODE_OPTIONS) {
         static int explosionTimer = 0;
 
         ++explosionTimer;
@@ -382,6 +386,9 @@ void game::run()
         // Run the game selection menu
         if (mGameMode == GAMEMODE_CHOOSE_GAMETYPE) {
             menuSelectGameType::run();
+        }
+        if (mGameMode == GAMEMODE_OPTIONS) {
+            menuGraphicsOptions::run();
         }
 
         // Attractors to wander around the fireworks display
@@ -469,7 +476,7 @@ void game::run()
             mAttractModeBlackHoles[i]->setPos(mPos);
         }
 
-        if (mGameMode != GAMEMODE_CHOOSE_GAMETYPE) {
+        if (mGameMode != GAMEMODE_CHOOSE_GAMETYPE && mGameMode != GAMEMODE_OPTIONS) {
             // Fireworks display
             static int fw = 99999;
             ++fw;

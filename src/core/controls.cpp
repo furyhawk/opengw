@@ -145,6 +145,11 @@ bool controls::getPauseButton(int player)
     return readKeyboardPause(player) || readGamepadPause(player);
 }
 
+bool controls::getOptionsButton(int player)
+{
+    return readKeyboardOptions(player) || readGamepadOptions(player);
+}
+
 //
 // Keyboard controller
 //
@@ -214,6 +219,11 @@ bool controls::readKeyboardBack(int /*player*/)
 bool controls::readKeyboardPause(int /*player*/)
 {
     return keyboardState[SDL_SCANCODE_P];
+}
+
+bool controls::readKeyboardOptions(int /*player*/)
+{
+    return keyboardState[SDL_SCANCODE_O];
 }
 
 //
@@ -300,4 +310,14 @@ bool controls::readGamepadPause(int player)
         return false;
 
     return SDL_GetGamepadButton(mGamepads[player], SDL_GAMEPAD_BUTTON_START);
+}
+
+bool controls::readGamepadOptions(int player)
+{
+    if (!mGamepads[player])
+        return false;
+
+    // The gamepad Back (east) button also opens/closes the options screen;
+    // handled alongside getBackButton on the title screen.
+    return SDL_GetGamepadButton(mGamepads[player], SDL_GAMEPAD_BUTTON_EAST);
 }

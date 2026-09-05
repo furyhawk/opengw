@@ -96,7 +96,8 @@ class game
         GAMEMODE_HIGHSCORES_CHECK,
         GAMEMODE_HIGHSCORES,
         GAMEMODE_GAMEOVER_TRANSITION,
-        GAMEMODE_GAMEOVER
+        GAMEMODE_GAMEOVER,
+        GAMEMODE_OPTIONS
     } GameMode;
 
     typedef enum

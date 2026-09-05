@@ -13,9 +13,10 @@
 static SDL_Window* window;
 static SDL_GLContext context;
 
-static void OGLCreate();
+static bool OGLCreate();
 static void OGLDestroy();
 static void OGLSize(int cx, int cy);
+static void applySettingsToWindow();
 
 std::unique_ptr<scene> oglScene;
 
@@ -77,7 +78,7 @@ int main(int /*argc*/, char** /*argv*/)
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
-    Uint32 flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL;
+    Uint32 flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL | SDL_WINDOW_HIGH_PIXEL_DENSITY;
     if (0) {
         flags |= SDL_WINDOW_FULLSCREEN;
     }
@@ -90,11 +91,15 @@ int main(int /*argc*/, char** /*argv*/)
         make_sin_cos_tables();
         oglScene = std::make_unique<scene>();
 
-        OGLCreate();
-        run();
-        OGLDestroy();
+        if (OGLCreate()) {
+            run();
+            OGLDestroy();
+        }
 
         oglScene.reset();
+
+        // Persist any graphics options to settings.cfg on exit.
+        settings::edit().save();
 
         SDL_DestroyWindow(window);
     } else {
@@ -107,30 +112,56 @@ int main(int /*argc*/, char** /*argv*/)
     return 0;
 }
 
-static void OGLCreate()
+static bool OGLCreate()
 {
     context = SDL_GL_CreateContext(window);
 
     if (context == nullptr) {
         printf("SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+        SDL_ShowSimpleMessageBox(0, "OpenGW - OpenGL error",
+                                 "Could not create an OpenGL 3.3 core context.\n\n"
+                                 "This system does not appear to support OpenGL 3.3+.",
+                                 window);
+        return false;
     }
 
     if (!SDL_GL_MakeCurrent(window, context)) {
         printf("SDL_GL_MakeCurrent failed: %s\n", SDL_GetError());
+        SDL_GL_DestroyContext(context);
+        context = nullptr;
+        SDL_ShowSimpleMessageBox(0, "OpenGW - OpenGL error",
+                                 "Could not make the OpenGL context current.\n\n"
+                                 "Check the console output for details.",
+                                 window);
+        return false;
     }
 
     // Bring up the modern GL3 render backend (shaders, VAOs, FBO targets).
     gfx_context_init();
+
+    if (!gfx_healthy()) {
+        printf("gl3: renderer failed to initialise (see shader errors above)\n");
+        gfx_context_shutdown();
+        SDL_GL_MakeCurrent(nullptr, nullptr);
+        SDL_GL_DestroyContext(context);
+        context = nullptr;
+        SDL_ShowSimpleMessageBox(0, "OpenGW - Shader error",
+                                 "The modern GL renderer failed to start\n"
+                                 "(shader compile/link errors - see console).",
+                                 window);
+        return false;
+    }
+
     gfx_set_glow_enabled(settings::get().mEnableGlow);
 
     // (Re)create glow/blur render targets for the current window size.
     OGLSize(settings::get().displayWidth, settings::get().displayHeight);
 
-    // Vsync: keep rendering in step with the display (and avoid burning the
-    // GPU at thousands of uncapped frames per second).
-    SDL_GL_SetSwapInterval(1);
+    // Apply fullscreen/vsync from the (possibly restored) settings.
+    applySettingsToWindow();
 
     oglInited = true;
+    return true;
 }
 
 static void OGLDestroy()
@@ -139,21 +170,64 @@ static void OGLDestroy()
 
     gfx_context_shutdown();
 
-    SDL_GL_MakeCurrent(nullptr, nullptr);
-    SDL_GL_DestroyContext(context);
+    if (context) {
+        SDL_GL_MakeCurrent(nullptr, nullptr);
+        SDL_GL_DestroyContext(context);
+        context = nullptr;
+    }
 }
 
 static void OGLSize(int cx, int cy)
 {
-    oglScene->size(cx, cy);
-    mWidth = cx;
-    mHeight = cy;
+    // Use the window's pixel size (accounts for retina / HiDPI scaling) so the
+    // viewport, FBOs and clear always cover the whole back buffer. The aspect
+    // ratio is identical, so game math is unaffected.
+    int dw = cx;
+    int dh = cy;
+    if (window)
+        SDL_GetWindowSizeInPixels(window, &dw, &dh);
 
-    gfx_resize(cx, cy);
+    oglScene->size(dw, dh);
+    mWidth = dw;
+    mHeight = dh;
+
+    gfx_resize(dw, dh);
+}
+
+// Applies any graphics-option changes made in the options screen (window
+// resolution, fullscreen, vsync) to the live window / GL context.
+static void applySettingsToWindow()
+{
+    // Track the *actual* state of the window / GL, so the first call here
+    // applies whatever the (possibly restored) settings.cfg requests.
+    static int lastW = 0;
+    static int lastH = 0;
+    static bool lastFullscreen = false; // windows start windowed
+    static bool lastVsync = false;      // GL starts with swap interval 0
+
+    const settings& s = settings::get();
+
+    if (s.displayWidth != lastW || s.displayHeight != lastH) {
+        SDL_SetWindowSize(window, s.displayWidth, s.displayHeight);
+        lastW = s.displayWidth;
+        lastH = s.displayHeight;
+    }
+    if (s.mFullscreen != lastFullscreen) {
+        SDL_SetWindowFullscreen(window, s.mFullscreen);
+        lastFullscreen = s.mFullscreen;
+    }
+    if (s.mVsync != lastVsync) {
+        SDL_GL_SetSwapInterval(s.mVsync ? 1 : 0);
+        lastVsync = s.mVsync;
+    }
 }
 
 static void drawOffscreens()
 {
+    // Ensure we're drawing to the default framebuffer, the viewport covers
+    // the whole back buffer, and it's cleared to black.
+    gfx_begin_frame();
+
     if (settings::get().mEnableGlow && gfx_glow_enabled()) {
         // --------------------------------------------------------------
         // Glow pass: render the whole scene into a low-resolution texture
@@ -228,6 +302,9 @@ static void run()
         }
         if ((now - lastLogicUpdate) > logicPeriod)
             lastLogicUpdate = now;
+
+        // Apply any pending graphics-option changes to the window / GL state.
+        applySettingsToWindow();
 
         drawOffscreens();
 
