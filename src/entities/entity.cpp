@@ -1,5 +1,6 @@
 #include "math/defines.hpp"
 #include "entities/entity.hpp"
+#include "core/classicalparams.hpp"
 #include "entities/enemies.hpp"
 #include "entities/entityPlayer1.hpp"
 #include "entities/entityPlayer2.hpp"
@@ -26,9 +27,9 @@ entity::entity()
     : mType(ENTITY_TYPE_UNDEF)
 {
     setState(ENTITY_STATE_INACTIVE);
-    mSpawnTime = 40;
-    mDestroyTime = 3;
-    mIndicateTime = 75;
+    mSpawnTime = classical_params::get().entitySpawnTime;
+    mDestroyTime = classical_params::get().entityDestroyTime;
+    mIndicateTime = classical_params::get().entityIndicateTime;
     mStateTimer = 0;
     mAggression = 1;
     mEdgeBounce = false;
@@ -176,7 +177,7 @@ void entity::runTransition()
 
 void entity::run()
 {
-    mAggression += .0002;
+    mAggression += classical_params::get().entityAggressionStep;
 
     mPos += mSpeed;
     mPos += mDrift;
@@ -283,6 +284,9 @@ void entity::hit(entity* aEntity)
     if (aEntity) {
         entityPlayerMissile* missile = dynamic_cast<entityPlayerMissile*>(aEntity);
         if (missile) {
+            // mScoreValue is set from the "score.*" keys of classical.cfg by
+            // each enemy type's constructor, so a value of zero means "no
+            // points" (e.g. snake segments).
             if (mScoreValue) {
                 // Add points and display them at the destruction point
                 if (missile->mPlayerSource == 0)

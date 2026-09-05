@@ -1,6 +1,7 @@
 #include "entities/attractor.hpp"
 #include "math/defines.hpp"
 #include "entities/entityblackhole.hpp"
+#include "core/classicalparams.hpp"
 #include "entities/enemies.hpp"
 #include "core/game.hpp"
 #include "render/grid.hpp"
@@ -19,7 +20,7 @@ entityBlackHole::entityBlackHole(const game& gameRef) : mGame(gameRef)
 
     mEdgeBounce = true;
 
-    mScoreValue = 50;
+    mScoreValue = classical_params::get().scoreBlackhole;
 
     mPen = vector::pen(1, .5, .5, .7, 4);
 
@@ -233,7 +234,7 @@ void entityBlackHole::spawnTransition()
     mAttractorStrengthIndex = 0;
     mBalance = 0;
 
-    mPoints = 150;
+    mPoints = classical_params::get().scoreBlackholeReward;
 
     mHumSpeed = (mStrength * mStrength) / 2;
     mHumSpeedTarget = mHumSpeed;

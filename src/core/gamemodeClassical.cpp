@@ -2,6 +2,7 @@
 
 #include "core/camera.hpp"
 #include "core/controls.hpp"
+#include "core/classicalparams.hpp"
 #include "core/game.hpp"
 #include "core/settings.hpp"
 
@@ -31,7 +32,9 @@ const char* classical_mode::name() const
 
 void classical_mode::begin_match(game& owner)
 {
-    owner.mBrightness = -2; // we fade in the grid on start game
+    const auto& p = classical_params::get();
+
+    owner.mBrightness = p.matchBrightnessStart; // we fade in the grid on start game
 
     owner.mCamera->center();
     owner.mCamera->mCurrentZoom = 0;
@@ -58,16 +61,16 @@ void classical_mode::begin_match(game& owner)
 
     if (owner.numPlayers() > 1) {
         // Shared lives and bombs
-        mSharedLives = 10;
-        mSharedBombs = 0;
+        mSharedLives = p.matchCoopLives;
+        mSharedBombs = p.matchCoopBombs;
     } else {
         // Single player keeps lives/bombs on the player objects.
         mSharedLives = 0;
         mSharedBombs = 0;
     }
 
-    mMusicSpeed = 1;
-    mMusicSpeedTarget = 1;
+    mMusicSpeed = p.matchMusicNormalSpeed;
+    mMusicSpeedTarget = p.matchMusicNormalSpeed;
 
     owner.mSound->stopTrack(SOUNDID_MENU_MUSICLOOP);
     owner.mSound->playTrack(SOUNDID_MUSICLOOP);
@@ -108,6 +111,8 @@ void classical_mode::end_match(game& owner)
 
 void classical_mode::update(game& owner)
 {
+    const auto& p = classical_params::get();
+
     if ((owner.numPlayers() > 1) && (mSharedLives > 0)) {
         if (owner.mControls->getStartButton(0) && !owner.getPlayer1()->mJoined) {
             owner.getPlayer1()->takeLife();
@@ -136,37 +141,37 @@ void classical_mode::update(game& owner)
 
     // Brightness
     if (owner.mBrightness < 1) {
-        owner.mBrightness += .05;
+        owner.mBrightness += p.matchBrightnessRamp;
     }
 
     // Music speed
 
-    mMusicSpeedTarget = 1;
+    mMusicSpeedTarget = p.matchMusicNormalSpeed;
 
     // Slow the music down when someone is respawning
     if (owner.getPlayer1()->mJoined && (owner.getPlayer1()->getState() == entity::ENTITY_STATE_DESTROYED)) {
         mMusicSpeedTarget = 0;
-        mMusicSpeed = .5;
+        mMusicSpeed = p.matchMusicRespawnSpeed;
     }
     if (owner.getPlayer2()->mJoined && (owner.getPlayer2()->getState() == entity::ENTITY_STATE_DESTROYED)) {
         mMusicSpeedTarget = 0;
-        mMusicSpeed = .5;
+        mMusicSpeed = p.matchMusicRespawnSpeed;
     }
     if (owner.getPlayer3()->mJoined && (owner.getPlayer3()->getState() == entity::ENTITY_STATE_DESTROYED)) {
         mMusicSpeedTarget = 0;
-        mMusicSpeed = .5;
+        mMusicSpeed = p.matchMusicRespawnSpeed;
     }
     if (owner.getPlayer4()->mJoined && (owner.getPlayer4()->getState() == entity::ENTITY_STATE_DESTROYED)) {
         mMusicSpeedTarget = 0;
-        mMusicSpeed = .5;
+        mMusicSpeed = p.matchMusicRespawnSpeed;
     }
 
     if (mMusicSpeed < mMusicSpeedTarget) {
-        mMusicSpeed += .005;
+        mMusicSpeed += p.matchMusicSpeedUpStep;
         if (mMusicSpeed > mMusicSpeedTarget)
             mMusicSpeed = mMusicSpeedTarget;
     } else if (mMusicSpeed > mMusicSpeedTarget) {
-        mMusicSpeed -= .01;
+        mMusicSpeed -= p.matchMusicSpeedDownStep;
         if (mMusicSpeed < mMusicSpeedTarget)
             mMusicSpeed = mMusicSpeedTarget;
     }

@@ -1,4 +1,5 @@
 #include "core/controls.hpp"
+#include "core/classicalparams.hpp"
 #include "core/game.hpp"
 #include "render/scene.hpp"
 #include "core/settings.hpp"
@@ -60,6 +61,10 @@ static bool handleEvents()
 
 int main(int /*argc*/, char** /*argv*/)
 {
+    // Load the Classical-mode gameplay parameters (classical.cfg). Values in
+    // the file override the compiled-in defaults; a missing file is fine.
+    classical_params::get();
+
     printf("SDL_Init\n");
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD)) {
         printf("SDL_Init failed: %s\n", SDL_GetError());

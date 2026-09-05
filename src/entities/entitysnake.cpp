@@ -1,6 +1,7 @@
 #include "math/defines.hpp"
 #include "entities/entitysnake.hpp"
 #include "entities/enemies.hpp"
+#include "core/classicalparams.hpp"
 #include "core/game.hpp"
 #include "render/grid.hpp"
 #include "entities/particle.hpp"
@@ -30,7 +31,7 @@ class entitySnakeSegment : public entity
         mScale = 1; // gets sized dynamically by the head
         mRadius = 1;
 
-        mScoreValue = 0;
+        mScoreValue = classical_params::get().scoreSnakeSegment;
 
         mTail = 0;
 
@@ -226,7 +227,7 @@ entitySnake::entitySnake()
     mScale = 1.25;
     mRadius = 3;
 
-    mScoreValue = 50;
+    mScoreValue = classical_params::get().scoreSnake;
 
     mType = ENTITY_TYPE_SNAKE;
     setState(ENTITY_STATE_INACTIVE);

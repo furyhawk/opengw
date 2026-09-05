@@ -1,5 +1,6 @@
 #include "entities/entityweaver.hpp"
 #include "entities/entityPlayer1.hpp"
+#include "core/classicalparams.hpp"
 #include "core/game.hpp"
 #include "entities/players.hpp"
 
@@ -9,7 +10,7 @@ entityWeaver::entityWeaver()
     mScale = 1.5;
     mRadius = 2.4;
 
-    mScoreValue = 100;
+    mScoreValue = classical_params::get().scoreWeaver;
 
     mType = ENTITY_TYPE_WEAVER;
     setState(ENTITY_STATE_INACTIVE);

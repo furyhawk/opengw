@@ -1,6 +1,7 @@
 #include "entities/entityspinner.hpp"
 #include "entities/enemies.hpp"
 #include "entities/entitytinyspinner.hpp"
+#include "core/classicalparams.hpp"
 #include "core/game.hpp"
 #include "render/grid.hpp"
 #include "entities/players.hpp"
@@ -12,8 +13,7 @@ entitySpinner::entitySpinner(const game& gameRef)
     mScale = 1.6;
     mRadius = 2.5;
 
-    mScoreValue = 100;
-    //    mScoreValue = 50;
+    mScoreValue = classical_params::get().scoreSpinner;
 
     mType = ENTITY_TYPE_SPINNER;
     setState(ENTITY_STATE_INACTIVE);

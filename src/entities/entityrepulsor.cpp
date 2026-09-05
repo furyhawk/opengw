@@ -3,6 +3,7 @@
 #include "entities/enemies.hpp"
 #include "entities/entityPlayer1.hpp"
 #include "entities/entityline.hpp"
+#include "core/classicalparams.hpp"
 #include "core/game.hpp"
 #include "render/grid.hpp"
 #include "entities/players.hpp"
@@ -119,7 +120,7 @@ entityRepulsor::entityRepulsor(const game& gameRef)
     mScale = .12;
     mRadius = 2.6;
 
-    mScoreValue = 100;
+    mScoreValue = classical_params::get().scoreRepulsor;
 
     mEdgeBounce = false;
     mGridBound = false;

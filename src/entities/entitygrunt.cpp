@@ -1,4 +1,5 @@
 #include "entities/entitygrunt.hpp"
+#include "core/classicalparams.hpp"
 #include "core/game.hpp"
 #include "entities/players.hpp"
 #include "math/sincos.hpp"
@@ -9,7 +10,7 @@ entityGrunt::entityGrunt(const game& gameRef)
     mScale = 1.5;
     mRadius = 3;
 
-    mScoreValue = 50;
+    mScoreValue = classical_params::get().scoreGrunt;
 
     mType = ENTITY_TYPE_GRUNT;
     setState(ENTITY_STATE_INACTIVE);

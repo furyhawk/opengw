@@ -1,4 +1,5 @@
 #include "entities/bomb.hpp"
+#include "core/classicalparams.hpp"
 #include "math/defines.hpp"
 #include "entities/spawner.hpp"
 #include "entities/enemies.hpp"
@@ -10,21 +11,20 @@
 #include <cmath>
 #include <cstdio>
 
-#define MIN_SPAWN_DISTANCE 30
-#define MAX_SPAWN_INDEX    40
-
 spawner::spawner(void)
 {
 }
 
 void spawner::init()
 {
+    const auto& p = classical_params::get();
+
     mNumWavesAllowed = 0;
     mSpawnIndex = 0;
     mLastSpawnIndex = 0;
 
-    mSpawnCheckTimer = 100;
-    mSpawnWaitTimer = 50;
+    mSpawnCheckTimer = p.spawnerScatterInterval;
+    mSpawnWaitTimer = p.spawnerRespawnWaitTimer;
     mWaveStartTimer = 0;
 
     clearWaveData();
@@ -38,14 +38,16 @@ int spawner::getSpawnIndex() const
 
 void spawner::run(void)
 {
+    const auto& p = classical_params::get();
+
     // Update our spawn index
-    if (getSpawnIndex() < MAX_SPAWN_INDEX) {
-        mSpawnIndex += .0008;
-        if (mSpawnIndex > MAX_SPAWN_INDEX)
-            mSpawnIndex = MAX_SPAWN_INDEX;
+    if (getSpawnIndex() < p.spawnerMaxIndex) {
+        mSpawnIndex += p.spawnerIndexRate;
+        if (mSpawnIndex > p.spawnerMaxIndex)
+            mSpawnIndex = p.spawnerMaxIndex;
         if (getSpawnIndex() > mLastSpawnIndex) {
             mLastSpawnIndex = getSpawnIndex();
-            mSpawnProgress = mSpawnIndex / MAX_SPAWN_INDEX;
+            mSpawnProgress = mSpawnIndex / p.spawnerMaxIndex;
             if (mSpawnProgress > 1)
                 mSpawnProgress = 1;
             transition();
@@ -102,10 +104,10 @@ void spawner::run(void)
 
         if (player->mJoined && (player->getState() == entity::ENTITY_STATE_INACTIVE)) {
             if (theGame->numPlayers() == 1) {
-                mSpawnWaitTimer = 50;
+                mSpawnWaitTimer = p.spawnerRespawnWaitTimer;
             }
 
-            if (++(*timer) >= 50) {
+            if (++(*timer) >= p.spawnerRespawnDelay) {
                 *timer = 0;
 
                 player->takeLife();
@@ -148,31 +150,31 @@ void spawner::run(void)
         //
         int index = getSpawnIndex();
 
-        if ((++mSpawnCheckTimer > 100) || (index > 10)) {
+        if ((++mSpawnCheckTimer > p.spawnerScatterInterval) || (index > p.spawnerScatterEveryFrameIndex)) {
             mSpawnCheckTimer = 0;
 
             // Wanderers
             if (index <= 1)
-                spawnEntities(entity::ENTITY_TYPE_WANDERER, 2);
+                spawnEntities(entity::ENTITY_TYPE_WANDERER, p.spawnerWandererEarly);
             else if (index > 1 && index < 3)
-                spawnEntities(entity::ENTITY_TYPE_WANDERER, 4);
+                spawnEntities(entity::ENTITY_TYPE_WANDERER, p.spawnerWandererMid);
 
             // Grunts
-            spawnEntities(entity::ENTITY_TYPE_GRUNT, (index <= 1) ? 2 : 4);
+            spawnEntities(entity::ENTITY_TYPE_GRUNT, (index <= 1) ? p.spawnerGruntEarly : p.spawnerGruntLate);
 
             // Spinners
             if (index >= 1) {
-                spawnEntities(entity::ENTITY_TYPE_SPINNER, 2);
+                spawnEntities(entity::ENTITY_TYPE_SPINNER, p.spawnerSpinnerScatter);
             }
 
             // Weavers
             if (index >= 1) {
-                spawnEntities(entity::ENTITY_TYPE_WEAVER, 2);
+                spawnEntities(entity::ENTITY_TYPE_WEAVER, p.spawnerWeaverScatter);
             }
 
             // Black holes
-            if (index >= 2) {
-                if (mathutils::frandFrom0To1() * 100 < 4) {
+            if (index >= p.spawnerBlackholeIndex) {
+                if (mathutils::frandFrom0To1() * 100 < p.spawnerBlackholeChance) {
                     spawnEntities(entity::ENTITY_TYPE_BLACKHOLE, 1);
                 }
             }
@@ -185,71 +187,71 @@ void spawner::run(void)
         }
 
         mNumWavesAllowed = 0;
-        if (index > 1) {
+        if (index > p.spawnerWaveCap1Index) {
             mNumWavesAllowed = 1;
         }
-        if (index > 12) {
+        if (index > p.spawnerWaveCap2Index) {
             mNumWavesAllowed = 2;
         }
-        if (index > 20) {
+        if (index > p.spawnerWaveUnlimitedIndex) {
             // Make it rain!!
             mNumWavesAllowed = 9999;
         }
 
-        if ((++mWaveStartTimer >= 20) && (numWaveData() < mNumWavesAllowed)) {
+        if ((++mWaveStartTimer >= p.spawnerWaveCadence) && (numWaveData() < mNumWavesAllowed)) {
             mWaveStartTimer = 0;
 
-            switch ((int)(mathutils::frandFrom0To1() * 13)) {
+            switch ((int)(mathutils::frandFrom0To1() * p.spawnerWaveChoices)) {
             //
             // SWARM TYPE
             //
             case 0:
-                newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_GRUNT, std::max(20, (int)ceil(numEnemyGrunt * mSpawnProgress)));
+                newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_GRUNT, std::max(p.waveMinGrunt, (int)ceil(p.wavePopGrunt * mSpawnProgress)));
                 break;
             case 1:
-                newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_WEAVER, std::max(20, (int)ceil(numEnemyWeaver * mSpawnProgress)));
+                newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_WEAVER, std::max(p.waveMinWeaver, (int)ceil(p.wavePopWeaver * mSpawnProgress)));
                 break;
             case 2:
-                if (index > 4) {
-                    newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_SNAKE, std::max(8, (int)ceil(numEnemySnake * mSpawnProgress)));
+                if (index > p.waveSnakeIndex) {
+                    newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_SNAKE, std::max(p.waveMinSnake, (int)ceil(p.wavePopSnake * mSpawnProgress)));
                 }
                 break;
             case 3:
-                newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_SPINNER, std::max(20, (int)ceil(numEnemySpinner * mSpawnProgress)));
+                newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_SPINNER, std::max(p.waveMinSpinner, (int)ceil(p.wavePopSpinner * mSpawnProgress)));
                 break;
             case 4:
-                if (index > 4) {
-                    newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_BLACKHOLE, std::max(4, (int)ceil(mathutils::frandFrom0To1() * numEnemyBlackHole * mSpawnProgress)));
+                if (index > p.waveBlackholeIndex) {
+                    newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_BLACKHOLE, std::max(p.waveMinBlackhole, (int)ceil(mathutils::frandFrom0To1() * p.wavePopBlackhole * mSpawnProgress)));
                 }
                 break;
             case 5:
-                if (index > 8) {
-                    newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_MAYFLY, std::max(50, (int)ceil(numEnemyMayfly * mSpawnProgress)));
+                if (index > p.waveMayflyIndex) {
+                    newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_MAYFLY, std::max(p.waveMinMayfly, (int)ceil(p.wavePopMayfly * mSpawnProgress)));
                 }
                 break;
             //
             // RUSH TYPE
             //
             case 6:
-                newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_GRUNT, std::max(20, (int)ceil(numEnemyGrunt * mSpawnProgress) / 2));
+                newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_GRUNT, std::max(p.waveMinGrunt, (int)ceil(p.wavePopGrunt * mSpawnProgress) / p.waveRushDivide));
                 break;
             case 7:
-                newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_WEAVER, std::max(20, (int)ceil(numEnemyWeaver * mSpawnProgress) / 2));
+                newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_WEAVER, std::max(p.waveMinWeaver, (int)ceil(p.wavePopWeaver * mSpawnProgress) / p.waveRushDivide));
                 break;
             case 8:
-                if (index > 4) {
-                    newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_SNAKE, std::max(8, (int)ceil(numEnemySnake * mSpawnProgress) / 2));
+                if (index > p.waveSnakeIndex) {
+                    newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_SNAKE, std::max(p.waveMinSnake, (int)ceil(p.wavePopSnake * mSpawnProgress) / p.waveRushDivide));
                 }
                 break;
             case 9:
-                newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_SPINNER, std::max(20, (int)ceil(numEnemySpinner * mSpawnProgress) / 2));
+                newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_SPINNER, std::max(p.waveMinSpinner, (int)ceil(p.wavePopSpinner * mSpawnProgress) / p.waveRushDivide));
                 break;
             case 10:
                 //                    newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_BLACKHOLE, ceil(mathutils::frandFrom0To1() * numEnemyBlackHole * mSpawnProgress) / 2);
                 break;
             case 11:
-                if (index > 4) {
-                    newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_REPULSOR, ceil(mathutils::frandFrom0To1() * numEnemyRepulsor * mSpawnProgress) / 2);
+                if (index > p.waveRepulsorIndex) {
+                    newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_REPULSOR, ceil(mathutils::frandFrom0To1() * p.wavePopRepulsor * mSpawnProgress) / p.waveRushDivide);
                 }
                 break;
             }
@@ -280,7 +282,9 @@ void spawner::transition()
 
 void spawner::spawnEntities(entity::EntityType type, int numWanted)
 {
-    const float margin = 15;
+    const auto& p = classical_params::get();
+
+    const float margin = p.spawnerScatterMargin;
     const float leftEdge = margin;
     const float bottomEdge = margin;
     const float rightEdge = (theGame->mGrid->extentX() - 1) - margin;
@@ -313,14 +317,16 @@ void spawner::spawnEntities(entity::EntityType type, int numWanted)
 
 void spawner::runWaves()
 {
+    const auto& p = classical_params::get();
+
     for (int i = 0; i < NUM_WAVEDATA; i++) {
         WAVEDATA* wd = &mWaveData[i];
         if (wd->mWaveType != WAVETYPE_UNUSED) {
-            static const float margin = 2;
-            static const float leftEdge = margin;
-            static const float bottomEdge = margin;
-            static const float rightEdge = (theGame->mGrid->extentX() - 1) - margin;
-            static const float topEdge = (theGame->mGrid->extentY() - 1) - margin;
+            const float margin = p.spawnerWaveMargin;
+            const float leftEdge = margin;
+            const float bottomEdge = margin;
+            const float rightEdge = (theGame->mGrid->extentX() - 1) - margin;
+            const float topEdge = (theGame->mGrid->extentY() - 1) - margin;
 
             if (wd->mWaveType == WAVETYPE_RUSH) {
                 // Pick a player to attack
@@ -336,10 +342,10 @@ void spawner::runWaves()
                         // Add the enemy to our tracking list
                         addEntityToWaveTracker(wd, enemy);
 
-                        float rx = (mathutils::frandFrom0To1() * 4) - 2;
-                        float ry = (mathutils::frandFrom0To1() * 4) - 2;
+                        float rx = (mathutils::frandFrom0To1() * p.spawnerRushJitter) - (p.spawnerRushJitter * .5f);
+                        float ry = (mathutils::frandFrom0To1() * p.spawnerRushJitter) - (p.spawnerRushJitter * .5f);
 
-                        Point3d spawnPoint(wd->entityType == entity::ENTITY_TYPE_BLACKHOLE ? 80 : 40, 0, 0);
+                        Point3d spawnPoint(wd->entityType == entity::ENTITY_TYPE_BLACKHOLE ? p.spawnerRushRadiusBlackhole : p.spawnerRushRadiusPlayer, 0, 0);
                         spawnPoint = mathutils::rotate2dPoint(spawnPoint, mathutils::frandFrom0To1() * (2 * PI));
                         spawnPoint.x += playerPos.x + rx;
                         spawnPoint.y += playerPos.y + ry;
@@ -367,8 +373,8 @@ void spawner::runWaves()
                                 // Add the enemy to our tracking list
                                 addEntityToWaveTracker(wd, enemy);
 
-                                float rx = (mathutils::frandFrom0To1() * 10) - 5;
-                                float ry = (mathutils::frandFrom0To1() * 10) - 5;
+                                float rx = (mathutils::frandFrom0To1() * p.spawnerSwarmJitter) - (p.spawnerSwarmJitter * .5f);
+                                float ry = (mathutils::frandFrom0To1() * p.spawnerSwarmJitter) - (p.spawnerSwarmJitter * .5f);
 
                                 Point3d spawnPoint;
                                 switch (corner % 4) {
@@ -426,7 +432,7 @@ void spawner::runWaves()
 
                 ++wd->timer;
 
-                if (wd->timer > 10) {
+                if (wd->timer > p.spawnerSwarmWaveCadence) {
                     wd->timer = 0;
                 }
             }

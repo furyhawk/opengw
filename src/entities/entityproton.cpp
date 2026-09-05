@@ -1,5 +1,6 @@
 #include "math/defines.hpp"
 #include "entities/entityproton.hpp"
+#include "core/classicalparams.hpp"
 #include "core/game.hpp"
 #include "entities/players.hpp"
 
@@ -12,7 +13,7 @@ entityProton::entityProton(void)
 
     mSpawnTime = 0;
 
-    mScoreValue = 50; // ??
+    mScoreValue = classical_params::get().scoreProton;
 
     mDestroyTime = 0;
 

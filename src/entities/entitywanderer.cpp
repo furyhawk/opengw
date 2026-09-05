@@ -1,5 +1,6 @@
 #include "math/defines.hpp"
 #include "entities/entitywanderer.hpp"
+#include "core/classicalparams.hpp"
 #include "core/game.hpp"
 #include "render/grid.hpp"
 
@@ -9,7 +10,7 @@ entityWanderer::entityWanderer()
     mScale = 1.7;
     mRadius = 2.6;
 
-    mScoreValue = 25;
+    mScoreValue = classical_params::get().scoreWanderer;
 
     mEdgeBounce = true;
 

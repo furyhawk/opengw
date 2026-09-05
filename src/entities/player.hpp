@@ -82,5 +82,3 @@ class player : public entity
     vector::pen mMissilesPen;
     vector::pen mFontPen;
 };
-
-#define PLAYER_SHEILD_TIME 250

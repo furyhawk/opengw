@@ -1,5 +1,6 @@
 #include "entities/attractor.hpp"
 #include "entities/bomb.hpp"
+#include "core/classicalparams.hpp"
 #include "core/controls.hpp"
 #include "math/defines.hpp"
 #include "core/game.hpp"
@@ -17,13 +18,15 @@ player::player()
 
     mScoreValue = 0;
 
-    mSpawnTime = 40;
+    const auto& p = classical_params::get();
 
-    mSheildTimer = PLAYER_SHEILD_TIME;
+    mSpawnTime = p.playerSpawnTime;
+
+    mSheildTimer = p.playerShieldTime;
 
     mJoined = false;
 
-    mDestroyTime = 40;
+    mDestroyTime = p.playerDestroyTime;
 
     mExhaustSpreadIndex = mathutils::randFromTo(0, 1);
 
@@ -45,8 +48,10 @@ player::~player()
 
 void player::initPlayerForGame()
 {
-    mNumBombs = 5;
-    mNumLives = 5;
+    const auto& p = classical_params::get();
+
+    mNumBombs = p.playerStartBombs;
+    mNumLives = p.playerStartLives;
 
     mWeaponCounter = 0;
     mBombCounter = 0;
@@ -83,6 +88,8 @@ void player::deinitPlayerForGame()
 
 void player::run()
 {
+    const auto& p = classical_params::get();
+
     if (getEnabled()) {
         // Read the trigger
         if (theGame->mGameType == game::GAMETYPE_SINGLEPLAYER) {
@@ -91,9 +98,9 @@ void player::run()
                 if (getNumBombs() > 0 && mBombInterimTimer <= 0) {
                     // Fire off a bomb
                     takeBomb();
-                    mBombInterimTimer = 50;
+                    mBombInterimTimer = p.playerBombCooldown;
 
-                    theGame->mBomb->startBomb(mPos, 1, 6, 2, 200, vector::pen(1, 1, 1, .3, 4));
+                    theGame->mBomb->startBomb(mPos, p.bombRingRadius, p.bombRingThickness, p.bombRingSpeed, p.bombRingTimeToLive, vector::pen(1, 1, 1, .3, 4));
                     theGame->mSound->playTrack(SOUNDID_BOMB);
                     theGame->startBomb();
                 }
@@ -108,12 +115,12 @@ void player::run()
         // Move the player
         Point3d leftStick = theGame->mControls->getLeftStick(mPlayerAssignment);
         float distance = mathutils::calculate2dDistance(Point3d(0, 0, 0), leftStick);
-        if (distance > .1) {
+        if (distance > p.playerStickDeadZone) {
             //
             // The movement stick is being used
             //
 
-            if (distance > .6) {
+            if (distance > p.playerStickFullZone) {
                 distance = 1;
             } else
                 distance = .5;
@@ -126,11 +133,11 @@ void player::run()
             angle = mathutils::wrapRadians(angle);
             float currentAngle = mathutils::wrapRadians(this->getAngle());
             float diff = mathutils::diffAngles(angle, currentAngle);
-            currentAngle += diff * .2;
+            currentAngle += diff * p.playerMoveTurnRate;
             this->setAngle(currentAngle);
 
             // Move
-            Point3d thrust(distance * 0.6, 0, 0);
+            Point3d thrust(distance * p.playerMoveSpeed, 0, 0);
             thrust = mathutils::rotate2dPoint(thrust, currentAngle + mathutils::DegreesToRads(90));
             playerSpeed = thrust;
             this->setPos(this->getPos() + thrust);
@@ -179,7 +186,7 @@ void player::run()
         // Firing
         Point3d rightStick = theGame->mControls->getRightStick(mPlayerAssignment);
         distance = mathutils::calculate2dDistance(Point3d(0, 0, 0), rightStick);
-        if (distance > .1) {
+        if (distance > p.playerStickDeadZone) {
             //
             // The firing stick is being used
             //
@@ -230,12 +237,12 @@ void player::run()
     if (mSheildTimer > 0)
         --mSheildTimer;
 
-    if (mSheildTimer < 60) {
+    if (mSheildTimer < p.playerShieldWarnTime) {
         mDrawSheild = (mSheildTimer / 6) & 1;
     } else
         mDrawSheild = true;
 
-    if (mSheildTimer == 60) {
+    if (mSheildTimer == p.playerShieldWarnTime) {
         theGame->mSound->playTrack(SOUNDID_SHIELDSLOST);
     }
 
@@ -324,7 +331,8 @@ void player::draw()
 
 void player::spawnTransition()
 {
-    mSheildTimer = PLAYER_SHEILD_TIME;
+    const auto& p = classical_params::get();
+    mSheildTimer = p.playerShieldTime;
 
     float angle = getAngle();
     entity::spawnTransition();
@@ -366,8 +374,10 @@ void player::spawn()
 
 void player::firePattern1(const Point3d& fireAngle, const Point3d& playerSpeed)
 {
+    const auto& p = classical_params::get();
+
     if (--mFiringTimer <= 0) {
-        mFiringTimer = 6;
+        mFiringTimer = p.weapon0Interval;
 
         // Find an unused missile
         entityPlayerMissile* missile1 = nullptr;
@@ -394,8 +404,8 @@ void player::firePattern1(const Point3d& fireAngle, const Point3d& playerSpeed)
         if (missile1 && missile2) {
             float angle = mathutils::calculate2dAngle(Point3d(0, 0, 0), fireAngle) + mathutils::DegreesToRads(90);
 
-            float speed = .7;
-            float spread = .4;
+            float speed = p.weapon0MissileSpeed;
+            float spread = p.weapon0Spread;
             float missileAngle1 = (angle + spread);
             float missileAngle2 = (angle - spread);
 
@@ -409,7 +419,7 @@ void player::firePattern1(const Point3d& fireAngle, const Point3d& playerSpeed)
 
                 missile1->setPos(missilePos);
                 missile1->setAngle(angle - mathutils::DegreesToRads(90));
-                missile1->setSpeed(missileSpeedVector + (playerSpeed * .5));
+                missile1->setSpeed(missileSpeedVector + (playerSpeed * p.weapon0InheritSpeed));
                 missile1->mVelocity = speed;
             }
 
@@ -425,7 +435,7 @@ void player::firePattern1(const Point3d& fireAngle, const Point3d& playerSpeed)
 
                 missile2->setPos(missilePos);
                 missile2->setAngle(angle - mathutils::DegreesToRads(90));
-                missile2->setSpeed(missileSpeedVector + (playerSpeed * .5));
+                missile2->setSpeed(missileSpeedVector + (playerSpeed * p.weapon0InheritSpeed));
                 missile2->mVelocity = speed;
             }
 
@@ -436,13 +446,15 @@ void player::firePattern1(const Point3d& fireAngle, const Point3d& playerSpeed)
 
 void player::firePattern2(const Point3d& fireAngle, const Point3d& playerSpeed)
 {
+    const auto& p = classical_params::get();
+
     if (--mFiringTimer <= 0) {
         static bool alternate = true;
         alternate = !alternate;
         if (alternate)
-            mFiringTimer = 4;
+            mFiringTimer = p.weapon1IntervalA;
         else
-            mFiringTimer = 1;
+            mFiringTimer = p.weapon1IntervalB;
 
         entityPlayerMissile* missile1 = nullptr;
         entityPlayerMissile* missile2 = nullptr;
@@ -481,7 +493,7 @@ void player::firePattern2(const Point3d& fireAngle, const Point3d& playerSpeed)
         }
 
         float angle = mathutils::calculate2dAngle(Point3d(0, 0, 0), fireAngle) + mathutils::DegreesToRads(90);
-        float speed = 1.2;
+        float speed = p.weapon1MissileSpeed;
 
         if (missile3) {
             Point3d missilePos;
@@ -493,10 +505,10 @@ void player::firePattern2(const Point3d& fireAngle, const Point3d& playerSpeed)
 
             missile3->setPos(missilePos);
             missile3->setAngle(angle - mathutils::DegreesToRads(90));
-            missile3->setSpeed(missileSpeedVector + (playerSpeed * .5));
+            missile3->setSpeed(missileSpeedVector + (playerSpeed * p.weapon1InheritSpeed));
             missile3->mVelocity = speed;
         } else if (missile1 && missile2) {
-            float spread = .8;
+            float spread = p.weapon1Spread;
             float missileAngle1 = (angle + spread);
             float missileAngle2 = (angle - spread);
 
@@ -510,7 +522,7 @@ void player::firePattern2(const Point3d& fireAngle, const Point3d& playerSpeed)
 
                 missile1->setPos(missilePos);
                 missile1->setAngle(angle - mathutils::DegreesToRads(90));
-                missile1->setSpeed(missileSpeedVector + (playerSpeed * .5));
+                missile1->setSpeed(missileSpeedVector + (playerSpeed * p.weapon1InheritSpeed));
                 missile1->mVelocity = speed;
             }
 
@@ -526,7 +538,7 @@ void player::firePattern2(const Point3d& fireAngle, const Point3d& playerSpeed)
 
                 missile2->setPos(missilePos);
                 missile2->setAngle(angle - mathutils::DegreesToRads(90));
-                missile2->setSpeed(missileSpeedVector + (playerSpeed * .5));
+                missile2->setSpeed(missileSpeedVector + (playerSpeed * p.weapon1InheritSpeed));
                 missile2->mVelocity = speed;
             }
         }
@@ -535,8 +547,10 @@ void player::firePattern2(const Point3d& fireAngle, const Point3d& playerSpeed)
 
 void player::firePattern3(const Point3d& fireAngle, const Point3d& playerSpeed)
 {
+    const auto& p = classical_params::get();
+
     if (--mFiringTimer <= 0) {
-        mFiringTimer = 7;
+        mFiringTimer = p.weapon2Interval;
 
         // Find 5 unused missiles
         entityPlayerMissile* missile0 = nullptr;
@@ -594,11 +608,11 @@ void player::firePattern3(const Point3d& fireAngle, const Point3d& playerSpeed)
         if (missile0 && missile1 && missile2 && missile3 && missile4) {
             float angle = mathutils::calculate2dAngle(Point3d(0, 0, 0), fireAngle) + mathutils::DegreesToRads(90);
 
-            float speed = .9;
-            float start1 = .1;
-            float start2 = .15;
-            float spread1 = .05;
-            float spread2 = .09;
+            float speed = p.weapon2MissileSpeed;
+            float start1 = p.weapon2StartInner;
+            float start2 = p.weapon2StartOuter;
+            float spread1 = p.weapon2SpreadInner;
+            float spread2 = p.weapon2SpreadOuter;
             float missileStart1 = (angle + start1);
             float missileStart2 = (angle - start1);
             float missileStart3 = (angle + start2);
@@ -619,7 +633,7 @@ void player::firePattern3(const Point3d& fireAngle, const Point3d& playerSpeed)
 
                 missile0->setPos(missilePos);
                 missile0->setAngle(angle - mathutils::DegreesToRads(90));
-                missile0->setSpeed(missileSpeedVector + (playerSpeed * .5));
+                missile0->setSpeed(missileSpeedVector + (playerSpeed * p.weapon2InheritSpeed));
                 missile0->mVelocity = speed;
             }
 
@@ -635,7 +649,7 @@ void player::firePattern3(const Point3d& fireAngle, const Point3d& playerSpeed)
 
                 missile1->setPos(missilePos);
                 missile1->setAngle(angle - mathutils::DegreesToRads(90));
-                missile1->setSpeed(missileSpeedVector + (playerSpeed * .5));
+                missile1->setSpeed(missileSpeedVector + (playerSpeed * p.weapon2InheritSpeed));
                 missile1->mVelocity = speed;
             }
 
@@ -649,7 +663,7 @@ void player::firePattern3(const Point3d& fireAngle, const Point3d& playerSpeed)
 
                 missile2->setPos(missilePos);
                 missile2->setAngle(angle - mathutils::DegreesToRads(90));
-                missile2->setSpeed(missileSpeedVector + (playerSpeed * .5));
+                missile2->setSpeed(missileSpeedVector + (playerSpeed * p.weapon2InheritSpeed));
                 missile2->mVelocity = speed;
             }
 
@@ -665,7 +679,7 @@ void player::firePattern3(const Point3d& fireAngle, const Point3d& playerSpeed)
 
                 missile3->setPos(missilePos);
                 missile3->setAngle(angle - mathutils::DegreesToRads(90));
-                missile3->setSpeed(missileSpeedVector + (playerSpeed * .5));
+                missile3->setSpeed(missileSpeedVector + (playerSpeed * p.weapon2InheritSpeed));
                 missile3->mVelocity = speed;
             }
 
@@ -679,7 +693,7 @@ void player::firePattern3(const Point3d& fireAngle, const Point3d& playerSpeed)
 
                 missile4->setPos(missilePos);
                 missile4->setAngle(angle - mathutils::DegreesToRads(90));
-                missile4->setSpeed(missileSpeedVector + (playerSpeed * .5));
+                missile4->setSpeed(missileSpeedVector + (playerSpeed * p.weapon2InheritSpeed));
                 missile4->mVelocity = speed;
             }
         }
@@ -741,6 +755,8 @@ void player::destroy()
 
 void player::addKillAtLocation(int points, Point3d pos)
 {
+    const auto& p = classical_params::get();
+
     int pointsEarned = points * mMultiplier;
     mScore += pointsEarned;
     mWeaponCounter += pointsEarned;
@@ -763,17 +779,17 @@ void player::addKillAtLocation(int points, Point3d pos)
     You will receive an extra bomb every 100,000 point interval on the score.
     */
 
-    if (mWeaponCounter >= 10000) {
+    if (mWeaponCounter >= p.playerWeaponChangeScore) {
         mWeaponCounter = 0;
         switchWeapons();
     }
 
-    if (mBombCounter >= 100000) {
+    if (mBombCounter >= p.playerExtraBombScore) {
         mBombCounter = 0;
         addBomb();
         theGame->mSound->playTrack(SOUNDID_EXTRABOMB);
     }
-    if (mLifeCounter >= 75000) {
+    if (mLifeCounter >= p.playerExtraLifeScore) {
         mLifeCounter = 0;
         addLife();
         theGame->mSound->playTrack(SOUNDID_EXTRALIFE);
@@ -782,10 +798,10 @@ void player::addKillAtLocation(int points, Point3d pos)
     bool showMultiplier = false;
 
     ++mKillCounter;
-    if (mKillCounter >= 25) {
+    if (mKillCounter >= p.playerMultiplierKillCount) {
         // Increment the multiplier and display a message
         mKillCounter = 0;
-        if (mMultiplier <= 5) {
+        if (mMultiplier < p.playerMultiplierMax) {
             ++mMultiplier;
             showMultiplier = true;
         }
@@ -868,9 +884,11 @@ void player::addPointsNoMultiplier(int points)
 
 void player::switchWeapons()
 {
+    const auto& p = classical_params::get();
+
     if (mCurrentWeapon == 0) {
         mCurrentWeapon = 1;
     } else {
-        mCurrentWeapon = (mathutils::frandFrom0To1() * 100) < 50 ? 1 : 2;
+        mCurrentWeapon = (mathutils::frandFrom0To1() * 100) < p.playerWeapon1Chance ? 1 : 2;
     }
 }

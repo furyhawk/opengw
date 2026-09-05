@@ -1,4 +1,5 @@
 #include "entities/entitymayfly.hpp"
+#include "core/classicalparams.hpp"
 #include "core/game.hpp"
 #include "entities/players.hpp"
 #include "render/scene.hpp"
@@ -11,7 +12,7 @@ entityMayfly::entityMayfly()
     mScale = 0.8;
     mRadius = 2.5;
 
-    mScoreValue = 50;
+    mScoreValue = classical_params::get().scoreMayfly;
 
     mType = ENTITY_TYPE_MAYFLY;
     setState(ENTITY_STATE_INACTIVE);

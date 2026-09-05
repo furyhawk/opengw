@@ -1,5 +1,6 @@
 #include "entities/attractor.hpp"
 #include "entities/bomb.hpp"
+#include "core/classicalparams.hpp"
 #include "math/defines.hpp"
 #include "entities/enemies.hpp"
 #include "core/game.hpp"
@@ -8,7 +9,7 @@
 
 bomb::bomb(void)
 {
-    mRings.resize(20);
+    mRings.resize(classical_params::get().bombMaxRings);
 }
 
 bomb::~bomb(void)
@@ -17,13 +18,15 @@ bomb::~bomb(void)
 
 void bomb::run()
 {
+    const auto& p = classical_params::get();
+
     for (auto& ring : mRings) {
         if (ring.timeToLive > 0) {
             ring.radius += ring.speed;
-            ring.thickness += .03;
+            ring.thickness += p.bombRingThicknessStep;
             --ring.timeToLive;
 
-            if (ring.radius > 100) {
+            if (ring.radius > p.bombRingMaxRadius) {
                 ring.timeToLive = 0;
             }
 
@@ -42,7 +45,7 @@ void bomb::run()
             for (int j = 0; j < NUM_ENEMIES; j++) {
                 if ((theGame->mEnemies->mEnemies[j]->getState() != entity::ENTITY_STATE_INACTIVE) && (theGame->mEnemies->mEnemies[j]->getState() != entity::ENTITY_STATE_INDICATING) && (theGame->mEnemies->mEnemies[j]->getState() != entity::ENTITY_STATE_INDICATE_TRANSITION) && (theGame->mEnemies->mEnemies[j]->getState() != entity::ENTITY_STATE_DESTROY_TRANSITION) && (theGame->mEnemies->mEnemies[j]->getState() != entity::ENTITY_STATE_DESTROYED)) {
                     float distance = mathutils::calculate2dDistance(ring.pos, theGame->mEnemies->mEnemies[j]->getPos());
-                    if ((distance > ring.radius - 10) && (distance < ring.radius)) {
+                    if ((distance > ring.radius - p.bombRingKillBand) && (distance < ring.radius)) {
                         // Destroy it
                         theGame->mEnemies->mEnemies[j]->hit(nullptr);
                     }

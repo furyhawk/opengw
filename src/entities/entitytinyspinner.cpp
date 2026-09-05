@@ -1,4 +1,5 @@
 #include "entities/entitytinyspinner.hpp"
+#include "core/classicalparams.hpp"
 #include "core/game.hpp"
 #include "render/grid.hpp"
 #include "entities/players.hpp"
@@ -9,7 +10,7 @@ entityTinySpinner::entityTinySpinner(const game& gameRef)
     mScale = 1;
     mRadius = 2.2;
 
-    mScoreValue = 50;
+    mScoreValue = classical_params::get().scoreTinySpinner;
 
     mAnimationIndex = 0;
 
