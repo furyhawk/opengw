@@ -13,7 +13,7 @@
 #include <cstdio>
 //#include <mutex>
 
-#include <SDL3/SDL_opengl.h>
+#include "render/gl3.h"
 
 static SDL_Thread* mRunThread = nullptr;
 static std::atomic_bool mRunFlag { false };

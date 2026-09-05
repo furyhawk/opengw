@@ -4,7 +4,7 @@
 #include "ui/menuSelectGameType.hpp"
 #include "entities/players.hpp"
 
-#include <SDL3/SDL_opengl.h>
+#include "render/gl3.h"
 
 int menuSelectGameType::selection = 0;
 

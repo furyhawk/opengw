@@ -18,7 +18,7 @@
 
 #include <cstdio>
 
-#include <SDL3/SDL_opengl.h>
+#include "render/gl3.h"
 
 // The Grid
 // GW is 33w x 22h

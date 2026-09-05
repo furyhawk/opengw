@@ -3,7 +3,7 @@
 #include "entities/players.hpp"
 #include "render/scene.hpp"
 
-#include <SDL3/SDL_opengl.h>
+#include "render/gl3.h"
 
 entityMayfly::entityMayfly()
     : entity()

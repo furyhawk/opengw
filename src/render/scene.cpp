@@ -7,13 +7,7 @@
 #include "render/scene.hpp"
 #include "core/settings.hpp"
 
-#include <SDL3/SDL_opengl.h>
-
-#ifdef __APPLE__
-#include <OpenGL/glu.h>
-#else
-#include <GL/glu.h>
-#endif
+#include "render/gl3.h"
 
 #include <cstdio>
 #include <memory>
@@ -552,17 +546,13 @@ void scene::drawScores()
 
 void scene::glEnable2D()
 {
-    int vPort[4];
-    vPort[0] = VIRTUAL_SCREEN_HEIGHT;
-    vPort[1] = 0;
-    vPort[2] = 0;
-    vPort[3] = VIRTUAL_SCREEN_WIDTH;
-
+    // 2D HUD/text overlays are authored in normalised device space (coords
+    // roughly in [-1, 1]). The old code set a degenerate ortho here
+    // (glOrtho(600, 600, ...)) which produced an invalid projection; a plain
+    // identity projection maps those coordinates straight to the screen.
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
-
-    glOrtho(vPort[0], vPort[0] + vPort[2], vPort[1] + vPort[3], vPort[1], -1, 1);
 
     glViewport(0, 0, mWidth, mHeight);
 

@@ -4,7 +4,7 @@
 #include <cstdarg>
 #include <cstdio>
 
-#include <SDL3/SDL_opengl.h>
+#include "render/gl3.h"
 
 float AlphanumericsPrintVScale = 1.0f;
 
@@ -1033,11 +1033,11 @@ void AlphanumericsPrint(int alignment, float scale, float x, float y, vector::pe
                 drawText(scale, &charPeriod[0], color);
                 break;
 
-            case '°':
+            case 0xB0: // degree sign
                 drawText(scale, &charDegrees[0], color);
                 break;
 
-            case '©':
+            case 0xA9: // copyright sign
                 drawText(scale, &charCopy[0], color);
                 break;
 

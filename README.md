@@ -7,10 +7,16 @@ survive as long as you can and chase the high score.
 This repository is a **SDL3** (previously SDL2) port of the original
 [OpenGW project](https://sourceforge.net/projects/opengw/), modernised to C++20.
 
+The renderer has been modernised to **OpenGL 3.3 core profile**: the legacy
+fixed-function pipeline (`glBegin`/`glEnd`, GLU, CPU blur read-back) has been
+replaced by a small shader/VAO/VBO backend (`src/render/gl3.{h,cpp}`) and the
+"bloom" glow is produced with a GPU framebuffer-object Gaussian blur — no
+more per-frame CPU image read-back.
+
 ## Features
 
-- Fast, glow-heavy vector rendering (grid, particles, enemies) with a blur
-  post-process pass for the "Bloom" look
+- Fast, glow-heavy vector rendering (grid, particles, enemies) with a GPU
+  blur post-process pass for the "Bloom" look
 - Multiple enemy types: grunts, wanderers, weavers, snakes, spinners,
   repulsors, black holes / gravity wells, mayflies and more
 - Weapons, bombs, shields, score multipliers and gravity wells to destroy
@@ -26,7 +32,8 @@ This repository is a **SDL3** (previously SDL2) port of the original
 
 - A C++20 compiler (`g++` / `clang++`)
 - [SDL3](https://github.com/libsdl-org/SDL) development files
-- OpenGL / GLU (legacy fixed-function pipeline is used)
+- OpenGL 3.3 **core profile** support (functions are loaded at runtime via
+  `SDL_GL_GetProcAddress`, so no GLEW/GLAD and no GLU is required)
 
 ## Building
 
@@ -66,11 +73,11 @@ make -f makefile.macos
 
 ```sh
 # Debian / Ubuntu
-sudo apt install libsdl3-dev libgl1-mesa-dev libglu1-mesa-dev
+sudo apt install libsdl3-dev libgl1-mesa-dev
 make
 
 # Fedora
-sudo dnf install SDL3-devel mesa-libGL-devel mesa-libGLU-devel
+sudo dnf install SDL3-devel mesa-libGL-devel
 make
 ```
 
@@ -104,7 +111,8 @@ Makefile, makefile.*   # build entry points (`make` from the repo root)
 src/
   core/      main loop, game state, camera, input, settings, high scores
   entities/  entity base, player ships, enemies and projectiles
-  render/    scene, grid/stars background, blur pass, textures, fonts
+  render/    scene, grid/stars background, GPU glow, textures, fonts,
+             gl3.{h,cpp} (modern OpenGL 3.3 core backend)
   audio/     SDL3 sound mixer
   ui/        menus (game-type select)
   math/      vectors/matrices, math helpers, shared constants

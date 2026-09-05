@@ -3,7 +3,7 @@
 #include "core/game.hpp"
 #include "math/mathutils.hpp"
 
-#include <SDL3/SDL_opengl.h>
+#include "render/gl3.h"
 
 extern Point3d cameraPos;
 

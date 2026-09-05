@@ -7,7 +7,7 @@
 
 #include <cstdio>
 
-#include <SDL3/SDL_opengl.h>
+#include "render/gl3.h"
 
 player::player()
     : entity()

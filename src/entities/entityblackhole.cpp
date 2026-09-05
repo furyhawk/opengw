@@ -10,7 +10,7 @@
 #include "core/settings.hpp"
 #include "math/sincos.hpp"
 
-#include <SDL3/SDL_opengl.h>
+#include "render/gl3.h"
 
 entityBlackHole::entityBlackHole(const game& gameRef) : mGame(gameRef)
 {

@@ -4,7 +4,7 @@
 #include "entities/enemies.hpp"
 #include "core/game.hpp"
 
-#include <SDL3/SDL_opengl.h>
+#include "render/gl3.h"
 
 bomb::bomb(void)
 {

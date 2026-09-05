@@ -1,4 +1,4 @@
-LIBS = -lSDL3 -lGL -lGLU
+LIBS = -lSDL3 -lGL
 OWN_PATHS = -Isrc
 HEADERS = $(OWN_PATHS) -I/usr/local/include
 DEFINES =

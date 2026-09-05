@@ -48,7 +48,7 @@ ifeq ($(UNAME_S),Darwin)
 else
     SDL_CFLAGS := $(shell pkg-config --cflags sdl3)
     SDL_LIBS   := $(shell pkg-config --libs sdl3)
-    LIBS       := $(SDL_LIBS) -lGL -lGLU
+    LIBS       := $(SDL_LIBS) -lGL
 endif
 
 CPPFLAGS += $(SDL_CFLAGS)

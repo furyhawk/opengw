@@ -1,7 +1,7 @@
 #include "render/texture.hpp"
 #include "vendor/lodepng.h"
 
-#include <SDL3/SDL_opengl.h>
+#include "render/gl3.h"
 
 texture::texture(void)
 {
