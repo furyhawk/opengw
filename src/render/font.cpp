@@ -1,6 +1,6 @@
-#include "font.hpp"
-#include "game.hpp"
-#include "point3d.hpp"
+#include "render/font.hpp"
+#include "core/game.hpp"
+#include "math/point3d.hpp"
 #include <cstdarg>
 #include <cstdio>
 

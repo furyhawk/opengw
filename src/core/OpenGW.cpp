@@ -1,9 +1,9 @@
-#include "controls.hpp"
-#include "game.hpp"
-#include "scene.hpp"
-#include "settings.hpp"
-#include "blur.hpp"
-#include "sincos.hpp"
+#include "core/controls.hpp"
+#include "core/game.hpp"
+#include "render/scene.hpp"
+#include "core/settings.hpp"
+#include "render/blur.hpp"
+#include "math/sincos.hpp"
 
 #include <SDL3/SDL_opengl.h>
 

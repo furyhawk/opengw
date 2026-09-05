@@ -1,7 +1,7 @@
-#include "defines.hpp"
-#include "entityproton.hpp"
-#include "game.hpp"
-#include "players.hpp"
+#include "math/defines.hpp"
+#include "entities/entityproton.hpp"
+#include "core/game.hpp"
+#include "entities/players.hpp"
 
 entityProton::entityProton(void)
 {

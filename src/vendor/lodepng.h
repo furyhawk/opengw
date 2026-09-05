@@ -1909,7 +1909,7 @@ external method to handle such files and encode or decode in-memory
 10.1. decoder C++ example
 -------------------------
 
-#include "lodepng.h"
+#include "vendor/lodepng.h"
 #include <iostream>
 
 int main(int argc, char *argv[]) {
@@ -1929,7 +1929,7 @@ int main(int argc, char *argv[]) {
 10.2. decoder C example
 -----------------------
 
-#include "lodepng.h"
+#include "vendor/lodepng.h"
 
 int main(int argc, char *argv[]) {
   unsigned error;

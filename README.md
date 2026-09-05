@@ -41,10 +41,10 @@ make clean      # remove build objects and the binary
 make help       # show available targets
 ```
 
-> **Run from the project root.** The game loads `sounds/` and `images/` and
-> writes its `scores.sav` high-score file relative to the current working
-> directory, so launch it from here (or from a folder that contains those
-> folders).
+> **Run from the project root.** The game loads `assets/sounds/` and
+> `assets/images/` and writes its `scores.sav` high-score file relative to the
+> current working directory, so launch it from here (or from a folder that
+> contains those folders).
 
 ### macOS
 
@@ -78,8 +78,8 @@ There is also a standalone `makefile.linux`.
 
 ### Windows
 
-Use the Visual Studio solution `OpenGW.sln`, or the standalone
-`makefile.win` (with SDL3 available on the include/library path).
+Use the standalone `makefile.win` with MinGW (with SDL3 available on the
+include/library path).
 
 ### AmigaOS 4
 
@@ -97,14 +97,25 @@ Use `makefile.os4`.
 
 ## Project layout
 
+Sources are grouped under `src/` and runtime assets under `assets/`:
+
 ```
-OpenGW.cpp        # main(): window, GL context, event loop
-scene.cpp         # top-level game scene & rendering passes
-game.cpp          # core game state, modes and sound setup
-entity*.cpp/hpp   # player ships, enemies and projectiles
-grid/particles    # background and particle effects
-sounds/ images/   # runtime assets (loaded relative to CWD)
+Makefile, makefile.*   # build entry points (`make` from the repo root)
+src/
+  core/      main loop, game state, camera, input, settings, high scores
+  entities/  entity base, player ships, enemies and projectiles
+  render/    scene, grid/stars background, blur pass, textures, fonts
+  audio/     SDL3 sound mixer
+  ui/        menus (game-type select)
+  math/      vectors/matrices, math helpers, shared constants
+  vendor/    lodepng (third-party PNG codec)
+assets/
+  images/    runtime images (marquee, icon)
+  sounds/    runtime sounds (.wav)
 ```
+
+Run `make` from the repo root so the CWD-relative `assets/…` and
+`scores.sav` paths resolve.
 
 ## License
 

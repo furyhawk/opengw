@@ -1,7 +1,7 @@
 #pragma once
 
-#include "entity.hpp"
-#include "entityplayermissile.hpp"
+#include "entities/entity.hpp"
+#include "entities/entityplayermissile.hpp"
 
 #include <vector>
 

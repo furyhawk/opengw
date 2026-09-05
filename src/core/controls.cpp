@@ -1,4 +1,4 @@
-#include "controls.hpp"
+#include "core/controls.hpp"
 
 #include <SDL3/SDL_joystick.h>
 

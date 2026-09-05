@@ -1,7 +1,7 @@
 #pragma once
 
-#include "model.hpp"
-#include "texture.hpp"
+#include "render/model.hpp"
+#include "render/texture.hpp"
 
 class scene
 {

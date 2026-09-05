@@ -1,9 +1,9 @@
-#include "controls.hpp"
-#include "font.hpp"
-#include "game.hpp"
-#include "highscore.hpp"
-#include "players.hpp"
-#include "scene.hpp"
+#include "core/controls.hpp"
+#include "render/font.hpp"
+#include "core/game.hpp"
+#include "core/highscore.hpp"
+#include "entities/players.hpp"
+#include "render/scene.hpp"
 
 #include <cstdio>
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "player.hpp"
+#include "entities/player.hpp"
 
 class entityPlayer2 : public player
 {

@@ -1,11 +1,11 @@
-#include "defines.hpp"
-#include "font.hpp"
-#include "game.hpp"
-#include "highscore.hpp"
-#include "menuSelectGameType.hpp"
-#include "players.hpp"
-#include "scene.hpp"
-#include "settings.hpp"
+#include "math/defines.hpp"
+#include "render/font.hpp"
+#include "core/game.hpp"
+#include "core/highscore.hpp"
+#include "ui/menuSelectGameType.hpp"
+#include "entities/players.hpp"
+#include "render/scene.hpp"
+#include "core/settings.hpp"
 
 #include <SDL3/SDL_opengl.h>
 
@@ -206,7 +206,7 @@ void scene::draw(int pass)
             glColor4f(.1, 1, .1, .4);
 
             if (!mTextureMarquee.mLoaded)
-                mTextureMarquee.load("images/marquee.png");
+                mTextureMarquee.load("assets/images/marquee.png");
 
             // Draw the marquee
             if (!mShowHighScores) {

@@ -1,7 +1,7 @@
-#include "entitymayfly.hpp"
-#include "game.hpp"
-#include "players.hpp"
-#include "scene.hpp"
+#include "entities/entitymayfly.hpp"
+#include "core/game.hpp"
+#include "entities/players.hpp"
+#include "render/scene.hpp"
 
 #include <SDL3/SDL_opengl.h>
 

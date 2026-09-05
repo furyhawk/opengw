@@ -1,22 +1,22 @@
-#include "attractor.hpp"
-#include "blackholes.hpp"
-#include "bomb.hpp"
-#include "camera.hpp"
-#include "controls.hpp"
-#include "defines.hpp"
-#include "enemies.hpp"
-#include "entity.hpp"
-#include "font.hpp"
-#include "game.hpp"
-#include "grid.hpp"
-#include "highscore.hpp"
-#include "particle.hpp"
-#include "players.hpp"
-#include "scene.hpp"
-#include "settings.hpp"
-#include "spawner.hpp"
-#include "stars.hpp"
-#include "menuSelectGameType.hpp"
+#include "entities/attractor.hpp"
+#include "entities/blackholes.hpp"
+#include "entities/bomb.hpp"
+#include "core/camera.hpp"
+#include "core/controls.hpp"
+#include "math/defines.hpp"
+#include "entities/enemies.hpp"
+#include "entities/entity.hpp"
+#include "render/font.hpp"
+#include "core/game.hpp"
+#include "render/grid.hpp"
+#include "core/highscore.hpp"
+#include "entities/particle.hpp"
+#include "entities/players.hpp"
+#include "render/scene.hpp"
+#include "core/settings.hpp"
+#include "entities/spawner.hpp"
+#include "render/stars.hpp"
+#include "ui/menuSelectGameType.hpp"
 
 #include <cstdio>
 #include <memory>
@@ -67,59 +67,59 @@ game::game()
     // Load our sounds
     //
 
-    mSound->loadTrack("sounds/musicloop.wav", SOUNDID_MUSICLOOP, .2, true);
-    mSound->loadTrack("sounds/menumusicloop.wav", SOUNDID_MENU_MUSICLOOP, .2, true);
-    mSound->loadTrack("sounds/menuselect.wav", SOUNDID_MENU_SELECT, .2, false);
+    mSound->loadTrack("assets/sounds/musicloop.wav", SOUNDID_MUSICLOOP, .2, true);
+    mSound->loadTrack("assets/sounds/menumusicloop.wav", SOUNDID_MENU_MUSICLOOP, .2, true);
+    mSound->loadTrack("assets/sounds/menuselect.wav", SOUNDID_MENU_SELECT, .2, false);
 
-    mSound->loadTrack("sounds/backgroundnoiseloop.wav", SOUNDID_BACKGROUND_NOISELOOP, .2, true);
+    mSound->loadTrack("assets/sounds/backgroundnoiseloop.wav", SOUNDID_BACKGROUND_NOISELOOP, .2, true);
 
-    mSound->loadTrack("sounds/playerspawn.wav", SOUNDID_PLAYERSPAWN, 1, false);
-    mSound->loadTrack("sounds/playerhit.wav", SOUNDID_PLAYERHIT, .5, false);
-    mSound->loadTrack("sounds/playerdead.wav", SOUNDID_PLAYERDEAD, .5, false);
-    mSound->loadTrack("sounds/sheildsdown.wav", SOUNDID_SHIELDSLOST, .7, false);
-    mSound->loadTrack("sounds/playerthrust.wav", SOUNDID_PLAYERTHRUST, .2, true);
+    mSound->loadTrack("assets/sounds/playerspawn.wav", SOUNDID_PLAYERSPAWN, 1, false);
+    mSound->loadTrack("assets/sounds/playerhit.wav", SOUNDID_PLAYERHIT, .5, false);
+    mSound->loadTrack("assets/sounds/playerdead.wav", SOUNDID_PLAYERDEAD, .5, false);
+    mSound->loadTrack("assets/sounds/sheildsdown.wav", SOUNDID_SHIELDSLOST, .7, false);
+    mSound->loadTrack("assets/sounds/playerthrust.wav", SOUNDID_PLAYERTHRUST, .2, true);
 
-    mSound->loadTrack("sounds/extralife.wav", SOUNDID_EXTRALIFE, .3, false);
-    mSound->loadTrack("sounds/extrabomb.wav", SOUNDID_EXTRABOMB, .3, false);
+    mSound->loadTrack("assets/sounds/extralife.wav", SOUNDID_EXTRALIFE, .3, false);
+    mSound->loadTrack("assets/sounds/extrabomb.wav", SOUNDID_EXTRABOMB, .3, false);
 
-    mSound->loadTrack("sounds/bomb.wav", SOUNDID_BOMB, .5, false);
+    mSound->loadTrack("assets/sounds/bomb.wav", SOUNDID_BOMB, .5, false);
 
-    mSound->loadTrack("sounds/multiplieradvance.wav", SOUNDID_MULTIPLIERADVANCE, .3, false);
+    mSound->loadTrack("assets/sounds/multiplieradvance.wav", SOUNDID_MULTIPLIERADVANCE, .3, false);
 
-    mSound->loadTrack("sounds/missilehitwall.wav", SOUNDID_MISSILEHITWALL, .3, false);
+    mSound->loadTrack("assets/sounds/missilehitwall.wav", SOUNDID_MISSILEHITWALL, .3, false);
 
-    mSound->loadTrack("sounds/gravitywelldestroyed.wav", SOUNDID_GRAVITYWELLDESTROYED, .3, false);
-    mSound->loadTrack("sounds/gravitywelldestroyed.wav", SOUNDID_GRAVITYWELLABSORBED, .1, false);
-    mSound->loadTrack("sounds/gravitywellhit.wav", SOUNDID_GRAVITYWELLHIT, .3, false);
-    mSound->loadTrack("sounds/gravitywellalert.wav", SOUNDID_GRAVITYWELLALERT, .5, false);
-    mSound->loadTrack("sounds/gravitywellexplode.wav", SOUNDID_GRAVITYWELLEXPLODE, .5, false);
+    mSound->loadTrack("assets/sounds/gravitywelldestroyed.wav", SOUNDID_GRAVITYWELLDESTROYED, .3, false);
+    mSound->loadTrack("assets/sounds/gravitywelldestroyed.wav", SOUNDID_GRAVITYWELLABSORBED, .1, false);
+    mSound->loadTrack("assets/sounds/gravitywellhit.wav", SOUNDID_GRAVITYWELLHIT, .3, false);
+    mSound->loadTrack("assets/sounds/gravitywellalert.wav", SOUNDID_GRAVITYWELLALERT, .5, false);
+    mSound->loadTrack("assets/sounds/gravitywellexplode.wav", SOUNDID_GRAVITYWELLEXPLODE, .5, false);
 
-    mSound->loadTrack("sounds/repulsor.wav", SOUNDID_REPULSORA, .4, true);
-    mSound->loadTrack("sounds/repulsor.wav", SOUNDID_REPULSORB, .4, true);
-    mSound->loadTrack("sounds/repulsor.wav", SOUNDID_REPULSORC, .4, true);
-    mSound->loadTrack("sounds/repulsor.wav", SOUNDID_REPULSORD, .4, true);
+    mSound->loadTrack("assets/sounds/repulsor.wav", SOUNDID_REPULSORA, .4, true);
+    mSound->loadTrack("assets/sounds/repulsor.wav", SOUNDID_REPULSORB, .4, true);
+    mSound->loadTrack("assets/sounds/repulsor.wav", SOUNDID_REPULSORC, .4, true);
+    mSound->loadTrack("assets/sounds/repulsor.wav", SOUNDID_REPULSORD, .4, true);
 
-    mSound->loadTrack("sounds/gravitywellhumloop.wav", SOUNDID_GRAVITYWELL_HUMLOOPA, .3, true);
-    mSound->loadTrack("sounds/gravitywellhumloop.wav", SOUNDID_GRAVITYWELL_HUMLOOPB, .3, true);
-    mSound->loadTrack("sounds/gravitywellhumloop.wav", SOUNDID_GRAVITYWELL_HUMLOOPC, .3, true);
-    mSound->loadTrack("sounds/gravitywellhumloop.wav", SOUNDID_GRAVITYWELL_HUMLOOPD, .3, true);
-    mSound->loadTrack("sounds/gravitywellhumloop.wav", SOUNDID_GRAVITYWELL_HUMLOOPE, .3, true);
-    mSound->loadTrack("sounds/gravitywellhumloop.wav", SOUNDID_GRAVITYWELL_HUMLOOPF, .3, true);
+    mSound->loadTrack("assets/sounds/gravitywellhumloop.wav", SOUNDID_GRAVITYWELL_HUMLOOPA, .3, true);
+    mSound->loadTrack("assets/sounds/gravitywellhumloop.wav", SOUNDID_GRAVITYWELL_HUMLOOPB, .3, true);
+    mSound->loadTrack("assets/sounds/gravitywellhumloop.wav", SOUNDID_GRAVITYWELL_HUMLOOPC, .3, true);
+    mSound->loadTrack("assets/sounds/gravitywellhumloop.wav", SOUNDID_GRAVITYWELL_HUMLOOPD, .3, true);
+    mSound->loadTrack("assets/sounds/gravitywellhumloop.wav", SOUNDID_GRAVITYWELL_HUMLOOPE, .3, true);
+    mSound->loadTrack("assets/sounds/gravitywellhumloop.wav", SOUNDID_GRAVITYWELL_HUMLOOPF, .3, true);
 
-    mSound->loadTrack("sounds/enemyspawn1.wav", SOUNDID_ENEMYSPAWN1, .5, false);
-    mSound->loadTrack("sounds/enemyspawn2.wav", SOUNDID_ENEMYSPAWN2, .5, false);
-    mSound->loadTrack("sounds/enemyspawn3.wav", SOUNDID_ENEMYSPAWN3, .5, false);
-    mSound->loadTrack("sounds/enemyspawn4.wav", SOUNDID_ENEMYSPAWN4, .5, false);
-    mSound->loadTrack("sounds/enemyspawn5.wav", SOUNDID_ENEMYSPAWN5, .3, false);
-    mSound->loadTrack("sounds/enemyspawn6.wav", SOUNDID_ENEMYSPAWN6, .3, false);
+    mSound->loadTrack("assets/sounds/enemyspawn1.wav", SOUNDID_ENEMYSPAWN1, .5, false);
+    mSound->loadTrack("assets/sounds/enemyspawn2.wav", SOUNDID_ENEMYSPAWN2, .5, false);
+    mSound->loadTrack("assets/sounds/enemyspawn3.wav", SOUNDID_ENEMYSPAWN3, .5, false);
+    mSound->loadTrack("assets/sounds/enemyspawn4.wav", SOUNDID_ENEMYSPAWN4, .5, false);
+    mSound->loadTrack("assets/sounds/enemyspawn5.wav", SOUNDID_ENEMYSPAWN5, .3, false);
+    mSound->loadTrack("assets/sounds/enemyspawn6.wav", SOUNDID_ENEMYSPAWN6, .3, false);
 
-    mSound->loadTrack("sounds/enemyhit.wav", SOUNDID_ENEMYHIT, .5, false);
+    mSound->loadTrack("assets/sounds/enemyhit.wav", SOUNDID_ENEMYHIT, .5, false);
 
-    mSound->loadTrack("sounds/mayflies.wav", SOUNDID_MAYFLIES, .1, true);
+    mSound->loadTrack("assets/sounds/mayflies.wav", SOUNDID_MAYFLIES, .1, true);
 
-    mSound->loadTrack("sounds/playerfire1.wav", SOUNDID_PLAYERFIRE1, .9, true);
-    mSound->loadTrack("sounds/playerfire2.wav", SOUNDID_PLAYERFIRE2, .5, true);
-    mSound->loadTrack("sounds/playerfire3.wav", SOUNDID_PLAYERFIRE3, .8, true);
+    mSound->loadTrack("assets/sounds/playerfire1.wav", SOUNDID_PLAYERFIRE1, .9, true);
+    mSound->loadTrack("assets/sounds/playerfire2.wav", SOUNDID_PLAYERFIRE2, .5, true);
+    mSound->loadTrack("assets/sounds/playerfire3.wav", SOUNDID_PLAYERFIRE3, .8, true);
 
     mSound->startSound();
 

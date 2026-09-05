@@ -1,11 +1,11 @@
-#include "defines.hpp"
-#include "entityrepulsor.hpp"
-#include "enemies.hpp"
-#include "entityPlayer1.hpp"
-#include "entityline.hpp"
-#include "game.hpp"
-#include "grid.hpp"
-#include "players.hpp"
+#include "math/defines.hpp"
+#include "entities/entityrepulsor.hpp"
+#include "entities/enemies.hpp"
+#include "entities/entityPlayer1.hpp"
+#include "entities/entityline.hpp"
+#include "core/game.hpp"
+#include "render/grid.hpp"
+#include "entities/players.hpp"
 
 class entityRepulsorShieldLine : public entity
 {

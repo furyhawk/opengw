@@ -1,8 +1,8 @@
 #pragma once
 
-#include "matrix.hpp"
-#include "point3d.hpp"
-#include "vector.hpp"
+#include "math/matrix.hpp"
+#include "math/point3d.hpp"
+#include "math/vector.hpp"
 
 #include <vector>
 

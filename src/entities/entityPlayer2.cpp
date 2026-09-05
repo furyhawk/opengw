@@ -1,6 +1,6 @@
-#include "entityPlayer2.hpp"
-#include "game.hpp"
-#include "grid.hpp"
+#include "entities/entityPlayer2.hpp"
+#include "core/game.hpp"
+#include "render/grid.hpp"
 
 entityPlayer2::entityPlayer2()
     : player()

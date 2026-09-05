@@ -1,7 +1,7 @@
 #pragma once
 
-#include "point3d.hpp"
-#include "vector.hpp"
+#include "math/point3d.hpp"
+#include "math/vector.hpp"
 
 #include <vector>
 

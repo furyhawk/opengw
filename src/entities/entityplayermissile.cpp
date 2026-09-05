@@ -1,13 +1,13 @@
-#include "attractor.hpp"
-#include "defines.hpp"
-#include "entityplayermissile.hpp"
-#include "enemies.hpp"
-#include "entityblackhole.hpp"
-#include "entityrepulsor.hpp"
-#include "game.hpp"
-#include "grid.hpp"
-#include "particle.hpp"
-#include "players.hpp"
+#include "entities/attractor.hpp"
+#include "math/defines.hpp"
+#include "entities/entityplayermissile.hpp"
+#include "entities/enemies.hpp"
+#include "entities/entityblackhole.hpp"
+#include "entities/entityrepulsor.hpp"
+#include "core/game.hpp"
+#include "render/grid.hpp"
+#include "entities/particle.hpp"
+#include "entities/players.hpp"
 
 entityPlayerMissile::entityPlayerMissile()
     : entity()

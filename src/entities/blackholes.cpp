@@ -1,9 +1,9 @@
-#include "attractor.hpp"
-#include "blackholes.hpp"
-#include "enemies.hpp"
-#include "entityblackhole.hpp"
-#include "game.hpp"
-#include "players.hpp"
+#include "entities/attractor.hpp"
+#include "entities/blackholes.hpp"
+#include "entities/enemies.hpp"
+#include "entities/entityblackhole.hpp"
+#include "core/game.hpp"
+#include "entities/players.hpp"
 
 #include <algorithm>
 

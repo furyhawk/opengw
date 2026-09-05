@@ -1,4 +1,4 @@
-#include "sound.hpp"
+#include "audio/sound.hpp"
 
 #include <cstdio>
 

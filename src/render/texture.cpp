@@ -1,5 +1,5 @@
-#include "texture.hpp"
-#include "lodepng.h"
+#include "render/texture.hpp"
+#include "vendor/lodepng.h"
 
 #include <SDL3/SDL_opengl.h>
 

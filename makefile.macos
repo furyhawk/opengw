@@ -1,13 +1,13 @@
 FRAMEWORK_PATH = /Library/Frameworks
 LIBS = -F $(FRAMEWORK_PATH) -framework SDL3 -framework OpenGL -rpath $(FRAMEWORK_PATH)
-OWN_PATHS = -I.
+OWN_PATHS = -Isrc
 HEADERS = $(OWN_PATHS) -F $(FRAMEWORK_PATH)
 CFLAGS = -std=c++20 -Wall -Wextra -O3 -ggdb
 NAME = opengw
 OBJDIR = obj
 
-ALL_SRC = $(wildcard *.cpp)
-SRC_FILES = $(notdir $(ALL_SRC))
+SRC_DIRS = core entities render audio ui math vendor
+SRC_FILES = $(foreach d,$(SRC_DIRS),$(wildcard src/$(d)/*.cpp))
 OBJ_FILES = $(SRC_FILES:.cpp=.o)
 
 OBJS = $(addprefix $(OBJDIR)/, $(OBJ_FILES))
@@ -29,10 +29,12 @@ all: $(NAME)
 
 # dependencies
 $(OBJDIR)/%.d : %.cpp | $(OBJDIR)
+	@mkdir -p $(dir $@)
 	$(COMPILER) -MM -MP -MT $(@:.d=.o) -o $@ $< $(CFLAGS) $(DEFINES) $(HEADERS)
 
 # compiling
-$(OBJDIR)/%.o : %.cpp
+$(OBJDIR)/%.o : %.cpp | $(OBJDIR)
+	@mkdir -p $(dir $@)
 	$(COMPILER) -o $@ -c $< $(CFLAGS) $(CLANG_FLAGS) $(DEFINES) $(HEADERS)
 
 clean:

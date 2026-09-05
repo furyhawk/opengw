@@ -1,10 +1,10 @@
-#include "bomb.hpp"
-#include "defines.hpp"
-#include "spawner.hpp"
-#include "enemies.hpp"
-#include "game.hpp"
-#include "grid.hpp"
-#include "players.hpp"
+#include "entities/bomb.hpp"
+#include "math/defines.hpp"
+#include "entities/spawner.hpp"
+#include "entities/enemies.hpp"
+#include "core/game.hpp"
+#include "render/grid.hpp"
+#include "entities/players.hpp"
 
 #include <algorithm>
 #include <cmath>

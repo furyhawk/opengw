@@ -1,5 +1,5 @@
-#include "blur.hpp"
-#include "profiler.hpp"
+#include "render/blur.hpp"
+#include "core/profiler.hpp"
 
 #include <vector>
 

@@ -1,7 +1,7 @@
-#include "camera.hpp"
-#include "game.hpp"
-#include "grid.hpp"
-#include "players.hpp"
+#include "core/camera.hpp"
+#include "core/game.hpp"
+#include "render/grid.hpp"
+#include "entities/players.hpp"
 
 static const int zoomedIn = 46;  // 50
 static const int zoomedOut = 72; // 66

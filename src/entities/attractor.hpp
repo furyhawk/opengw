@@ -1,7 +1,7 @@
 #pragma once
 
-#include "particle.hpp"
-#include "point3d.hpp"
+#include "entities/particle.hpp"
+#include "math/point3d.hpp"
 #include <vector>
 
 class attractor

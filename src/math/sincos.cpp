@@ -1,6 +1,6 @@
-#include "defines.hpp"
-#include "mathutils.hpp"
-#include "sincos.hpp"
+#include "math/defines.hpp"
+#include "math/mathutils.hpp"
+#include "math/sincos.hpp"
 
 #include <cmath>
 

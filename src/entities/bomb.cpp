@@ -1,8 +1,8 @@
-#include "attractor.hpp"
-#include "bomb.hpp"
-#include "defines.hpp"
-#include "enemies.hpp"
-#include "game.hpp"
+#include "entities/attractor.hpp"
+#include "entities/bomb.hpp"
+#include "math/defines.hpp"
+#include "entities/enemies.hpp"
+#include "core/game.hpp"
 
 #include <SDL3/SDL_opengl.h>
 

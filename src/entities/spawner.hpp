@@ -1,6 +1,6 @@
 #pragma once
 
-#include "entity.hpp"
+#include "entities/entity.hpp"
 
 const int NUM_WAVEITEMTRACKERS = 200; // Should be set to the maximum number of entities that can spawn during a way
 const int NUM_WAVEDATA = 200;         // The maximum number of simultanious waves

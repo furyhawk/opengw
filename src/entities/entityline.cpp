@@ -1,5 +1,5 @@
-#include "entityline.hpp"
-#include "game.hpp"
+#include "entities/entityline.hpp"
+#include "core/game.hpp"
 
 entityLine::entityLine(void)
 {

@@ -1,10 +1,10 @@
-#include "players.hpp"
-#include "enemies.hpp"
-#include "entityPlayer1.hpp"
-#include "entityPlayer2.hpp"
-#include "entityPlayer3.hpp"
-#include "entityPlayer4.hpp"
-#include "game.hpp"
+#include "entities/players.hpp"
+#include "entities/enemies.hpp"
+#include "entities/entityPlayer1.hpp"
+#include "entities/entityPlayer2.hpp"
+#include "entities/entityPlayer3.hpp"
+#include "entities/entityPlayer4.hpp"
+#include "core/game.hpp"
 
 #include <cstdio>
 

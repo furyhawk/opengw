@@ -1,7 +1,7 @@
 #pragma once
 
-#include "point3d.hpp"
-#include "sincos.hpp"
+#include "math/point3d.hpp"
+#include "math/sincos.hpp"
 
 class matrix
 {

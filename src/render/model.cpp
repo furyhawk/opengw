@@ -1,4 +1,4 @@
-#include "model.hpp"
+#include "render/model.hpp"
 
 #include <SDL3/SDL_opengl.h>
 

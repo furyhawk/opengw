@@ -1,6 +1,6 @@
 #pragma once
 
-#include "entity.hpp"
+#include "entities/entity.hpp"
 
 class entityWeaver : public entity
 {

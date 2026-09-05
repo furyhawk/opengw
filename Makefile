@@ -16,7 +16,7 @@ NAME     := opengw
 OBJDIR   := obj
 
 CXXFLAGS := -std=c++20 -Wall -Wextra -O3 -ggdb
-CPPFLAGS := -I.
+CPPFLAGS := -Isrc
 
 # Optional Clang analyzer / sanitizers (off by default, e.g.):
 #   make CLANG_ADDRESS=-fsanitize=address
@@ -56,9 +56,9 @@ CPPFLAGS += $(SDL_CFLAGS)
 # ---------------------------------------------------------------------------
 # Sources / objects / dependencies
 # ---------------------------------------------------------------------------
-SRC_FILES := $(wildcard *.cpp)
-OBJ_FILES := $(SRC_FILES:.cpp=.o)
-OBJS      := $(addprefix $(OBJDIR)/, $(OBJ_FILES))
+SRC_DIRS  := core entities render audio ui math vendor
+SRC_FILES := $(foreach d,$(SRC_DIRS),$(wildcard src/$(d)/*.cpp))
+OBJS      := $(patsubst %.cpp,$(OBJDIR)/%.o,$(SRC_FILES))
 DEPS      := $(OBJS:.o=.d)
 
 # ---------------------------------------------------------------------------
@@ -86,9 +86,11 @@ $(OBJDIR):
 	mkdir -p $@
 
 $(OBJDIR)/%.d: %.cpp | $(OBJDIR)
+	@mkdir -p $(dir $@)
 	$(CXX) -MM -MP -MT $(@:.d=.o) -o $@ $< $(CXXFLAGS) $(CPPFLAGS)
 
 $(OBJDIR)/%.o: %.cpp | $(OBJDIR)
+	@mkdir -p $(dir $@)
 	$(CXX) -o $@ -c $< $(CXXFLAGS) $(CLANG_FLAGS) $(CPPFLAGS)
 
 # ---------------------------------------------------------------------------

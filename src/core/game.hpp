@@ -1,8 +1,8 @@
 #pragma once
 
-#include "point3d.hpp"
-#include "sound.hpp"
-#include "vector.hpp"
+#include "math/point3d.hpp"
+#include "audio/sound.hpp"
+#include "math/vector.hpp"
 
 #include <memory>
 #include <vector>

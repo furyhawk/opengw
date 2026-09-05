@@ -1,7 +1,7 @@
-#include "enemies.hpp"
-#include "entityblackhole.hpp"
-#include "entityline.hpp"
-#include "game.hpp"
+#include "entities/enemies.hpp"
+#include "entities/entityblackhole.hpp"
+#include "entities/entityline.hpp"
+#include "core/game.hpp"
 
 #include <cstdio>
 

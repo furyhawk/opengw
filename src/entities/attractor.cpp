@@ -1,7 +1,7 @@
-#include "attractor.hpp"
-#include "game.hpp"
-#include "mathutils.hpp"
-#include "settings.hpp"
+#include "entities/attractor.hpp"
+#include "core/game.hpp"
+#include "math/mathutils.hpp"
+#include "core/settings.hpp"
 
 attractor::attractor()
 {

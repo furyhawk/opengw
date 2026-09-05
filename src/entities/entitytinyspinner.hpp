@@ -1,6 +1,6 @@
 #pragma once
 
-#include "entityspinner.hpp"
+#include "entities/entityspinner.hpp"
 
 class game;
 

@@ -1,7 +1,7 @@
-#include "hyperspace.hpp"
-#include "camera.hpp"
-#include "game.hpp"
-#include "mathutils.hpp"
+#include "core/hyperspace.hpp"
+#include "core/camera.hpp"
+#include "core/game.hpp"
+#include "math/mathutils.hpp"
 
 #include <SDL3/SDL_opengl.h>
 

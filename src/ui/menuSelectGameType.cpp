@@ -1,8 +1,8 @@
-#include "controls.hpp"
-#include "game.hpp"
-#include "grid.hpp"
-#include "menuSelectGameType.hpp"
-#include "players.hpp"
+#include "core/controls.hpp"
+#include "core/game.hpp"
+#include "render/grid.hpp"
+#include "ui/menuSelectGameType.hpp"
+#include "entities/players.hpp"
 
 #include <SDL3/SDL_opengl.h>
 

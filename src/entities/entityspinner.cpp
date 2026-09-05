@@ -1,10 +1,10 @@
-#include "entityspinner.hpp"
-#include "enemies.hpp"
-#include "entitytinyspinner.hpp"
-#include "game.hpp"
-#include "grid.hpp"
-#include "players.hpp"
-#include "sincos.hpp"
+#include "entities/entityspinner.hpp"
+#include "entities/enemies.hpp"
+#include "entities/entitytinyspinner.hpp"
+#include "core/game.hpp"
+#include "render/grid.hpp"
+#include "entities/players.hpp"
+#include "math/sincos.hpp"
 
 entitySpinner::entitySpinner(const game& gameRef)
     : entity(), mGame(gameRef)

@@ -10,7 +10,7 @@
 // 13.8
 // 15.1
 
-#include "vector.hpp"
+#include "math/vector.hpp"
 
 namespace font
 {

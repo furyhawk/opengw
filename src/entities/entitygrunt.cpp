@@ -1,7 +1,7 @@
-#include "entitygrunt.hpp"
-#include "game.hpp"
-#include "players.hpp"
-#include "sincos.hpp"
+#include "entities/entitygrunt.hpp"
+#include "core/game.hpp"
+#include "entities/players.hpp"
+#include "math/sincos.hpp"
 
 entityGrunt::entityGrunt(const game& gameRef)
     : entity(), mGame(gameRef)

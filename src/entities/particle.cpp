@@ -1,13 +1,13 @@
-#include "attractor.hpp"
-#include "enemies.hpp"
-#include "entityblackhole.hpp"
-#include "game.hpp"
-#include "grid.hpp"
-#include "mathutils.hpp"
-#include "particle.hpp"
-#include "profiler.hpp"
-#include "settings.hpp"
-#include "scene.hpp"
+#include "entities/attractor.hpp"
+#include "entities/enemies.hpp"
+#include "entities/entityblackhole.hpp"
+#include "core/game.hpp"
+#include "render/grid.hpp"
+#include "math/mathutils.hpp"
+#include "entities/particle.hpp"
+#include "core/profiler.hpp"
+#include "core/settings.hpp"
+#include "render/scene.hpp"
 
 #include <atomic>
 #include <cstdio>

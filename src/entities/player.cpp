@@ -1,9 +1,9 @@
-#include "attractor.hpp"
-#include "bomb.hpp"
-#include "controls.hpp"
-#include "defines.hpp"
-#include "game.hpp"
-#include "player.hpp"
+#include "entities/attractor.hpp"
+#include "entities/bomb.hpp"
+#include "core/controls.hpp"
+#include "math/defines.hpp"
+#include "core/game.hpp"
+#include "entities/player.hpp"
 
 #include <cstdio>
 

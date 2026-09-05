@@ -1,7 +1,7 @@
-#include "entityweaver.hpp"
-#include "entityPlayer1.hpp"
-#include "game.hpp"
-#include "players.hpp"
+#include "entities/entityweaver.hpp"
+#include "entities/entityPlayer1.hpp"
+#include "core/game.hpp"
+#include "entities/players.hpp"
 
 entityWeaver::entityWeaver()
     : entity()
