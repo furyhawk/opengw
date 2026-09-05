@@ -8,7 +8,8 @@
 #include "entities/entity.hpp"
 #include "render/font.hpp"
 #include "core/game.hpp"
-#include "core/gamemodeClassical.hpp"
+#include "core/gamemode.hpp"
+#include "core/gamemodes.hpp"
 #include "render/grid.hpp"
 #include "core/highscore.hpp"
 #include "entities/particle.hpp"
@@ -539,9 +540,14 @@ void game::startGame(GameType gameType)
 {
     mGameType = gameType;
 
-    // Enter the selected gameplay mode. Only "Classical" exists so far; more
-    // modes can be created and selected here later.
-    mMode = std::make_unique<classical_mode>();
+    // Enter the gameplay mode selected on the title menu (see the
+    // gameplaymodes registry for the available modes).
+    mMode = gameplaymodes::create(mModeIndex);
+    if (!mMode) {
+        // Defensive: an out-of-range index falls back to Classical.
+        mModeIndex = 0;
+        mMode = gameplaymodes::create(mModeIndex);
+    }
     printf("Starting gameplay mode: %s\n", mMode->name());
 
     mMode->begin_match(*this);

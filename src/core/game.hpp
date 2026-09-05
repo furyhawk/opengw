@@ -164,6 +164,12 @@ class game
     std::unique_ptr<bomb> mBomb;
     std::unique_ptr<highscore> mHighscore;
 
+    // The gameplay mode the next match will run: an index into the
+    // gameplaymodes registry (gameplaymodes::name()/create()). Chosen from
+    // the title menu's "GAME MODE" row and used by startGame(). Defaults to
+    // Classical (index 0) and is kept for the session (not persisted).
+    int mModeIndex { 0 };
+
     static GameMode mGameMode;
 
     static GameType mGameType;

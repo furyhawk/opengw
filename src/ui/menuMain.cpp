@@ -1,6 +1,7 @@
 #include "ui/menuMain.hpp"
 
 #include "core/game.hpp"
+#include "core/gamemodes.hpp"
 #include "math/vector.hpp"
 #include "render/font.hpp"
 #include "render/gl3.h"
@@ -9,17 +10,19 @@
 #include "ui/menuSelectGameType.hpp"
 #include "ui/menuSettings.hpp"
 
+#include <cstdio>
 #include <cstring>
 
 namespace menuMain {
 
 namespace {
 
-constexpr int kNumItems = 4;
+constexpr int kNumItems = 5;
 
 enum Item
 {
     ITEM_START_GAME = 0,
+    ITEM_GAME_MODE, // cycles the gameplay mode (gameplaymodes registry)
     ITEM_TOP_SCORES,
     ITEM_SETTINGS,
     ITEM_QUIT_GAME
@@ -27,12 +30,25 @@ enum Item
 
 const char* const kItemLabels[kNumItems] = {
     "START GAME",
+    "GAME MODE",
     "TOP SCORES",
     "SETTINGS",
     "QUIT GAME"
 };
 
 menuCommon::State sState;
+
+// Advance the selected gameplay mode by `dir` (+1 next, -1 previous) within
+// the modes available in the gameplaymodes registry. Ignored while there is
+// only one mode to choose from.
+void advanceGameMode(int dir)
+{
+    const int n = gameplaymodes::count();
+    if (n < 2)
+        return;
+    theGame->mModeIndex = (theGame->mModeIndex + dir + n) % n;
+    theGame->mSound->playTrack(SOUNDID_MENU_SELECT);
+}
 
 } // namespace
 
@@ -59,6 +75,14 @@ void run()
         theGame->mSound->playTrack(SOUNDID_MENU_SELECT);
     }
 
+    // --- Change the gameplay mode on the GAME MODE row --------------------
+    if (sState.selection == ITEM_GAME_MODE) {
+        const int hDir = menuCommon::updateHorizontal(sState);
+        if (hDir != 0) {
+            advanceGameMode(hDir);
+        }
+    }
+
     // --- Back / options button: shortcut to the settings screen ------------
     if (menuCommon::backEdge(sState)) {
         theGame->mSound->playTrack(SOUNDID_MENU_SELECT);
@@ -82,6 +106,10 @@ void run()
             game::mMenuScreen = game::MENU_NONE;
             break;
         }
+        case ITEM_GAME_MODE:
+            // Confirm cycles the mode, matching the stepped rows elsewhere.
+            advanceGameMode(+1);
+            break;
         case ITEM_TOP_SCORES:
             menuHighScores::init();
             game::mMenuScreen = game::MENU_HIGHSCORES;
@@ -106,7 +134,7 @@ void draw()
     menuCommon::drawScrim(-0.20f, -0.95f);
 
     constexpr float kScale = 0.02f;
-    constexpr float kRowStep = 0.13f;
+    constexpr float kRowStep = 0.115f;
     constexpr float kFirstY = -0.22f;
 
     for (int i = 0; i < kNumItems; ++i) {
@@ -119,7 +147,16 @@ void draw()
                                          : vector::pen(0.5f, 0.5f, 0.5f, 0.3f, 3);
 
         font::AlphanumericsPrint(font::ALIGN_CENTER, kScale, -0.06f, y, &markerPen, ">");
-        font::AlphanumericsPrint(font::ALIGN_CENTER, kScale, 0.0f, y, &pen, "%s", kItemLabels[i]);
+
+        // The GAME MODE row shows the currently selected mode so changing it
+        // with Left/Right (or confirm) has visible feedback.
+        if (i == ITEM_GAME_MODE) {
+            char label[64];
+            snprintf(label, sizeof(label), "%s  %s", kItemLabels[i], gameplaymodes::name(theGame->mModeIndex));
+            font::AlphanumericsPrint(font::ALIGN_CENTER, kScale, 0.0f, y, &pen, "%s", label);
+        } else {
+            font::AlphanumericsPrint(font::ALIGN_CENTER, kScale, 0.0f, y, &pen, "%s", kItemLabels[i]);
+        }
     }
 
     // --- Help footer --------------------------------------------------------
