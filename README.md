@@ -1,11 +1,12 @@
-# OpenGW — Open Geometry Wars
+# Trigonometry Wars
 
-OpenGW is an open-source, twin-stick arena shooter inspired by *Geometry Wars*.
-Control a small neon ship on a vector-style grid, dodge swarms of enemies,
-survive as long as you can and chase the high score.
+Trigonometry Wars is an open-source, twin-stick arena shooter inspired by
+*Geometry Wars*. Control a small neon ship on a vector-style grid, dodge swarms
+of enemies, survive as long as you can and chase the high score.
 
-This repository is a **SDL3** (previously SDL2) port of the original
-[OpenGW project](https://sourceforge.net/projects/opengw/), modernised to C++20.
+This repository began as an **SDL3** (previously SDL2) port of the original
+[OpenGW project](https://sourceforge.net/projects/opengw/), modernised to
+C++20, and is now developed as **Trigonometry Wars**.
 
 The renderer has been modernised to **OpenGL 3.3 core profile**: the legacy
 fixed-function pipeline (`glBegin`/`glEnd`, GLU, CPU blur read-back) has been
@@ -46,7 +47,7 @@ macOS framework install or via `pkg-config` (e.g. Homebrew / Linux distro
 packages).
 
 ```sh
-make            # build the game (produces ./opengw)
+make            # build the game (produces ./trigwars)
 make run        # build and run
 make clean      # remove build objects and the binary
 make help       # show available targets
@@ -137,5 +138,5 @@ Run `make` from the repo root so the CWD-relative `assets/…` and
 
 GPL-3.0 — see [`gpl-3.0.txt`](gpl-3.0.txt).
 
-Original game by the OpenGW project on SourceForge; SDL3/C++20 port maintained
-separately on GitHub.
+Original game by the OpenGW project on SourceForge; this SDL3/C++20 port of it
+is maintained here as Trigonometry Wars.

@@ -173,7 +173,7 @@ class game
     static int mCredits;
 
     // Set to request a clean shutdown of the whole application (checked by the
-    // host main loop in OpenGW.cpp).
+    // host main loop in trigwars.cpp).
     static bool mQuitRequested;
 
     // The front-end overlay currently shown (see MenuScreen).

@@ -1,7 +1,7 @@
 #pragma once
 
 // ---------------------------------------------------------------------------
-// gl3.h — Modern OpenGL 3.3 core render backend for OpenGW
+// gl3.h — Modern OpenGL 3.3 core render backend for Trigonometry Wars
 //
 // This header is the single graphics entry point for the game.  It provides:
 //
@@ -46,7 +46,7 @@ using GLchar = char;
 using GLvoid = void;
 
 // ---------------------------------------------------------------------------
-// Constants (subset actually used by OpenGW; standard GL values)
+// Constants (subset actually used by Trigonometry Wars; standard GL values)
 // ---------------------------------------------------------------------------
 #define GL_FALSE 0
 #define GL_TRUE 1
@@ -237,7 +237,7 @@ void gfx_build2dmipmaps(GLenum target, GLint internalformat, GLsizei width, GLsi
 #define gluBuild2DMipmaps gfx_build2dmipmaps
 
 // ---------------------------------------------------------------------------
-// New backend helpers used by the host app (OpenGW.cpp) — not fixed-function
+// New backend helpers used by the host app (trigwars.cpp) — not fixed-function
 // ---------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {

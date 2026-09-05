@@ -5,7 +5,7 @@ class game;
 // gameplay_mode -------------------------------------------------------------
 // Abstract contract for a playable match mode -- "how a round is played".
 //
-// The original OpenGW match rules (escalating spawner/wave pacing, enemy mix,
+// The original Trigonometry Wars match rules (escalating spawner/wave pacing, enemy mix,
 // scoring/multiplier/weapon/life/bomb rules, lives & shared co-op pools) are
 // encapsulated by classical_mode. The game shell owns exactly one active
 // gameplay_mode at a time and dispatches lifecycle (begin/end) and per-frame

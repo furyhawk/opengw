@@ -88,7 +88,7 @@ int main(int /*argc*/, char** /*argv*/)
         flags |= SDL_WINDOW_FULLSCREEN;
     }
 
-    window = SDL_CreateWindow("OpenGW",
+    window = SDL_CreateWindow("Trigonometry Wars",
                               settings::get().displayWidth, settings::get().displayHeight, flags);
 
     if (window) {
@@ -123,7 +123,7 @@ static bool OGLCreate()
 
     if (context == nullptr) {
         printf("SDL_GL_CreateContext failed: %s\n", SDL_GetError());
-        SDL_ShowSimpleMessageBox(0, "OpenGW - OpenGL error",
+        SDL_ShowSimpleMessageBox(0, "Trigonometry Wars - OpenGL error",
                                  "Could not create an OpenGL 3.3 core context.\n\n"
                                  "This system does not appear to support OpenGL 3.3+.",
                                  window);
@@ -134,7 +134,7 @@ static bool OGLCreate()
         printf("SDL_GL_MakeCurrent failed: %s\n", SDL_GetError());
         SDL_GL_DestroyContext(context);
         context = nullptr;
-        SDL_ShowSimpleMessageBox(0, "OpenGW - OpenGL error",
+        SDL_ShowSimpleMessageBox(0, "Trigonometry Wars - OpenGL error",
                                  "Could not make the OpenGL context current.\n\n"
                                  "Check the console output for details.",
                                  window);
@@ -150,7 +150,7 @@ static bool OGLCreate()
         SDL_GL_MakeCurrent(nullptr, nullptr);
         SDL_GL_DestroyContext(context);
         context = nullptr;
-        SDL_ShowSimpleMessageBox(0, "OpenGW - Shader error",
+        SDL_ShowSimpleMessageBox(0, "Trigonometry Wars - Shader error",
                                  "The modern GL renderer failed to start\n"
                                  "(shader compile/link errors - see console).",
                                  window);
@@ -273,7 +273,7 @@ static void updateFps(Uint32 now)
         frameCount = 0;
 
         char buf[64];
-        snprintf(buf, sizeof(buf), "OpenGW - FPS %d", fps);
+        snprintf(buf, sizeof(buf), "Trigonometry Wars - FPS %d", fps);
         SDL_SetWindowTitle(window, buf);
     }
 }

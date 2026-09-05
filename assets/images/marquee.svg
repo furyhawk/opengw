@@ -1,0 +1,241 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="2048" viewBox="0 0 2048 2048">
+  <defs>
+    <!-- background glow -->
+    <radialGradient id="bgGrad" cx="50%" cy="46%" r="75%">
+      <stop offset="0%"  stop-color="#0a1226"/>
+      <stop offset="45%" stop-color="#05070f"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+
+    <!-- wide bloom behind title -->
+    <radialGradient id="bloom" cx="50%" cy="52%" r="55%">
+      <stop offset="0%"  stop-color="#2fd6ff" stop-opacity="0.10"/>
+      <stop offset="45%" stop-color="#8b5cf6" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- title gradients -->
+    <linearGradient id="gTri" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"  stop-color="#41e8ff"/>
+      <stop offset="55%" stop-color="#4fc3ff"/>
+      <stop offset="100%" stop-color="#b06bff"/>
+    </linearGradient>
+    <linearGradient id="gWars" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"  stop-color="#b06bff"/>
+      <stop offset="55%" stop-color="#ff3df0"/>
+      <stop offset="100%" stop-color="#ff9e3d"/>
+    </linearGradient>
+    <linearGradient id="gSine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"  stop-color="#41e8ff"/>
+      <stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#ff3df0"/>
+    </linearGradient>
+
+    <!-- glow filters -->
+    <filter id="glowSoft" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="blurBig" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="46"/>
+    </filter>
+    <filter id="blurMed" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+    <filter id="blurSmall" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+  </defs>
+
+  <!-- ================= BACKGROUND ================= -->
+  <rect x="0" y="0" width="2048" height="2048" fill="url(#bgGrad)"/>
+  <rect x="0" y="0" width="2048" height="2048" fill="url(#bloom)"/>
+
+  <!-- faint star specks -->
+  <g fill="#cfe9ff">
+    <circle cx="180"  cy="240"  r="3" opacity="0.5"/>
+    <circle cx="330"  cy="150"  r="2" opacity="0.3"/>
+    <circle cx="520"  cy="330"  r="2.4" opacity="0.35"/>
+    <circle cx="760"  cy="170"  r="2" opacity="0.25"/>
+    <circle cx="1280" cy="220"  r="2.6" opacity="0.3"/>
+    <circle cx="1600" cy="140"  r="2" opacity="0.35"/>
+    <circle cx="1860" cy="300"  r="3" opacity="0.4"/>
+    <circle cx="1680" cy="420"  r="2" opacity="0.25"/>
+    <circle cx="90"   cy="620"  r="2" opacity="0.3"/>
+    <circle cx="1900" cy="820"  r="2.4" opacity="0.28"/>
+    <circle cx="140"  cy="1400" r="2" opacity="0.22"/>
+    <circle cx="1930" cy="1600" r="2.6" opacity="0.3"/>
+    <circle cx="250"  cy="1820" r="2" opacity="0.25"/>
+    <circle cx="1700" cy="1900" r="2.4" opacity="0.3"/>
+    <circle cx="400"  cy="200"  r="1.6" opacity="0.4"/>
+    <circle cx="200"  cy="1010" r="1.8" opacity="0.2"/>
+    <circle cx="1850" cy="300"  r="1.6" opacity="0.3"/>
+    <circle cx="1450" cy="620"  r="1.8" opacity="0.2"/>
+  </g>
+
+  <!-- corner reticle brackets -->
+  <g stroke="#3de8ff" stroke-width="4" fill="none" opacity="0.35">
+    <path d="M70 130 V70 H130"/>
+    <path d="M1978 130 V70 H1918"/>
+    <path d="M70 1918 V1978 H130"/>
+    <path d="M1978 1918 V1978 H1918"/>
+  </g>
+
+  <!-- ============ UNIT CIRCLE EMBLEM (crest) ============ -->
+  <g id="emblem" transform="translate(1024,548)">
+    <!-- faint halo -->
+    <circle cx="0" cy="0" r="248" fill="none" stroke="#41e8ff" stroke-width="2" opacity="0.12" filter="url(#blurMed)"/>
+    <!-- spokes every 15deg -->
+    <g stroke="#9fdfff" stroke-width="2" opacity="0.35">
+      <line x1="0" y1="0" x2="190" y2="0"/>
+      <line x1="0" y1="0" x2="-190" y2="0"/>
+      <line x1="0" y1="0" x2="0" y2="-190"/>
+      <line x1="0" y1="0" x2="0" y2="190"/>
+    </g>
+    <!-- ring -->
+    <circle cx="0" cy="0" r="190" fill="none" stroke="#3de8ff" stroke-width="7" filter="url(#glowSoft)"/>
+    <!-- degree ticks -->
+    <g stroke="#8fe4ff" opacity="0.6">
+      <!-- cardinal 0/90/180/270 stronger -->
+      <line x1="183" y1="0"  x2="196" y2="0"   stroke-width="6"/>
+      <line x1="-183" y1="0"  x2="-196" y2="0" stroke-width="6"/>
+      <line x1="0" y1="-183" x2="0" y2="-196" stroke-width="6"/>
+      <line x1="0" y1="183"  x2="0" y2="196"  stroke-width="6"/>
+      <!-- 30 deg steps -->
+      <g stroke-width="4">
+        <line x1="158" y1="-91" x2="170" y2="-98"/>
+        <line x1="-158" y1="-91" x2="-170" y2="-98"/>
+        <line x1="158" y1="91"  x2="170" y2="98"/>
+        <line x1="-158" y1="91"  x2="-170" y2="98"/>
+        <line x1="91" y1="-158" x2="98" y2="-170"/>
+        <line x1="-91" y1="-158" x2="-98" y2="-170"/>
+        <line x1="91" y1="158"  x2="98" y2="170"/>
+        <line x1="-91" y1="158"  x2="-98" y2="170"/>
+      </g>
+    </g>
+    <!-- unit-circle triangle: radius at 30deg (pi/6) -->
+    <g>
+      <path d="M0 0 L164.5 -95 L164.5 0 Z" fill="#ff3df0" opacity="0.10"/>
+      <line x1="0" y1="0" x2="164.5" y2="-95" stroke="#ffffff" stroke-width="8" filter="url(#blurSmall)" opacity="0.9"/>
+      <line x1="0" y1="0" x2="164.5" y2="-95" stroke="#fff" stroke-width="5"/>
+      <line x1="164.5" y1="-95" x2="164.5" y2="0" stroke="#41e8ff" stroke-width="5" stroke-dasharray="10 8" filter="url(#blurSmall)" opacity="0.95"/>
+      <line x1="164.5" y1="-95" x2="164.5" y2="0" stroke="#7ef4ff" stroke-width="3" stroke-dasharray="10 8"/>
+      <line x1="0" y1="0" x2="164.5" y2="0" stroke="#b06bff" stroke-width="3" opacity="0.8"/>
+      <!-- right angle marker -->
+      <path d="M150 0 L150 -14 L164.5 -14" fill="none" stroke="#fff" stroke-width="4"/>
+      <!-- endpoint dot -->
+      <circle cx="164.5" cy="-95" r="9" fill="#fff"/>
+      <circle cx="164.5" cy="-95" r="14" fill="none" stroke="#ff3df0" stroke-width="4" opacity="0.8"/>
+      <!-- angle arc 0..30 -->
+      <path d="M40 0 A40 40 0 0 0 34.6 -20" fill="none" stroke="#ffcf3d" stroke-width="5"/>
+      <!-- labels -->
+      <g font-family="'Arial Black','Impact',sans-serif" fill="#ffcf3d">
+        <text x="60" y="-18" font-size="30">θ</text>
+      </g>
+      <g font-family="'Arial Black','Impact',sans-serif" fill="#ff9e3d">
+        <text x="196" y="-120" font-size="34">π/6</text>
+      </g>
+      <g font-family="'Arial Black','Impact',sans-serif" fill="#9fe8ff">
+        <text x="212" y="6" font-size="30">1</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ============ TITLE ============ -->
+  <!-- TRIGONOMETRY outer glow -->
+  <g font-family="'Arial Black','Arial Rounded Bold','Impact',sans-serif"
+     text-anchor="middle" font-size="152" letter-spacing="28" filter="url(#blurBig)">
+    <text x="1024" y="1010" fill="#2fd6ff" opacity="0.9">TRIGONOMETRY</text>
+  </g>
+  <g font-family="'Arial Black','Arial Rounded Bold','Impact',sans-serif"
+     text-anchor="middle" font-size="152" letter-spacing="28" filter="url(#blurMed)">
+    <text x="1024" y="1010" fill="#ff3df0" opacity="0.8">TRIGONOMETRY</text>
+  </g>
+  <g font-family="'Arial Black','Arial Rounded Bold','Impact',sans-serif"
+     text-anchor="middle" font-size="152" letter-spacing="28">
+    <text x="1024" y="1010" fill="url(#gTri)">TRIGONOMETRY</text>
+  </g>
+  <!-- TRIGONOMETRY subtle edge highlight -->
+  <g font-family="'Arial Black','Arial Rounded Bold','Impact',sans-serif"
+     text-anchor="middle" font-size="152" letter-spacing="28" stroke="#eafcff" stroke-width="2.5" fill="none" opacity="0.9">
+    <text x="1024" y="1010">TRIGONOMETRY</text>
+  </g>
+
+  <!-- WARS glow -->
+  <g font-family="'Arial Black','Impact',sans-serif"
+     text-anchor="middle" font-size="330" letter-spacing="50" filter="url(#blurBig)">
+    <text x="1024" y="1405" fill="#ff3df0" opacity="0.95">WARS</text>
+  </g>
+  <g font-family="'Arial Black','Impact',sans-serif"
+     text-anchor="middle" font-size="330" letter-spacing="50" filter="url(#blurMed)">
+    <text x="1024" y="1405" fill="#ffcf3d" opacity="0.85">WARS</text>
+  </g>
+  <g font-family="'Arial Black','Impact',sans-serif"
+     text-anchor="middle" font-size="330" letter-spacing="50">
+    <text x="1024" y="1405" fill="url(#gWars)">WARS</text>
+  </g>
+  <g font-family="'Arial Black','Impact',sans-serif"
+     text-anchor="middle" font-size="330" letter-spacing="50" stroke="#fff0fb" stroke-width="4" fill="none" opacity="0.95">
+    <text x="1024" y="1405">WARS</text>
+  </g>
+
+  <!-- ============ SINE WAVE underline ============ -->
+  <g fill="none" stroke-linecap="round">
+    <!-- wide glow -->
+    <path d="M120 1700
+             C 260 1630, 380 1630, 500 1700
+             S 740 1770, 860 1700
+             S 1100 1630, 1220 1700
+             S 1460 1770, 1580 1700
+             S 1820 1630, 1928 1690"
+          stroke="url(#gSine)" stroke-width="16" opacity="0.55" filter="url(#blurMed)"/>
+    <path d="M120 1700
+             C 260 1630, 380 1630, 500 1700
+             S 740 1770, 860 1700
+             S 1100 1630, 1220 1700
+             S 1460 1770, 1580 1700
+             S 1820 1630, 1928 1690"
+          stroke="#ffffff" stroke-width="6"/>
+    <path d="M120 1700
+             C 260 1630, 380 1630, 500 1700
+             S 740 1770, 860 1700
+             S 1100 1630, 1220 1700
+             S 1460 1770, 1580 1700
+             S 1820 1630, 1928 1690"
+          stroke="url(#gSine)" stroke-width="3" opacity="0.95"/>
+  </g>
+
+  <!-- small tangent ticks riding the sine crests/troughs -->
+  <g stroke="#ffffff" stroke-width="4" opacity="0.9">
+    <line x1="340" y1="1630" x2="340" y2="1668"/>
+    <line x1="700" y1="1770" x2="700" y2="1732"/>
+    <line x1="1060" y1="1630" x2="1060" y2="1668"/>
+    <line x1="1420" y1="1770" x2="1420" y2="1732"/>
+    <line x1="1780" y1="1630" x2="1780" y2="1668"/>
+  </g>
+
+  <!-- ============ TOP CORNER TAG: RAD(R) ============ -->
+  <g font-family="'Arial Black','Arial Rounded Bold',sans-serif">
+    <text x="1800" y="205" text-anchor="end" font-size="84" letter-spacing="6"
+          fill="#9fe8ff" opacity="0.9" filter="url(#blurMed)">RAD</text>
+    <text x="1800" y="205" text-anchor="end" font-size="84" letter-spacing="6"
+          fill="#d8f6ff">RAD</text>
+  </g>
+  <g font-family="'Arial Black',sans-serif">
+    <text x="1832" y="150" font-size="40" fill="#ffcf3d">®</text>
+  </g>
+  <!-- thin rule next to tag -->
+  <line x1="1520" y1="168" x2="1660" y2="168" stroke="#41e8ff" stroke-width="3" opacity="0.4"/>
+  <circle cx="1520" cy="168" r="6" fill="#41e8ff" opacity="0.5"/>
+
+  <!-- faint angle-fan rising behind lower area -->
+  <g stroke="#3de8ff" stroke-width="2" opacity="0.13" transform="translate(1024,2048)">
+    <line x1="0" y1="0" x2="-760" y2="-460"/>
+    <line x1="0" y1="0" x2="-560" y2="-600"/>
+    <line x1="0" y1="0" x2="-300" y2="-640"/>
+    <line x1="0" y1="0" x2="300" y2="-640"/>
+    <line x1="0" y1="0" x2="560" y2="-600"/>
+    <line x1="0" y1="0" x2="760" y2="-460"/>
+    <path d="M-760 -460 A 889 889 0 0 1 760 -460" fill="none"/>
+  </g>
+</svg>

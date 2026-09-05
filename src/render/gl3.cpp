@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// gl3.cpp — Modern OpenGL 3.3 core render backend for OpenGW
+// gl3.cpp — Modern OpenGL 3.3 core render backend for Trigonometry Wars
 //
 // Implements the fixed-function-compatible API declared in gl3.h on top of a
 // real modern OpenGL 3.3 core pipeline:

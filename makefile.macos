@@ -3,7 +3,7 @@ LIBS = -F $(FRAMEWORK_PATH) -framework SDL3 -framework OpenGL -rpath $(FRAMEWORK
 OWN_PATHS = -Isrc
 HEADERS = $(OWN_PATHS) -F $(FRAMEWORK_PATH)
 CFLAGS = -std=c++20 -Wall -Wextra -O3 -ggdb
-NAME = opengw
+NAME = trigwars
 OBJDIR = obj
 
 SRC_DIRS = core entities render audio ui math vendor

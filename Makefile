@@ -1,4 +1,4 @@
-# OpenGW - Open Geometry Wars
+# Trigonometry Wars
 #
 # Canonical cross-platform makefile. `make` auto-detects the OS and picks up
 # SDL3 from either the macOS framework install or pkg-config (Homebrew /
@@ -6,13 +6,13 @@
 # also provided and remain supported.
 #
 # Targets:
-#   make        - build the game (produces ./opengw)
+#   make        - build the game (produces ./trigwars)
 #   make run    - build and run the game
 #   make clean  - remove build objects and the binary
 #   make help   - show this help text
 
 CXX      ?= c++
-NAME     := opengw
+NAME     := trigwars
 OBJDIR   := obj
 
 CXXFLAGS := -std=c++20 -Wall -Wextra -O3 -ggdb
@@ -67,7 +67,7 @@ DEPS      := $(OBJS:.o=.d)
 all: $(NAME)
 
 help:
-	@echo "OpenGW build targets:"
+	@echo "Trigonometry Wars build targets:"
 	@echo "  make          - build the game (./$(NAME))"
 	@echo "  make run      - build and run the game"
 	@echo "  make clean    - remove build objects and the binary"

@@ -5,7 +5,7 @@
 class game;
 
 // classical_mode ------------------------------------------------------------
-// The original OpenGW match mode, now exposed as a gameplay_mode named
+// The original Trigonometry Wars match mode, now exposed as a gameplay_mode named
 // "Classical": twin-stick arena survival with ever-tightening enemy waves,
 // multiplier / weapon / extra-life / extra-bomb scoring and a shared co-op
 // life pool.
