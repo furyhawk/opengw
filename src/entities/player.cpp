@@ -3,6 +3,7 @@
 #include "core/controls.hpp"
 #include "math/defines.hpp"
 #include "core/game.hpp"
+#include "core/gamemode.hpp"
 #include "entities/player.hpp"
 
 #include <cstdio>
@@ -810,38 +811,37 @@ int player::getNumLives()
 {
     if (theGame->numPlayers() == 1)
         return mNumLives;
-    else
-        return game::m2PlayerNumLives;
+    // Co-op: lives come from the active mode's shared pool.
+    gameplay_mode* mode = theGame->activeMode();
+    return mode ? mode->shared_lives() : 0;
 }
 
 int player::getNumBombs()
 {
     if (theGame->numPlayers() == 1)
         return mNumBombs;
-    else
-        return game::m2PlayerNumBombs;
+    // Co-op: bombs come from the active mode's shared pool.
+    gameplay_mode* mode = theGame->activeMode();
+    return mode ? mode->shared_bombs() : 0;
 }
 
 void player::addLife()
 {
     if (theGame->numPlayers() == 1)
         ++mNumLives;
-    else
-        ++game::m2PlayerNumLives;
+    else if (gameplay_mode* mode = theGame->activeMode())
+        mode->add_shared_life();
 }
 
 void player::takeLife()
 {
     if (theGame->numPlayers() == 1)
         --mNumLives;
-    else
-        --game::m2PlayerNumLives;
+    else if (gameplay_mode* mode = theGame->activeMode())
+        mode->take_shared_life();
 
     if (mNumLives < 0)
         mNumLives = 0;
-
-    if (game::m2PlayerNumLives < 0)
-        game::m2PlayerNumLives = 0;
 }
 
 void player::addBomb()

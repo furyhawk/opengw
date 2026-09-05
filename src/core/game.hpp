@@ -12,9 +12,11 @@ class attractor;
 class blackholes;
 class bomb;
 class camera;
+class classical_mode;
 class controls;
 class enemies;
 class entity;
+class gameplay_mode;
 class grid;
 class highscore;
 class particle;
@@ -128,6 +130,10 @@ class game
     player* getPlayer3() const;
     player* getPlayer4() const;
 
+    // The gameplay mode currently running a match (null when no match is
+    // active, e.g. in attract mode / menus).
+    gameplay_mode* activeMode() const { return mMode.get(); }
+
     std::unique_ptr<sound> mSound;
     std::unique_ptr<grid> mGrid;
     std::unique_ptr<enemies> mEnemies;
@@ -142,8 +148,6 @@ class game
     std::unique_ptr<bomb> mBomb;
     std::unique_ptr<highscore> mHighscore;
 
-    static int mSkillLevel;
-
     static GameMode mGameMode;
 
     static GameType mGameType;
@@ -151,12 +155,12 @@ class game
     static bool mPaused;
 
     static int mCredits;
-    static int mLevel;
-
-    static int m2PlayerNumLives;
-    static int m2PlayerNumBombs;
 
   private:
+    // classical_mode is granted access so it can drive the shared subsystems
+    // (players, spawner, ...) and read the shell's brightness/fade state.
+    friend class classical_mode;
+
     typedef struct
     {
         Point3d pos;
@@ -172,11 +176,16 @@ class game
     void drawPointDisplays();
     void clearPointDisplays();
 
-    float mMusicSpeed { 0.0f };
-    float mMusicSpeedTarget { 0.0f };
+    // Always-on world FX shared between a running match (drawn via the active
+    // mode) and the attract-mode fireworks behind the menus.
+    void drawParticles(int pass);
+    void drawStars(int pass);
+
+    // The active gameplay mode (set by startGame(), cleared when the run
+    // returns to attract mode).
+    std::unique_ptr<gameplay_mode> mMode;
 
     int mGameOverTimer { 0 };
-    int mWeaponChangeTimer { 0 };
 
     float mBrightness;
 

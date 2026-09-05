@@ -8,6 +8,7 @@
 #include "entities/entity.hpp"
 #include "render/font.hpp"
 #include "core/game.hpp"
+#include "core/gamemodeClassical.hpp"
 #include "render/grid.hpp"
 #include "core/highscore.hpp"
 #include "entities/particle.hpp"
@@ -42,15 +43,11 @@
 
 extern std::unique_ptr<scene> oglScene;
 
-int game::mSkillLevel;
 game::GameMode game::mGameMode;
 game::GameType game::mGameType;
 std::vector<game::PointDisplay> game::mPointDisplays;
 bool game::mPaused = false;
 int game::mCredits = 0;
-int game::mLevel = 0;
-int game::m2PlayerNumLives = 0;
-int game::m2PlayerNumBombs = 0;
 
 game::game()
 {
@@ -266,70 +263,10 @@ void game::run()
         break;
     case GAMEMODE_PLAYING:
     {
-        if ((numPlayers() > 1) && (m2PlayerNumLives > 0)) {
-            if (mControls->getStartButton(0) && !getPlayer1()->mJoined) {
-                getPlayer1()->takeLife();
-                getPlayer1()->initPlayerForGame();
-            }
-            if (mControls->getStartButton(1) && !getPlayer2()->mJoined) {
-                getPlayer2()->takeLife();
-                getPlayer2()->initPlayerForGame();
-            }
-            if (mControls->getStartButton(2) && !getPlayer3()->mJoined) {
-                getPlayer3()->takeLife();
-                getPlayer3()->initPlayerForGame();
-            }
-            if (mControls->getStartButton(3) && !getPlayer4()->mJoined) {
-                getPlayer4()->takeLife();
-                getPlayer4()->initPlayerForGame();
-            }
+        // The active gameplay mode (e.g. classical_mode) drives the match.
+        if (mMode) {
+            mMode->update(*this);
         }
-
-        mCamera->followPlayer();
-        mStars->run();
-        mBlackHoles->run();
-        mPlayers->run();
-        mBomb->run();
-        mSpawner->run();
-
-        // Brightness
-        if (mBrightness < 1) {
-            mBrightness += .05;
-        }
-
-        // Music speed
-
-        mMusicSpeedTarget = 1;
-
-        // Slow the music down when someone is respawning
-        if (getPlayer1()->mJoined && (getPlayer1()->getState() == entity::ENTITY_STATE_DESTROYED)) {
-            mMusicSpeedTarget = 0;
-            mMusicSpeed = .5;
-        }
-        if (getPlayer2()->mJoined && (getPlayer2()->getState() == entity::ENTITY_STATE_DESTROYED)) {
-            mMusicSpeedTarget = 0;
-            mMusicSpeed = .5;
-        }
-        if (getPlayer3()->mJoined && (getPlayer3()->getState() == entity::ENTITY_STATE_DESTROYED)) {
-            mMusicSpeedTarget = 0;
-            mMusicSpeed = .5;
-        }
-        if (getPlayer4()->mJoined && (getPlayer4()->getState() == entity::ENTITY_STATE_DESTROYED)) {
-            mMusicSpeedTarget = 0;
-            mMusicSpeed = .5;
-        }
-
-        if (mMusicSpeed < mMusicSpeedTarget) {
-            mMusicSpeed += .005;
-            if (mMusicSpeed > mMusicSpeedTarget)
-                mMusicSpeed = mMusicSpeedTarget;
-        } else if (mMusicSpeed > mMusicSpeedTarget) {
-            mMusicSpeed -= .01;
-            if (mMusicSpeed < mMusicSpeedTarget)
-                mMusicSpeed = mMusicSpeedTarget;
-        }
-
-        mSound->setTrackSpeed(SOUNDID_MUSICLOOP, mMusicSpeed);
     } break;
     case GAMEMODE_HIGHSCORES:
         mHighscore->run();
@@ -354,6 +291,8 @@ void game::run()
 
         ++mGameOverTimer;
         if (mGameOverTimer > 180) {
+            // Back to attract: the match (and its gameplay mode) is over.
+            mMode.reset();
             mGameMode = GAMEMODE_ATTRACT;
             mCamera->mCurrentZoom = 1;
         }
@@ -532,131 +471,63 @@ void game::draw(int pass)
         glTranslatef(-mCamera->mCurrentPos.x, -mCamera->mCurrentPos.y, -mCamera->mCurrentPos.z);
     }
 
-    {
-        // Grid
-        if (((mGameMode == GAMEMODE_PLAYING) || (mGameMode == GAMEMODE_GAMEOVER) || (mGameMode == GAMEMODE_GAMEOVER_TRANSITION))
-#ifndef GRID_GLOW
-            && (pass == scene::RENDERPASS_PRIMARY)
-#endif
-        ) {
-            if (settings::get().mGridSmoothing) {
-                glEnable(GL_LINE_SMOOTH);
-                glEnable(GL_MULTISAMPLE);
-            }
+    if (mMode) {
+        // A match is running (playing or fading out): the active gameplay
+        // mode renders its arena/world.
+        mMode->draw(*this, pass);
+    } else if ((mGameMode == GAMEMODE_ATTRACT) || (mGameMode == GAMEMODE_CREDITED) || (mGameMode == GAMEMODE_CHOOSE_GAMETYPE)
+               || (mGameMode == GAMEMODE_OPTIONS) || (mGameMode == GAMEMODE_HIGHSCORES_CHECK) || (mGameMode == GAMEMODE_HIGHSCORES)) {
+        // No match running: back the menus with the attract-mode FX.
+        drawParticles(pass);
 
-            glLineWidth(6);
-            mGrid->brightness = mBrightness;
-            mGrid->draw();
+        // Stars stay visible (frozen while no match is running).
+        drawStars(pass);
 
-            if (settings::get().mGridSmoothing) {
-                glDisable(GL_MULTISAMPLE);
-                glDisable(GL_LINE_SMOOTH);
-            }
-        }
-
-        // Particles
-        if (pass == scene::RENDERPASS_PRIMARY) {
-            if (settings::get().mParticleSmoothing) {
-                glEnable(GL_LINE_SMOOTH);
-                glEnable(GL_MULTISAMPLE);
-            }
-
-            glLineWidth(4);
-
-            mParticles->draw();
-
-            if (settings::get().mParticleSmoothing) {
-                glDisable(GL_MULTISAMPLE);
-                glDisable(GL_LINE_SMOOTH);
-            }
-        } else {
-#ifdef PARTICLE_GLOW
-            glLineWidth(10);
-            mParticles->draw();
-#endif
-        }
-
-        // Enemies
-        {
-            glLineWidth(4);
-
-            if (pass == scene::RENDERPASS_PRIMARY) {
-                if (settings::get().mEnemySmoothing) {
-                    glEnable(GL_LINE_SMOOTH);
-                    glEnable(GL_MULTISAMPLE);
-                }
-
-                mEnemies->draw();
-
-                if (settings::get().mEnemySmoothing) {
-                    glDisable(GL_MULTISAMPLE);
-                    glDisable(GL_LINE_SMOOTH);
-                }
-            } else {
-                mEnemies->draw();
-            }
-        }
-
-        // Players
-        if (mGameMode == GAMEMODE_PLAYING) {
-            glLineWidth(4);
-            glPointSize(4 / 2);
-
-            if (pass == scene::RENDERPASS_PRIMARY) {
-                if (settings::get().mPlayerSmoothing) {
-                    glEnable(GL_LINE_SMOOTH);
-                    glEnable(GL_MULTISAMPLE);
-                }
-
-                mPlayers->draw();
-
-                if (settings::get().mPlayerSmoothing) {
-                    glDisable(GL_MULTISAMPLE);
-                    glDisable(GL_LINE_SMOOTH);
-                }
-            } else {
-                mPlayers->draw();
-            }
-        } else if (mGameMode == GAMEMODE_CHOOSE_GAMETYPE) {
+        if (mGameMode == GAMEMODE_CHOOSE_GAMETYPE) {
             menuSelectGameType::draw();
         }
+    }
+}
 
-        // Stars
-        if (pass == scene::RENDERPASS_PRIMARY) {
-            if (settings::get().mStarSmoothing) {
-                glEnable(GL_POINT_SMOOTH);
-                glEnable(GL_MULTISAMPLE);
-            }
-
-            mStars->draw();
-
-            if (settings::get().mStarSmoothing) {
-                glDisable(GL_MULTISAMPLE);
-                glDisable(GL_POINT_SMOOTH);
-            }
+void game::drawParticles(int pass)
+{
+    // Particles
+    if (pass == scene::RENDERPASS_PRIMARY) {
+        if (settings::get().mParticleSmoothing) {
+            glEnable(GL_LINE_SMOOTH);
+            glEnable(GL_MULTISAMPLE);
         }
 
-        // Bombs
-        {
-            glLineWidth(4);
-            mBomb->draw();
+        glLineWidth(4);
+
+        mParticles->draw();
+
+        if (settings::get().mParticleSmoothing) {
+            glDisable(GL_MULTISAMPLE);
+            glDisable(GL_LINE_SMOOTH);
+        }
+    } else {
+#ifdef PARTICLE_GLOW
+        glLineWidth(10);
+        mParticles->draw();
+#endif
+    }
+}
+
+void game::drawStars(int pass)
+{
+    // Stars
+    if (pass == scene::RENDERPASS_PRIMARY) {
+        if (settings::get().mStarSmoothing) {
+            glEnable(GL_POINT_SMOOTH);
+            glEnable(GL_MULTISAMPLE);
         }
 
-        // Point displays
-        {
-            glLineWidth(4);
+        mStars->draw();
 
-            if (pass == scene::RENDERPASS_PRIMARY) {
-                glEnable(GL_LINE_SMOOTH);
-                glEnable(GL_MULTISAMPLE);
-
-                drawPointDisplays();
-
-                glDisable(GL_MULTISAMPLE);
-                glDisable(GL_LINE_SMOOTH);
-            } else {
-                drawPointDisplays();
-            }
+        if (settings::get().mStarSmoothing) {
+            glDisable(GL_MULTISAMPLE);
+            glDisable(GL_POINT_SMOOTH);
         }
     }
 }
@@ -665,82 +536,22 @@ void game::startGame(GameType gameType)
 {
     mGameType = gameType;
 
-    mBrightness = -2; // we fade in the grid on start game
+    // Enter the selected gameplay mode. Only "Classical" exists so far; more
+    // modes can be created and selected here later.
+    mMode = std::make_unique<classical_mode>();
+    printf("Starting gameplay mode: %s\n", mMode->name());
 
-    mCamera->center();
-    mCamera->mCurrentZoom = 0;
-
-    mLevel = 0;
-
-    mSkillLevel = 0;
-
-    mSpawner->init();
-
-    // Fire up the players
-    if (getPlayer1()->mJoined) {
-        getPlayer1()->initPlayerForGame();
-    }
-    if (getPlayer2()->mJoined) {
-        getPlayer2()->initPlayerForGame();
-    }
-    if (getPlayer3()->mJoined) {
-        getPlayer3()->initPlayerForGame();
-    }
-    if (getPlayer4()->mJoined) {
-        getPlayer4()->initPlayerForGame();
-    }
-
-    if (numPlayers() > 1) {
-        // Shared lives and bombs
-        m2PlayerNumLives = 10;
-        m2PlayerNumBombs = 0;
-    }
+    mMode->begin_match(*this);
 
     mGameMode = GAMEMODE_PLAYING;
-
-    mMusicSpeed = 1;
-    mMusicSpeedTarget = 1;
-
-    mWeaponChangeTimer = 0;
-
-    mMusicSpeedTarget = 1;
-    mMusicSpeed = 1;
-
-    mSound->stopTrack(SOUNDID_MENU_MUSICLOOP);
-    mSound->playTrack(SOUNDID_MUSICLOOP);
-    mSound->setTrackSpeed(SOUNDID_MUSICLOOP, mMusicSpeed);
-
-    mSound->playTrack(SOUNDID_BACKGROUND_NOISELOOP);
-
-    mParticles->killAll();
 }
 
 void game::endGame()
 {
     // Doesn't actually end the game, just does some work that happens after the last player life is used
-
-    mSound->stopAllTracks();
-
-    mSound->playTrack(SOUNDID_PLAYERDEAD);
-    mSound->playTrack(SOUNDID_MENU_MUSICLOOP);
-
-    // Kill all players
-    getPlayer1()->setState(entity::ENTITY_STATE_INACTIVE);
-    getPlayer2()->setState(entity::ENTITY_STATE_INACTIVE);
-    getPlayer3()->setState(entity::ENTITY_STATE_INACTIVE);
-    getPlayer4()->setState(entity::ENTITY_STATE_INACTIVE);
-
-    getPlayer1()->deinitPlayerForGame();
-    getPlayer2()->deinitPlayerForGame();
-    getPlayer3()->deinitPlayerForGame();
-    getPlayer4()->deinitPlayerForGame();
-
-    // Kill all enemies
-    mEnemies->disableAllEnemies();
-    mEnemies->disableAllLines();
-
-    // Kill all attractors
-    mAttractors->clearAll();
+    if (mMode) {
+        mMode->end_match(*this);
+    }
 }
 
 void game::showMessageAtLocation(char* message, const Point3d& pos, const vector::pen& pen)
