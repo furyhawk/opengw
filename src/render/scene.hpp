@@ -28,6 +28,7 @@ class scene
     void glDisable2D();
 
     void showHighScores();
+    void hideHighScores();
 
     static int mPass;
     static bool mEnableGridGlow;

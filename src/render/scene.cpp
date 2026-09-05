@@ -2,6 +2,7 @@
 #include "render/font.hpp"
 #include "core/game.hpp"
 #include "core/highscore.hpp"
+#include "ui/menuHighScores.hpp"
 #include "ui/menuMain.hpp"
 #include "ui/menuPause.hpp"
 #include "ui/menuSelectGameType.hpp"
@@ -176,6 +177,7 @@ void scene::draw(int pass)
         }
     } else if (((game::mGameMode == game::GAMEMODE_ATTRACT) || (game::mGameMode == game::GAMEMODE_CREDITED))
                && (theGame->mMenuScreen != game::MENU_SETTINGS)
+               && (theGame->mMenuScreen != game::MENU_HIGHSCORES)
                /*|| (game::mGameMode == game::GAMEMODE_HIGHSCORES)*/) {
         float top = .65;
         float bottom = -.4;
@@ -268,6 +270,8 @@ void scene::draw(int pass)
             menuPause::draw();
         } else if (theGame->mMenuScreen == game::MENU_SETTINGS) {
             menuSettings::draw();
+        } else if (theGame->mMenuScreen == game::MENU_HIGHSCORES) {
+            menuHighScores::draw();
         } else if (game::mGameMode == game::GAMEMODE_HIGHSCORES) {
             drawCredits();
             theGame->mHighscore->drawEnterScore();
@@ -591,4 +595,9 @@ void scene::showHighScores()
     }
     mAttractModeTimer = -200;
     mShowHighScores = true;
+}
+
+void scene::hideHighScores()
+{
+    mShowHighScores = false;
 }

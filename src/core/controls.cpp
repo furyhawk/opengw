@@ -259,6 +259,10 @@ Point3d controls::readGamepadLeftStick(int player)
         vector.y = 0;
     }
 
+    // The D-pad shares the left stick's axis layout, so the menus (which poll
+    // the sticks for navigation) and in-game movement both react to it.
+    vector += readGamepadDpad(player);
+
     return vector;
 }
 
@@ -279,6 +283,26 @@ Point3d controls::readGamepadRightStick(int player)
     if (fabs(vector.y) < CLAMPVALUE) {
         vector.y = 0;
     }
+
+    return vector;
+}
+
+Point3d controls::readGamepadDpad(int player)
+{
+    if (!mGamepads[player])
+        return Point3d(0, 0, 0);
+
+    Point3d vector;
+    // The D-pad is a digital 4-way control; map each direction onto the same
+    // axis convention used by the analog sticks (x up/down, y left/right).
+    if (SDL_GetGamepadButton(mGamepads[player], SDL_GAMEPAD_BUTTON_DPAD_UP))
+        vector.x += 1;
+    if (SDL_GetGamepadButton(mGamepads[player], SDL_GAMEPAD_BUTTON_DPAD_DOWN))
+        vector.x -= 1;
+    if (SDL_GetGamepadButton(mGamepads[player], SDL_GAMEPAD_BUTTON_DPAD_LEFT))
+        vector.y += 1;
+    if (SDL_GetGamepadButton(mGamepads[player], SDL_GAMEPAD_BUTTON_DPAD_RIGHT))
+        vector.y -= 1;
 
     return vector;
 }

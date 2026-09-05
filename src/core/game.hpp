@@ -107,9 +107,10 @@ class game
     typedef enum
     {
         MENU_NONE = 0,
-        MENU_TITLE,    // main menu on the title screen
-        MENU_PAUSE,    // pause menu over a running match
-        MENU_SETTINGS  // combined settings screen (from title or pause)
+        MENU_TITLE,       // main menu on the title screen
+        MENU_PAUSE,       // pause menu over a running match
+        MENU_SETTINGS,    // combined settings screen (from title or pause)
+        MENU_HIGHSCORES   // top-scores screen (from the title main menu)
     } MenuScreen;
 
     typedef enum

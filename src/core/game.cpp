@@ -17,6 +17,7 @@
 #include "core/settings.hpp"
 #include "entities/spawner.hpp"
 #include "render/stars.hpp"
+#include "ui/menuHighScores.hpp"
 #include "ui/menuMain.hpp"
 #include "ui/menuPause.hpp"
 #include "ui/menuSelectGameType.hpp"
@@ -280,10 +281,20 @@ void game::run()
 
         ++mGameOverTimer;
         if (mGameOverTimer > 180) {
-            // Back to attract: the match (and its gameplay mode) is over.
+            // The match (and its gameplay mode) is over.
             mMode.reset();
-            mGameMode = GAMEMODE_ATTRACT;
             mCamera->mCurrentZoom = 1;
+
+            // If a single-player score makes the board, offer the initials
+            // entry before falling back to attract; otherwise return straight
+            // to the attract / title flow. (Only single-player matches record
+            // initials; co-op/versus skip the board.)
+            if ((mGameType == GAMETYPE_SINGLEPLAYER) && mHighscore->isHighScore(getPlayer1()->mScore)) {
+                mGameMode = GAMEMODE_HIGHSCORES;
+                mHighscore->init();
+            } else {
+                mGameMode = GAMEMODE_ATTRACT;
+            }
         }
         break;
     }
@@ -318,6 +329,8 @@ void game::run()
             menuMain::run();
         } else if (mMenuScreen == MENU_SETTINGS) {
             menuSettings::run();
+        } else if (mMenuScreen == MENU_HIGHSCORES) {
+            menuHighScores::run();
         }
 
         // Attractors to wander around the fireworks display

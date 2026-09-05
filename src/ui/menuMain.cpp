@@ -5,6 +5,7 @@
 #include "render/font.hpp"
 #include "render/gl3.h"
 #include "ui/menuCommon.hpp"
+#include "ui/menuHighScores.hpp"
 #include "ui/menuSelectGameType.hpp"
 #include "ui/menuSettings.hpp"
 
@@ -14,17 +15,19 @@ namespace menuMain {
 
 namespace {
 
-constexpr int kNumItems = 3;
+constexpr int kNumItems = 4;
 
 enum Item
 {
     ITEM_START_GAME = 0,
+    ITEM_TOP_SCORES,
     ITEM_SETTINGS,
     ITEM_QUIT_GAME
 };
 
 const char* const kItemLabels[kNumItems] = {
     "START GAME",
+    "TOP SCORES",
     "SETTINGS",
     "QUIT GAME"
 };
@@ -79,6 +82,10 @@ void run()
             game::mMenuScreen = game::MENU_NONE;
             break;
         }
+        case ITEM_TOP_SCORES:
+            menuHighScores::init();
+            game::mMenuScreen = game::MENU_HIGHSCORES;
+            break;
         case ITEM_SETTINGS:
             menuSettings::init();
             game::mMenuScreen = game::MENU_SETTINGS;
@@ -98,9 +105,9 @@ void draw()
     // attract marquee while leaving the logo itself visible above it.
     menuCommon::drawScrim(-0.20f, -0.95f);
 
-    constexpr float kScale = 0.022f;
-    constexpr float kRowStep = 0.15f;
-    constexpr float kFirstY = -0.28f;
+    constexpr float kScale = 0.02f;
+    constexpr float kRowStep = 0.13f;
+    constexpr float kFirstY = -0.22f;
 
     for (int i = 0; i < kNumItems; ++i) {
         const float y = kFirstY - (i * kRowStep);

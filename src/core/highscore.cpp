@@ -94,6 +94,7 @@ void highscore::init()
     mScore = theGame->getPlayer1()->mScore;
     mEditCurrentPos = 0;
     strcpy(mEditName, "   ");
+    mEditReady = false;
 }
 
 void highscore::run()
@@ -102,15 +103,27 @@ void highscore::run()
         mDebounceTimer = 20;
 
         bool trigger = theGame->mControls->getTriggerButton(0);
-        if (trigger) {
+        if (!trigger) {
+            mEditReady = true;
+        }
+
+        if (mEditReady && trigger) {
             // All done
-            save();
             mEditName[0] = charList[mEditCurrentLetter[0]];
             mEditName[1] = charList[mEditCurrentLetter[1]];
             mEditName[2] = charList[mEditCurrentLetter[2]];
             mEditName[3] = '\0';
             addHighScore(mEditName, mScore);
+            save();
+
+            // Head back to the attract / credited flow. showHighScores() picks
+            // the right mode, then hideHighScores() keeps the normal title
+            // (marquee + menu) up instead of locking attract onto the table;
+            // the new entry is saved to scores.sav and shown on the Top Scores
+            // screen.
+            game::mMenuScreen = game::MENU_NONE;
             oglScene->showHighScores();
+            oglScene->hideHighScores();
         }
 
         Point3d leftStick = theGame->mControls->getLeftStick(0);

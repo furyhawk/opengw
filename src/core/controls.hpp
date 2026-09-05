@@ -36,6 +36,12 @@ class controls
     // Gamepads (modern API)
     Point3d readGamepadLeftStick(int player);
     Point3d readGamepadRightStick(int player);
+
+    // D-pad read as a directional vector in the same layout as the left stick
+    // (x = up/down, y = left/right), so both movement and menu navigation
+    // (which poll the sticks) respond to it.
+    Point3d readGamepadDpad(int player);
+
     bool readGamepadTrigger(int player);
     bool readGamepadStart(int player);
     bool readGamepadBack(int player);

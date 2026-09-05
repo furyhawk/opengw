@@ -33,4 +33,5 @@ class highscore
     int mLastLetter;
     char mEditName[4] { 0, 0, 0, 0 };
     int mScore { 0 };
+    bool mEditReady { false }; // trigger must be released before "done" submits
 };
