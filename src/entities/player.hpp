@@ -47,23 +47,33 @@ class player : public entity
     void takeBomb();
     void switchWeapons();
 
-    // ---- Selectable weapon ladder (shared with the Endless mode) ----------
-    // Weapon 0 "twin", 1 "heavy alternating" and 2 "5-way" are the original
-    // three; 3 is the Endless-mode laser. Classical advances/rerolls among
-    // 0..2 at score milestones; Endless hands out upgrades as pickups.
+    // ---- Selectable weapons & per-weapon power levels ---------------------
+    // There are four weapon types (WEAPON_*). Each type keeps its own power
+    // level from 1 up to WEAPON_POWER_MAX (5): a higher level fires more
+    // bullets and a touch faster (see the firePattern* implementations).
+    // Classical keeps every weapon at level 1 and only rerolls the *type* at
+    // score milestones (switchWeapons). Endless never rerolls by score;
+    // "WEAPON UPGRADE" pickups raise the power of the equipped weapon, and the
+    // "LASER" pickup switches the equipped type to the laser.
     enum
     {
         WEAPON_TWIN = 0,
         WEAPON_HEAVY,
         WEAPON_FIVE_WAY,
         WEAPON_LASER,
-        WEAPON_COUNT
+        WEAPON_COUNT,
+        WEAPON_POWER_MAX = 5 // maximum power level of any weapon
     };
 
+    // Equipped weapon type (0..WEAPON_LASER).
     int getWeapon() const { return mCurrentWeapon; }
-    int maxWeapon() const { return WEAPON_LASER; }
-    void setWeapon(int weapon);
-    // Advance to the next weapon on the ladder (up to WEAPON_LASER).
+    void setWeapon(int weapon); // switch equipped type (keeps its own power)
+
+    // Power level (1..WEAPON_POWER_MAX) of the equipped weapon.
+    int weaponPower() const { return weaponPower(mCurrentWeapon); }
+    int weaponPower(int weapon) const;
+    int weaponPowerMax() const { return WEAPON_POWER_MAX; }
+    // Raise the equipped weapon's power level by one (up to WEAPON_POWER_MAX).
     void upgradeWeapon();
 
     // ---- Shield charges (Endless "shield upgrade") ------------------------
@@ -74,6 +84,12 @@ class player : public entity
     int maxShieldCharges() const { return 3; }
     void addShieldCharges(int amount);
     bool useShieldCharge();
+
+    // ---- Secondary weapon: homing missiles --------------------------------
+    // Granted as a power-up in Endless. While the player is firing, homing
+    // missiles auto-launch alongside the main weapon and steer at enemies.
+    bool hasHomingMissiles() const { return mHasHoming; }
+    void enableHomingMissiles() { mHasHoming = true; }
 
     void addPointsNoMultiplier(int points);
 
@@ -86,8 +102,20 @@ class player : public entity
     void firePattern2(const Point3d& fireAngle, const Point3d& playerSpeed);
     void firePattern3(const Point3d& fireAngle, const Point3d& playerSpeed);
     void firePattern4(const Point3d& fireAngle, const Point3d& playerSpeed); // laser
+    void fireHomingMissile(const Point3d& fireAngle, const Point3d& playerSpeed);
+
+    // Reserve the next free missile of the given subtype (0 twin, 1 heavy,
+    // 2 5-way, 3 laser, 4 homing) and mark it as about to spawn.
+    entityPlayerMissile* allocMissile(int type);
+    // Fire `count` missiles of `type` spread across +-halfAngle around the
+    // aim direction, each aimed along its own angle. Used by powered-up
+    // weapons (power > 1).
+    void launchFan(const Point3d& fireAngle, const Point3d& playerSpeed, int type, int count, float halfAngle, float speed, float inherit);
 
     int mCurrentWeapon;
+
+    // Power level (1..WEAPON_POWER_MAX) of each weapon type.
+    int mWeaponPower[WEAPON_COUNT] { 1, 1, 1, 1 };
 
     int mWeaponCounter;
     int mBombCounter;
@@ -106,6 +134,10 @@ class player : public entity
     int mNumBombs;
 
     int mShieldCharges { 0 };
+
+    // Secondary weapon: homing missile state.
+    bool mHasHoming { false };
+    int mHomingTimer { 0 };
 
     float mExhaustSpreadIndex;
 

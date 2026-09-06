@@ -78,13 +78,16 @@ void powerups::spawnRandom(game& owner)
     if (mActive >= kMaxOnScreen)
         return;
 
-    // Weighted pick: mostly weapon upgrades, some shields, rarer lasers.
+    // Weighted pick: weapon upgrades most common, then shields, with rarer
+    // laser and homing-missile drops.
     const float roll = mathutils::frandFrom0To1() * 100.0f;
     PickupType type = PICKUP_WEAPON;
-    if (roll >= 45.0f && roll < 80.0f)
+    if (roll >= 40.0f && roll < 65.0f)
         type = PICKUP_SHIELD;
-    else if (roll >= 80.0f)
+    else if (roll >= 65.0f && roll < 85.0f)
         type = PICKUP_LASER;
+    else if (roll >= 85.0f)
+        type = PICKUP_HOMING;
 
     // Find a spot on the grid away from every joined, running player.
     const float margin = 30.0f;
@@ -149,20 +152,20 @@ void powerups::collect(game& owner, Pickup& pk, player* p)
     switch (pk.type) {
     case PICKUP_WEAPON: {
         pen = vector::pen(0.3f, 1.0f, 1.0f, 1.0f, 3);
-        if (p->getWeapon() < p->maxWeapon()) {
-            const bool toLaser = (p->getWeapon() == p->maxWeapon() - 1);
+        if (p->weaponPower() < p->weaponPowerMax()) {
+            const bool toMax = (p->weaponPower() == p->weaponPowerMax() - 1);
             p->upgradeWeapon();
             theGame->mSound->playTrack(SOUNDID_MULTIPLIERADVANCE);
             char msg[64];
-            snprintf(msg, sizeof(msg), toLaser ? "LASER ONLINE!" : "WEAPON UPGRADED");
+            snprintf(msg, sizeof(msg), toMax ? "POWER MAX!" : "POWER LV %d", p->weaponPower());
             game::showMessageAtLocation(msg, pk.pos, pen);
         } else {
-            // Weapon already maxed: a spare bomb (single player) or points.
+            // Already at max power: a spare bomb (single player) or points.
             if (owner.numPlayers() == 1) {
                 p->addBomb();
                 theGame->mSound->playTrack(SOUNDID_EXTRABOMB);
                 char msg[64];
-                snprintf(msg, sizeof(msg), "EXTRA BOMB");
+                snprintf(msg, sizeof(msg), "WEAPON MAX +BOMB");
                 game::showMessageAtLocation(msg, pk.pos, pen);
             } else {
                 p->addPointsNoMultiplier(1000);
@@ -199,21 +202,52 @@ void powerups::collect(game& owner, Pickup& pk, player* p)
         }
         break;
     }
+    case PICKUP_HOMING: {
+        pen = vector::pen(0.9f, 0.4f, 1.0f, 1.0f, 3);
+        if (!p->hasHomingMissiles()) {
+            p->enableHomingMissiles();
+            theGame->mSound->playTrack(SOUNDID_MULTIPLIERADVANCE);
+            game::showMessageAtLocation(const_cast<char*>("HOMING MISSILES!"), pk.pos, pen);
+        } else {
+            // Already equipped: a spare bomb (single player) or points.
+            if (owner.numPlayers() == 1) {
+                p->addBomb();
+                theGame->mSound->playTrack(SOUNDID_EXTRABOMB);
+                game::showMessageAtLocation(const_cast<char*>("HOMING MAX +BOMB"), pk.pos, pen);
+            } else {
+                p->addPointsNoMultiplier(1000);
+                theGame->mSound->playTrack(SOUNDID_MULTIPLIERADVANCE);
+                game::showMessageAtLocation(const_cast<char*>("HOMING MAX +1000"), pk.pos, pen);
+            }
+        }
+        break;
+    }
     case PICKUP_LASER:
     default: {
         pen = vector::pen(1.0f, 0.35f, 0.2f, 1.0f, 3);
-        if (p->getWeapon() < p->maxWeapon()) {
-            p->setWeapon(p->maxWeapon());
+        if (p->getWeapon() != player::WEAPON_LASER) {
+            // The laser pickup switches the equipped weapon type (the laser
+            // keeps its own stored power level, normally 1 when fresh).
+            p->setWeapon(player::WEAPON_LASER);
             theGame->mSound->playTrack(SOUNDID_MULTIPLIERADVANCE);
             char msg[64];
-            snprintf(msg, sizeof(msg), "LASER ONLINE!");
+            snprintf(msg, sizeof(msg), "LASER!");
             game::showMessageAtLocation(msg, pk.pos, pen);
         } else {
-            p->addPointsNoMultiplier(1000);
-            theGame->mSound->playTrack(SOUNDID_MULTIPLIERADVANCE);
-            char msg[64];
-            snprintf(msg, sizeof(msg), "+1000");
-            game::showMessageAtLocation(msg, pk.pos, pen);
+            // Already on the laser: a spare bomb (single player) or points.
+            if (owner.numPlayers() == 1) {
+                p->addBomb();
+                theGame->mSound->playTrack(SOUNDID_EXTRABOMB);
+                char msg[64];
+                snprintf(msg, sizeof(msg), "LASER MAX +BOMB");
+                game::showMessageAtLocation(msg, pk.pos, pen);
+            } else {
+                p->addPointsNoMultiplier(1000);
+                theGame->mSound->playTrack(SOUNDID_MULTIPLIERADVANCE);
+                char msg[64];
+                snprintf(msg, sizeof(msg), "LASER MAX +1000");
+                game::showMessageAtLocation(msg, pk.pos, pen);
+            }
         }
         break;
     }
@@ -297,6 +331,39 @@ void powerups::draw(game& owner, int pass)
                 glVertex3f(x + r * get_cos(a), y + r * get_sin(a), 0);
                 glVertex3f(x + r * get_cos(a + 0.06f), y + r * get_sin(a + 0.06f), 0);
             }
+            glEnd();
+            break;
+        }
+        case PICKUP_HOMING: {
+            // A little rocket with an exhaust flame (homing missiles).
+            const float s = 3.0f * bob;
+            const float r = 1.5f * bob;
+
+            glLineWidth(4);
+            glColor4f(0.9f, 0.4f, 1.0f, 0.25f);
+            glBegin(GL_LINES);
+            glVertex3f(x, y + s, 0);
+            glVertex3f(x - r, y - s * 0.4f, 0);
+            glVertex3f(x - r, y - s * 0.4f, 0);
+            glVertex3f(x + r, y - s * 0.4f, 0);
+            glVertex3f(x + r, y - s * 0.4f, 0);
+            glVertex3f(x, y + s, 0);
+            glEnd();
+
+            glLineWidth(2);
+            glColor4f(1.0f, 1.0f, 1.0f, 0.8f);
+            glBegin(GL_LINES);
+            glVertex3f(x, y + s, 0);
+            glVertex3f(x - r, y - s * 0.4f, 0);
+            glVertex3f(x, y + s, 0);
+            glVertex3f(x + r, y - s * 0.4f, 0);
+            glEnd();
+
+            glLineWidth(2);
+            glColor4f(1.0f, 0.55f, 0.15f, 0.7f);
+            glBegin(GL_LINES);
+            glVertex3f(x, y - s * 0.4f, 0);
+            glVertex3f(x, y - s * 0.95f, 0);
             glEnd();
             break;
         }

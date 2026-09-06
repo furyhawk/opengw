@@ -16,6 +16,7 @@ class entityPlayerMissile : public entity
     int mType; // TODO: entity class also has mType
     int mPlayerSource;
     float mVelocity { 0.0f };
+    int mLife { 0 }; // >0 = frames left before the missile self-destructs
 
   private:
     Point3d mLastPos;

@@ -9,8 +9,8 @@ class player;
 // Pickup drops used by the Endless gameplay mode. They are spawned periodically
 // at random grid positions, bob in place, and are collected when a joined,
 // running player touches one. Each drop grants either a weapon upgrade, a
-// shield charge or the laser weapon (see player.hpp for the weapon ladder and
-// shield-charge rules).
+// shield charge, the laser weapon or a homing-missile secondary weapon (see
+// player.hpp for the weapon ladder and shield-charge rules).
 //
 // The pool is mode-scoped: the Endless mode owns one instance and drives
 // update()/draw() only while its match is active, so pickups naturally vanish
@@ -23,6 +23,7 @@ class powerups
         PICKUP_WEAPON = 0, // advance the player's weapon one step
         PICKUP_SHIELD,     // +1 shield charge (absorbs one hit)
         PICKUP_LASER,      // grant the laser weapon immediately
+        PICKUP_HOMING,     // grant the homing-missile secondary weapon
         PICKUP_NUM_TYPES
     } PickupType;
 

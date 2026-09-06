@@ -97,6 +97,62 @@ void entityPlayerMissile::run()
 
     } // end: lasers fly straight
 
+    // Homing missiles (type 4): expire after their life, otherwise steer
+    // toward the nearest live enemy so they arc onto a target.
+    if (mType == 4) {
+        if (--mLife <= 0) {
+            setState(ENTITY_STATE_DESTROY_TRANSITION);
+            return;
+        }
+
+        entity* target = nullptr;
+        float best = 1e30f;
+        for (int i = 0; i < NUM_ENEMIES; i++) {
+            entity* e = theGame->mEnemies->mEnemies[i];
+            if (!e || e->getState() != entity::ENTITY_STATE_RUNNING)
+                continue;
+            const entity::EntityType t = e->getType();
+            if (t == entity::ENTITY_TYPE_BLACKHOLE || t == entity::ENTITY_TYPE_REPULSOR || t == entity::ENTITY_TYPE_REPULSOR_SHIELD)
+                continue;
+            const float d = mathutils::calculate2dDistanceSquared(mPos, e->getPos());
+            if (d < best) {
+                best = d;
+                target = e;
+            }
+        }
+
+        if (target) {
+            Point3d toTarget(target->getPos().x - mPos.x, target->getPos().y - mPos.y, 0);
+            const float dist = mathutils::calculate2dDistance(Point3d(0, 0, 0), toTarget);
+            if (dist > 0.001f) {
+                toTarget.x /= dist;
+                toTarget.y /= dist;
+
+                // Blend the current heading toward the target so the missile
+                // banks into a turn instead of snapping instantly.
+                Point3d cur = mSpeed;
+                const float curLen = mathutils::calculate2dDistance(Point3d(0, 0, 0), cur);
+                if (curLen > 0.001f) {
+                    cur.x /= curLen;
+                    cur.y /= curLen;
+                    constexpr float kTurn = 0.10f;
+                    cur.x += (toTarget.x - cur.x) * kTurn;
+                    cur.y += (toTarget.y - cur.y) * kTurn;
+                    const float len = mathutils::calculate2dDistance(Point3d(0, 0, 0), cur);
+                    if (len > 0.001f) {
+                        cur.x /= len;
+                        cur.y /= len;
+                    }
+                } else {
+                    cur = toTarget;
+                }
+
+                mSpeed = Point3d(cur.x * mVelocity, cur.y * mVelocity, 0);
+                mAngle = mathutils::wrapRadians(mathutils::calculate2dAngle(Point3d(0, 0, 0), cur) - mathutils::DegreesToRads(90));
+            }
+        }
+    }
+
     mPos += mSpeed;
     mPos += mDrift;
     mAngle -= mRotationRate;
@@ -186,6 +242,7 @@ void entityPlayerMissile::destroyTransition()
     entity::destroy();
 
     setState(ENTITY_STATE_INACTIVE); // kill it off immediately
+    mLife = 0;                       // no leftover life when the slot is reused
 
     // Throw out some particles
     Point3d pos(this->mPos);
@@ -270,6 +327,43 @@ void entityPlayerMissile::draw()
             glVertex3f(tip.x, tip.y, 0);
             glEnd();
 
+            return;
+        }
+
+        if (mType == 4) {
+            // Homing missile: a little rocket with a flickering amber flame
+            // behind it, then the usual missile body on top.
+            Point3d fwd = mSpeed;
+            const float fwdLen = mathutils::calculate2dDistance(Point3d(0, 0, 0), fwd);
+            if (fwdLen > 0.001f) {
+                fwd.x /= fwdLen;
+                fwd.y /= fwdLen;
+
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+                const float x = mPos.x;
+                const float y = mPos.y;
+
+                // Amber exhaust flame
+                glLineWidth(3);
+                glColor4f(1.0f, 0.55f, 0.15f, 0.8f);
+                glBegin(GL_LINES);
+                glVertex3f(x - fwd.x * 1.2f, y - fwd.y * 1.2f, 0);
+                glVertex3f(x - fwd.x * 5.5f, y - fwd.y * 5.5f, 0);
+                glEnd();
+
+                // Hot white core
+                glLineWidth(1.5f);
+                glColor4f(1.0f, 1.0f, 1.0f, 0.9f);
+                glBegin(GL_LINES);
+                glVertex3f(x - fwd.x * 1.0f, y - fwd.y * 1.0f, 0);
+                glVertex3f(x - fwd.x * 3.2f, y - fwd.y * 3.2f, 0);
+                glEnd();
+            }
+
+            mPen.lineRadius = 12;
+            entity::draw();
             return;
         }
 
