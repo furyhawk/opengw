@@ -1,5 +1,6 @@
 #include "core/gamemodeEndless.hpp"
 
+#include "core/camera.hpp"
 #include "core/game.hpp"
 #include "entities/entity.hpp"
 #include "entities/player.hpp"
@@ -40,6 +41,11 @@ void endless_mode::begin_match(game& owner)
     // spawner) and then start this mode's own systems fresh.
     mClassical.begin_match(owner);
 
+    // Endless is a survival mode, so it keeps a wider field of view than the
+    // classical arena and gives the player extra room to maneuver.
+    owner.mCamera->mCurrentZoom = 0.0f;
+    owner.mCamera->mTargetZoom = 96.0f;
+
     mPowerUps->reset();
     mDropTimer = 60 * 4; // first drop lands ~4 seconds in
 }
@@ -61,6 +67,10 @@ int endless_mode::dropInterval(const game& owner) const
 void endless_mode::update(game& owner)
 {
     mClassical.update(owner);
+
+    // Keep the arena on a wider view than Classical so the player has more room
+    // to dodge, strafe and collect drops without constantly feeling boxed in.
+    owner.mCamera->mTargetZoom = std::max(owner.mCamera->mTargetZoom, 96.0f);
 
     // Fast pace: push the difficulty clock forward faster than the spawner's
     // own indexRate so the action escalates quickly.
