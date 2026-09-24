@@ -94,8 +94,8 @@ class classical_params
     int spawnerRespawnDelay { 50 };     // frames between respawn attempts
     int spawnerScatterInterval { 100 }; // frames between scatter spawns (early)
     int spawnerScatterEveryFrameIndex { 10 }; // scatter spawns every frame past this index
-    int spawnerWaveCadence { 20 };      // frames between new waves
-    int spawnerWaveChoices { 13 };      // how many weighted wave choices there are
+    int spawnerWaveCadence { 20 };      // frames between new-wave cadence checks
+    int spawnerWaveChoices { 13 };      // cadence-roll space; extra slots become "breather" no-wave rolls
     int spawnerWaveCap1Index { 1 };     // index past which 1 concurrent wave is allowed
     int spawnerWaveCap2Index { 12 };    // index past which 2 concurrent waves allowed
     int spawnerWaveUnlimitedIndex { 20 }; // index past which waves are unlimited

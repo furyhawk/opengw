@@ -25,8 +25,11 @@ class spawner
     {
         WAVETYPE mWaveType;
         entity::EntityType entityType;
+        int archetypeId;
         int spawnCount;
         int timer;
+        int corner;
+        int cornerStep;
         WAVEITEMTRACKER mItemTrackers[NUM_WAVEITEMTRACKERS];
     } WAVEDATA;
 
@@ -50,6 +53,7 @@ class spawner
 
     void clearWaveData();
     void newWave(WAVETYPE mWaveType, entity::EntityType entityType, int spawnCount);
+    void newWave(WAVETYPE mWaveType, entity::EntityType entityType, int spawnCount, int archetypeId);
     WAVEDATA* getUnusedWaveData();
     int numWaveData();
     void addEntityToWaveTracker(WAVEDATA* wd, entity* e);
@@ -63,5 +67,7 @@ class spawner
     int mSpawnWaitTimer { 0 };
 
     int mWaveStartTimer { 0 };
+    int mLastWaveArchetype { -1 };
+    int mPrevWaveArchetype { -1 };
     WAVEDATA mWaveData[NUM_WAVEDATA] {};
 };
