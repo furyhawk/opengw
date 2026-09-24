@@ -20,6 +20,8 @@ more per-frame CPU image read-back.
   blur post-process pass for the "Bloom" look
 - Multiple enemy types: grunts, wanderers, weavers, snakes, spinners,
   repulsors, black holes / gravity wells, mayflies and more
+- Dynamic wave variety: anti-repeat wave selection, mixed support waves and
+  varied swarm entry patterns to reduce repetitive encounters
 - Weapons, bombs, shields, score multipliers and gravity wells to destroy
 - 1–4 player support:
   - Single player

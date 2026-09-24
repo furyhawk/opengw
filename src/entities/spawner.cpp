@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <vector>
 
 spawner::spawner(void)
 {
@@ -26,6 +27,8 @@ void spawner::init()
     mSpawnCheckTimer = p.spawnerScatterInterval;
     mSpawnWaitTimer = p.spawnerRespawnWaitTimer;
     mWaveStartTimer = 0;
+    mLastWaveArchetype = -1;
+    mPrevWaveArchetype = -1;
 
     clearWaveData();
     transition();
@@ -221,59 +224,132 @@ void spawner::run(void)
         if ((++mWaveStartTimer >= p.spawnerWaveCadence) && (numWaveData() < mNumWavesAllowed)) {
             mWaveStartTimer = 0;
 
-            switch ((int)(mathutils::frandFrom0To1() * p.spawnerWaveChoices)) {
-            //
-            // SWARM TYPE
-            //
-            case 0:
-                newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_GRUNT, std::max(p.waveMinGrunt, (int)ceil(p.wavePopGrunt * mSpawnProgress)));
-                break;
-            case 1:
-                newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_WEAVER, std::max(p.waveMinWeaver, (int)ceil(p.wavePopWeaver * mSpawnProgress)));
-                break;
-            case 2:
-                if (index > p.waveSnakeIndex) {
-                    newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_SNAKE, std::max(p.waveMinSnake, (int)ceil(p.wavePopSnake * mSpawnProgress)));
+            struct WaveChoice
+            {
+                int archetypeId;
+                WAVETYPE waveType;
+                entity::EntityType enemyType;
+                int spawnCount;
+                int weight;
+            };
+
+            auto scaledWaveCount = [&](int minCount, int popCount, bool rush) {
+                int count = std::max(minCount, (int)ceil(popCount * mSpawnProgress));
+                if (rush) {
+                    count = std::max(1, count / std::max(1, p.waveRushDivide));
                 }
-                break;
-            case 3:
-                newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_SPINNER, std::max(p.waveMinSpinner, (int)ceil(p.wavePopSpinner * mSpawnProgress)));
-                break;
-            case 4:
-                if (index > p.waveBlackholeIndex) {
-                    newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_BLACKHOLE, std::max(p.waveMinBlackhole, (int)ceil(mathutils::frandFrom0To1() * p.wavePopBlackhole * mSpawnProgress)));
+                return count;
+            };
+
+            auto randomScaledWaveCount = [&](int minCount, int popCount) {
+                return std::max(minCount, (int)ceil(mathutils::frandFrom0To1() * popCount * mSpawnProgress));
+            };
+
+            std::vector<WaveChoice> pool;
+            pool.reserve(12);
+
+            pool.push_back({ 0, WAVETYPE_SWARM, entity::ENTITY_TYPE_GRUNT, scaledWaveCount(p.waveMinGrunt, p.wavePopGrunt, false), 5 });
+            pool.push_back({ 1, WAVETYPE_SWARM, entity::ENTITY_TYPE_WEAVER, scaledWaveCount(p.waveMinWeaver, p.wavePopWeaver, false), 4 });
+            pool.push_back({ 2, WAVETYPE_SWARM, entity::ENTITY_TYPE_SPINNER, scaledWaveCount(p.waveMinSpinner, p.wavePopSpinner, false), 4 });
+            pool.push_back({ 3, WAVETYPE_RUSH, entity::ENTITY_TYPE_GRUNT, scaledWaveCount(p.waveMinGrunt, p.wavePopGrunt, true), 5 });
+            pool.push_back({ 4, WAVETYPE_RUSH, entity::ENTITY_TYPE_WEAVER, scaledWaveCount(p.waveMinWeaver, p.wavePopWeaver, true), 4 });
+            pool.push_back({ 5, WAVETYPE_RUSH, entity::ENTITY_TYPE_SPINNER, scaledWaveCount(p.waveMinSpinner, p.wavePopSpinner, true), 3 });
+
+            if (index > p.waveSnakeIndex) {
+                pool.push_back({ 6, WAVETYPE_SWARM, entity::ENTITY_TYPE_SNAKE, scaledWaveCount(p.waveMinSnake, p.wavePopSnake, false), 3 });
+                pool.push_back({ 7, WAVETYPE_RUSH, entity::ENTITY_TYPE_SNAKE, scaledWaveCount(p.waveMinSnake, p.wavePopSnake, true), 2 });
+            }
+            if (index > p.waveBlackholeIndex) {
+                pool.push_back({ 8, WAVETYPE_SWARM, entity::ENTITY_TYPE_BLACKHOLE, randomScaledWaveCount(p.waveMinBlackhole, p.wavePopBlackhole), 1 });
+            }
+            if (index > p.waveMayflyIndex) {
+                pool.push_back({ 9, WAVETYPE_SWARM, entity::ENTITY_TYPE_MAYFLY, scaledWaveCount(p.waveMinMayfly, p.wavePopMayfly, false), 2 });
+            }
+            if (index > p.waveRepulsorIndex) {
+                const int repulsorCount = std::max(1, (int)ceil(mathutils::frandFrom0To1() * p.wavePopRepulsor * mSpawnProgress) / std::max(1, p.waveRushDivide));
+                pool.push_back({ 10, WAVETYPE_RUSH, entity::ENTITY_TYPE_REPULSOR, repulsorCount, 2 });
+            }
+
+            std::vector<int> candidateIndices;
+            candidateIndices.reserve(pool.size());
+            for (int i = 0; i < (int)pool.size(); ++i) {
+                if (pool[i].spawnCount > 0 && pool[i].weight > 0)
+                    candidateIndices.push_back(i);
+            }
+
+            // Preserve the old "waveChoices" pacing behavior where some rolls
+            // intentionally produce no wave and create a short breather.
+            if (!candidateIndices.empty() && p.spawnerWaveChoices > (int)candidateIndices.size()) {
+                const int roll = (int)floor(mathutils::frandFrom0To1() * p.spawnerWaveChoices);
+                if (roll >= (int)candidateIndices.size())
+                    candidateIndices.clear();
+            }
+
+            if (!candidateIndices.empty()) {
+                if (candidateIndices.size() > 1) {
+                    std::vector<int> noImmediateRepeat;
+                    noImmediateRepeat.reserve(candidateIndices.size());
+                    for (int i : candidateIndices) {
+                        if (pool[i].archetypeId != mLastWaveArchetype)
+                            noImmediateRepeat.push_back(i);
+                    }
+                    if (!noImmediateRepeat.empty())
+                        candidateIndices = noImmediateRepeat;
                 }
-                break;
-            case 5:
-                if (index > p.waveMayflyIndex) {
-                    newWave(WAVETYPE_SWARM, entity::ENTITY_TYPE_MAYFLY, std::max(p.waveMinMayfly, (int)ceil(p.wavePopMayfly * mSpawnProgress)));
+                if (candidateIndices.size() > 2) {
+                    std::vector<int> noTwoInRowRepeat;
+                    noTwoInRowRepeat.reserve(candidateIndices.size());
+                    for (int i : candidateIndices) {
+                        if (pool[i].archetypeId != mPrevWaveArchetype)
+                            noTwoInRowRepeat.push_back(i);
+                    }
+                    if (!noTwoInRowRepeat.empty())
+                        candidateIndices = noTwoInRowRepeat;
                 }
-                break;
-            //
-            // RUSH TYPE
-            //
-            case 6:
-                newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_GRUNT, std::max(p.waveMinGrunt, (int)ceil(p.wavePopGrunt * mSpawnProgress) / p.waveRushDivide));
-                break;
-            case 7:
-                newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_WEAVER, std::max(p.waveMinWeaver, (int)ceil(p.wavePopWeaver * mSpawnProgress) / p.waveRushDivide));
-                break;
-            case 8:
-                if (index > p.waveSnakeIndex) {
-                    newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_SNAKE, std::max(p.waveMinSnake, (int)ceil(p.wavePopSnake * mSpawnProgress) / p.waveRushDivide));
+
+                auto pickWave = [&](const std::vector<int>& indices) -> int {
+                    int totalWeight = 0;
+                    for (int i : indices) {
+                        totalWeight += pool[i].weight;
+                    }
+                    if (totalWeight <= 0)
+                        return indices.front();
+
+                    int ticket = (int)floor(mathutils::frandFrom0To1() * totalWeight);
+                    if (ticket >= totalWeight)
+                        ticket = totalWeight - 1;
+
+                    for (int i : indices) {
+                        ticket -= pool[i].weight;
+                        if (ticket < 0)
+                            return i;
+                    }
+                    return indices.back();
+                };
+
+                const int selectedIndex = pickWave(candidateIndices);
+                const WaveChoice& selected = pool[selectedIndex];
+                newWave(selected.waveType, selected.enemyType, selected.spawnCount, selected.archetypeId);
+
+                mPrevWaveArchetype = mLastWaveArchetype;
+                mLastWaveArchetype = selected.archetypeId;
+
+                const bool canStackWave = (numWaveData() < mNumWavesAllowed);
+                if (canStackWave && candidateIndices.size() > 2 && mathutils::frandFrom0To1() < 0.35f) {
+                    std::vector<int> supportCandidates;
+                    supportCandidates.reserve(candidateIndices.size());
+                    for (int i : candidateIndices) {
+                        if (pool[i].archetypeId != selected.archetypeId)
+                            supportCandidates.push_back(i);
+                    }
+
+                    if (!supportCandidates.empty()) {
+                        const int supportIndex = pickWave(supportCandidates);
+                        const WaveChoice& support = pool[supportIndex];
+                        const int supportCount = std::max(1, support.spawnCount / 2);
+                        newWave(support.waveType, support.enemyType, supportCount, support.archetypeId);
+                    }
                 }
-                break;
-            case 9:
-                newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_SPINNER, std::max(p.waveMinSpinner, (int)ceil(p.wavePopSpinner * mSpawnProgress) / p.waveRushDivide));
-                break;
-            case 10:
-                //                    newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_BLACKHOLE, ceil(mathutils::frandFrom0To1() * numEnemyBlackHole * mSpawnProgress) / 2);
-                break;
-            case 11:
-                if (index > p.waveRepulsorIndex) {
-                    newWave(WAVETYPE_RUSH, entity::ENTITY_TYPE_REPULSOR, ceil(mathutils::frandFrom0To1() * p.wavePopRepulsor * mSpawnProgress) / p.waveRushDivide);
-                }
-                break;
             }
         }
 
@@ -383,8 +459,6 @@ void spawner::runWaves()
 
             } else {
                 if (wd->timer == 0) {
-                    static int corner = 0;
-
                     for (int n = 0; n < 4; n++) {
                         // Keep cranking out enemies until the spawn counter reaches 0
                         if (wd->spawnCount-- > 0) {
@@ -397,7 +471,7 @@ void spawner::runWaves()
                                 float ry = (mathutils::frandFrom0To1() * p.spawnerSwarmJitter) - (p.spawnerSwarmJitter * .5f);
 
                                 Point3d spawnPoint;
-                                switch (corner % 4) {
+                                switch (wd->corner % 4) {
                                 case 0:
                                     spawnPoint = Point3d(leftEdge + rx, topEdge + ry);
                                     break;
@@ -446,7 +520,7 @@ void spawner::runWaves()
                             }
                         }
 
-                        ++corner;
+                        wd->corner += wd->cornerStep;
                     }
                 }
 
@@ -481,6 +555,9 @@ void spawner::clearWaveData()
         WAVEDATA* wd = &mWaveData[i];
 
         wd->mWaveType = WAVETYPE_UNUSED;
+        wd->archetypeId = -1;
+        wd->corner = 0;
+        wd->cornerStep = 1;
 
         for (int n = 0; n < NUM_WAVEITEMTRACKERS; n++) {
             wd->mItemTrackers[n].e = nullptr;
@@ -491,12 +568,20 @@ void spawner::clearWaveData()
 
 void spawner::newWave(WAVETYPE mWaveType, entity::EntityType entityType, int spawnCount)
 {
+    newWave(mWaveType, entityType, spawnCount, -1);
+}
+
+void spawner::newWave(WAVETYPE mWaveType, entity::EntityType entityType, int spawnCount, int archetypeId)
+{
     WAVEDATA* wd = getUnusedWaveData();
     if (wd) {
         wd->mWaveType = mWaveType;
         wd->entityType = entityType;
+        wd->archetypeId = archetypeId;
         wd->spawnCount = spawnCount;
         wd->timer = 0;
+        wd->corner = (int)floor(mathutils::frandFrom0To1() * 4.0f);
+        wd->cornerStep = (mathutils::frandFrom0To1() < 0.5f) ? 1 : 3;
 
         for (int n = 0; n < NUM_WAVEITEMTRACKERS; n++) {
             wd->mItemTrackers[n].e = nullptr;
