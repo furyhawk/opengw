@@ -36,6 +36,7 @@ void classical_mode::begin_match(game& owner)
 
     owner.mBrightness = p.matchBrightnessStart; // we fade in the grid on start game
 
+    owner.mGrid->setResolution(grid::classicalResolutionX, grid::classicalResolutionY);
     owner.mCamera->center();
     owner.mCamera->mCurrentZoom = 0;
 
