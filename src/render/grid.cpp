@@ -21,9 +21,10 @@
 #include "render/gl3.h"
 
 // The Grid
-// GW is 33w x 22h
-const int grid::resolution_x = ((33 * 4) + 1);
-const int grid::resolution_y = ((22 * 4) + 1);
+// GW is 33w x 22h by default; Endless expands the playable arena beyond
+// Classical without reworking the rest of the world logic.
+int grid::resolution_x = grid::classicalResolutionX;
+int grid::resolution_y = grid::classicalResolutionY;
 
 // Stuff for our OpenGL grid arrays
 
@@ -40,9 +41,6 @@ struct Vertex
 
 static std::vector<Vertex> gridVertices;
 static std::vector<GLushort> gridElements;
-
-static const unsigned int numGridLinesX = grid::resolution_x * grid::resolution_y;
-static const unsigned int numGridLinesY = numGridLinesX;
 
 /*
 static SDL_mutex* game::mAttractors.mMutex;
@@ -176,28 +174,41 @@ static int runThread(void* /*ptr*/)
     return 0;
 }
 
-grid::grid()
+void grid::setResolution(int width, int height)
 {
-    mGrid.resize(resolution_x * resolution_y);
-    q = 12;
-    damping = 1.5f;
+    if (width <= 0 || height <= 0)
+        return;
 
-    // Create our array of grid points
+    resolution_x = width;
+    resolution_y = height;
+
+    mGrid.clear();
+    mGrid.resize(static_cast<std::size_t>(resolution_x) * static_cast<std::size_t>(resolution_y));
+
     for (int y = 0; y < resolution_y; ++y) {
         for (int x = 0; x < resolution_x; ++x) {
-            GridPoint& p = mGrid[x + y * grid::resolution_x];
+            GridPoint& p = mGrid[x + y * resolution_x];
 
             p.pos = Point3d(x, y, 0);
             p.vel = Point3d(0, 0, 0);
         }
     }
 
-    // Create our OpenGL vertex and color array
-    gridVertices.reserve(resolution_x * resolution_y);
-    gridElements.reserve(numGridLinesX + numGridLinesY);
+    gridVertices.clear();
+    gridElements.clear();
+
+    gridVertices.reserve(static_cast<std::size_t>(resolution_x) * static_cast<std::size_t>(resolution_y));
+    gridElements.reserve(static_cast<std::size_t>(resolution_x) * static_cast<std::size_t>(resolution_y) * 2U);
 
     initializeVertices();
     initializeElements();
+}
+
+grid::grid()
+{
+    setResolution(classicalResolutionX, classicalResolutionY);
+    q = 12;
+    damping = 1.5f;
 
     // Thread stuff
     mRunThread = SDL_CreateThread(runThread, "grid", nullptr);

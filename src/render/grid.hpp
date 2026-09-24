@@ -7,11 +7,16 @@ struct Point3d;
 class grid
 {
   public:
-    static const int resolution_x;
-    static const int resolution_y;
+    static constexpr int classicalResolutionX = ((33 * 4) + 1);
+    static constexpr int classicalResolutionY = ((22 * 4) + 1);
+
+    static int resolution_x;
+    static int resolution_y;
 
     grid();
     ~grid();
+
+    void setResolution(int width, int height);
 
     void initializeVertices();
     void initializeElements();

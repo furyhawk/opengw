@@ -6,6 +6,7 @@
 #include "entities/player.hpp"
 #include "entities/powerups.hpp"
 #include "entities/spawner.hpp"
+#include "render/grid.hpp"
 
 #include <algorithm>
 
@@ -40,6 +41,10 @@ void endless_mode::begin_match(game& owner)
     // Run the normal Classical match setup (players, shared pool, music,
     // spawner) and then start this mode's own systems fresh.
     mClassical.begin_match(owner);
+
+    // Endless expands the actual playable arena, not just the zoom amount, so
+    // players can roam farther before they hit the edges.
+    owner.mGrid->setResolution(199, 133);
 
     // Endless is a survival mode, so it keeps a wider field of view than the
     // classical arena and gives the player extra room to maneuver.
