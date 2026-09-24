@@ -2,6 +2,7 @@
 #include "math/mathutils.hpp"
 #include "math/sincos.hpp"
 
+#include <cmath>
 #include <cstdlib>
 
 namespace mathutils
@@ -44,38 +45,9 @@ float calculate2dDistanceSquared(const Point3d& p1, const Point3d& p2)
 
 float calculate2dAngle(Point3d from, Point3d to)
 {
-    float angle = 0.0;
-
-    float x1 = from.x;
-    float y1 = from.y;
-    float x2 = to.x;
-    float y2 = to.y;
-
-    float dx = x2 - x1;
-    float dy = y2 - y1;
-
-    if (dx == 0) {
-        if (dy == 0)
-            angle = 0;
-        else if (dy > 0)
-            angle = PI / 2;
-        else
-            angle = PI * 3.0 / 2.0;
-    } else if (dy == 0) {
-        if (dx > 0)
-            angle = 0;
-        else
-            angle = PI;
-    } else {
-        if (dx < 0)
-            angle = atan(dy / dx) + PI;
-        else if (dy < 0)
-            angle = atan(dy / dx) + (2 * PI);
-        else
-            angle = atan(dy / dx);
-    }
-
-    return wrapRadians(angle);
+    const float dx = to.x - from.x;
+    const float dy = to.y - from.y;
+    return wrapRadians(std::atan2(dy, dx));
 }
 
 float diffAngles(float angle1, float angle2)

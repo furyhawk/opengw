@@ -14,6 +14,7 @@
 
 #include <atomic>
 //#include <mutex>
+#include <cmath>
 #include <vector>
 
 #include <cstdio>
@@ -105,15 +106,15 @@ static int runThread(void* /*ptr*/)
                         p++;
                         const Point3d& gpoint = p->pos;
 
-                        const float distance = mathutils::calculate2dDistanceSquared(gpoint, apoint);
+                        const float dx = gpoint.x - apoint.x;
+                        const float dy = gpoint.y - apoint.y;
+                        const float distanceSquared = dx * dx + dy * dy;
 
-                        if (distance < arSquared && distance > 0.0f) {
-                            // distance = (distance*distance); // Simulate gravity with distance squared
-
-                            const float angle = mathutils::calculate2dAngle(gpoint, apoint);
+                        if (distanceSquared < arSquared && distanceSquared > 0.0f) {
+                            const float angle = std::atan2(dy, dx);
                             const float strength = att.strength;
 
-                            const Point3d gravityVector(-distance * strength, 0.0f, 0.0f);
+                            const Point3d gravityVector(-distanceSquared * strength, 0.0f, 0.0f);
                             const Point3d g = mathutils::rotate2dPoint(gravityVector, angle);
 
                             p->vel.x += g.x * .005f;

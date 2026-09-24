@@ -64,7 +64,13 @@ static int runThread(void* /*ptr*/)
                     for (int j = blackHoleStart; j < blackHoleEnd; j++) {
                         auto blackHole = static_cast<entityBlackHole*>(theGame->mEnemies->mEnemies[j]);
                         if (blackHole->getState() == entity::ENTITY_STATE_RUNNING && blackHole->mActivated) {
-                            if (mathutils::calculate2dDistance(p.posStream[0], blackHole->getPos()) < blackHole->getRadius() * 1.01f) {
+                            const Point3d& blackHolePos = blackHole->getPos();
+                            const float dx = p.posStream[0].x - blackHolePos.x;
+                            const float dy = p.posStream[0].y - blackHolePos.y;
+                            const float distanceSquared = dx * dx + dy * dy;
+                            const float radiusLimit = blackHole->getRadius() * 1.01f;
+
+                            if (distanceSquared < radiusLimit * radiusLimit) {
                                 // kill this particle
                                 p.timeToLive *= .7f;
                                 continue;
