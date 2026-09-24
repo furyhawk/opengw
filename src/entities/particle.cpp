@@ -218,10 +218,14 @@ void particle::draw()
         float toAlpha;
     };
 
-    // Batch by stroke width to avoid a GL_LINES block per-particle. Each bucket
-    // still preserves the width-dependent rendering look while cutting down the
-    // expensive OpenGL state changes at render time.
-    std::array<std::vector<Segment>, 3> segmentsByWidth;
+    // Batch by stroke width to avoid a GL_LINES block per-particle. Keep these
+    // vectors alive across frames so we don't pay repeated allocator churn while
+    // still clearing them each draw call.
+    static std::array<std::vector<Segment>, 3> segmentsByWidth;
+    for (auto& bucket: segmentsByWidth) {
+        bucket.clear();
+    }
+
     const float widthScale = (scene::mPass == scene::RENDERPASS_BLUR) ? 4.0f : 1.0f;
 
     for (auto& p: mParticles) {
@@ -242,10 +246,6 @@ void particle::draw()
             width = 4.0f;
         else if (width < 2.0f)
             width = 2.0f;
-
-        if (scene::mPass == scene::RENDERPASS_BLUR) {
-            width *= 4.0f;
-        }
 
         const int widthBucket = (width <= 2.0f) ? 0 : ((width <= 3.0f) ? 1 : 2);
         float aa = (a > 1.0f) ? 1.0f : a;
