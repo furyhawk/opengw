@@ -9,6 +9,7 @@
 #include "core/settings.hpp"
 #include "render/scene.hpp"
 
+#include <array>
 #include <atomic>
 #include <cstdio>
 //#include <mutex>
@@ -206,65 +207,90 @@ void particle::assignParticle(Point3d* position,
 
 void particle::draw()
 {
-    // std::unique_lock<std::mutex> lock(m);
+    struct Segment
+    {
+        Point3d from;
+        Point3d to;
+        float r;
+        float g;
+        float b;
+        float fromAlpha;
+        float toAlpha;
+    };
+
+    // Batch by stroke width to avoid a GL_LINES block per-particle. Each bucket
+    // still preserves the width-dependent rendering look while cutting down the
+    // expensive OpenGL state changes at render time.
+    std::array<std::vector<Segment>, 3> segmentsByWidth;
+    const float widthScale = (scene::mPass == scene::RENDERPASS_BLUR) ? 4.0f : 1.0f;
+
     for (auto& p: mParticles) {
-        if (p.timeToLive > 0) {
-            // This particle is active
-
-            const float speedNormal = mathutils::calculate2dDistance(Point3d(0.0f, 0.0f, 0.0f), Point3d(p.speedX, p.speedY, 0.0f));
-            const float a = p.color.a * (speedNormal * 0.8f);
-
-            if (a < 0.05f) {
-                // This particle died
-                p.timeToLive = 0;
-                continue;
-            }
-
-            float width = speedNormal * 8.0f;
-            if (width > 4.0f)
-                width = 4.0f;
-            else if (width < 2.0f)
-                width = 2.0f;
-
-            if (scene::mPass == scene::RENDERPASS_BLUR) {
-                width *= 4.0f;
-            }
-
-            glLineWidth(width);
-
-            // This is SO inefficient
-            // I really should be doing all the particles in one GL_LINES block but the
-            // width of the lines needs to change per-particle, and you can't do a call to
-            // glLineWidth() inside a GL_LINES block :-(
-
-            // TODO: use vertex arrays
-            glBegin(GL_LINES);
-
-            float aa = (a > 1.0f) ? 1.0f : a;
-
-            for (int i = 0; (i < NUM_POS_STREAM_ITEMS - 1) && (aa > 0.0f); i++) {
-                // glColor4f(p->color.r, p->color.g, p->color.b, aa); // RGBA
-
-                const Point3d& from = p.posStream[i];
-                const Point3d& to = p.posStream[i + 1];
-
-                glColor4f(p.color.r, p.color.g, p.color.b, aa); // RGBA
-                glVertex2d(from.x, from.y);
-                aa -= 0.1f;
-
-                glColor4f(p.color.r, p.color.g, p.color.b, aa); // RGBA
-
-                if ((from.x == to.x) && (from.y == to.y)) {
-                    glVertex2d(to.x + 0.1f, to.y + 0.1f);
-                } else {
-                    glVertex2d(to.x, to.y);
-                }
-
-                aa -= 0.1f;
-            }
-
-            glEnd();
+        if (p.timeToLive <= 0) {
+            continue;
         }
+
+        const float speedNormal = mathutils::calculate2dDistance(Point3d(0.0f, 0.0f, 0.0f), Point3d(p.speedX, p.speedY, 0.0f));
+        const float a = p.color.a * (speedNormal * 0.8f);
+
+        if (a < 0.05f) {
+            p.timeToLive = 0;
+            continue;
+        }
+
+        float width = speedNormal * 8.0f;
+        if (width > 4.0f)
+            width = 4.0f;
+        else if (width < 2.0f)
+            width = 2.0f;
+
+        if (scene::mPass == scene::RENDERPASS_BLUR) {
+            width *= 4.0f;
+        }
+
+        const int widthBucket = (width <= 2.0f) ? 0 : ((width <= 3.0f) ? 1 : 2);
+        float aa = (a > 1.0f) ? 1.0f : a;
+
+        for (int i = 0; (i < NUM_POS_STREAM_ITEMS - 1) && (aa > 0.0f); i++) {
+            const Point3d& from = p.posStream[i];
+            const Point3d& to = p.posStream[i + 1];
+
+            Segment segment {
+                from,
+                to,
+                p.color.r,
+                p.color.g,
+                p.color.b,
+                aa,
+                (aa - 0.1f > 0.0f) ? (aa - 0.1f) : 0.0f
+            };
+
+            segmentsByWidth[widthBucket].push_back(segment);
+            aa -= 0.2f;
+        }
+    }
+
+    for (std::size_t bucket = 0; bucket < segmentsByWidth.size(); ++bucket) {
+        if (segmentsByWidth[bucket].empty()) {
+            continue;
+        }
+
+        const float width = ((bucket == 0) ? 2.0f : ((bucket == 1) ? 3.0f : 4.0f)) * widthScale;
+        glLineWidth(width);
+        glBegin(GL_LINES);
+
+        for (const auto& segment: segmentsByWidth[bucket]) {
+            glColor4f(segment.r, segment.g, segment.b, segment.fromAlpha);
+            glVertex2d(segment.from.x, segment.from.y);
+
+            glColor4f(segment.r, segment.g, segment.b, segment.toAlpha);
+            if ((segment.from.x == segment.to.x) && (segment.from.y == segment.to.y)) {
+                glVertex2d(segment.to.x + 0.1f, segment.to.y + 0.1f);
+            } else {
+                glVertex2d(segment.to.x, segment.to.y);
+            }
+        }
+
+        glEnd();
     }
 }
 
