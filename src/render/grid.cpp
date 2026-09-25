@@ -115,7 +115,7 @@ static int runThread(void* /*ptr*/)
                             const float angle = std::atan2(dy, dx);
                             const float strength = att.strength;
 
-                            const Point3d gravityVector(-distanceSquared * strength, 0.0f, 0.0f);
+                            const Point3d gravityVector(distanceSquared * strength, 0.0f, 0.0f);
                             const Point3d g = mathutils::rotate2dPoint(gravityVector, angle);
 
                             p->vel.x += g.x * .005f;

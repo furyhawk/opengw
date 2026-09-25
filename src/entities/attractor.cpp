@@ -42,12 +42,13 @@ Point3d attractor::evaluateParticle(particle::PARTICLE* p)
             const float radiusSquared = a.radius * a.radius;
 
             if (distanceSquared < radiusSquared) {
-                const float clampedDistanceSquared = (distanceSquared > 0.0f) ? distanceSquared : radiusSquared;
+                constexpr float minDistanceSquared = 1.0e-5f;
+                const float clampedDistanceSquared = (distanceSquared > minDistanceSquared) ? distanceSquared : minDistanceSquared;
                 const float r = 1.0f / clampedDistanceSquared;
                 const float angle = std::atan2(dy, dx);
 
-                // Use the inverse-square law directly to avoid the sqrt/reciprocal
-                // square-root cost for every particle in the attractor field.
+                // Keep the previous near-origin force clamp while still avoiding
+                // per-particle sqrt/reciprocal-sqrt work.
                 Point3d gravityVector(-r * a.strength * .5f, 0.0f, 0.0f);
                 Point3d g = mathutils::rotate2dPoint(gravityVector, angle + .25f);
 
