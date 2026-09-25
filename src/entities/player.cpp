@@ -249,7 +249,8 @@ void player::run()
             // Secondary weapon: when equipped, homing missiles auto-launch
             // alongside the main weapon while the fire stick is held.
             if (mHasHoming && --mHomingTimer <= 0) {
-                mHomingTimer = 16;
+                const int power = weaponPower();
+                mHomingTimer = std::max(8, 16 - ((power - 1) * 2));
                 fireHomingMissile(rightStick, playerSpeed);
             }
         } else {
@@ -868,42 +869,49 @@ void player::firePattern4(const Point3d& fireAngle, const Point3d& playerSpeed)
 
 void player::fireHomingMissile(const Point3d& fireAngle, const Point3d& playerSpeed)
 {
-    // Secondary weapon: a single seeker launched toward the aim direction.
-    // It steers itself at the nearest enemy (see entityPlayerMissile mType 4)
-    // and self-destructs after a while if nothing is around to catch.
+    // Secondary weapon: seekers launched toward the aim direction. Higher
+    // weapon power launches a wider volley each homing burst.
     constexpr float kHomingSpeed = 0.9f;
     constexpr float kHomingOffset = 1.6f;
     constexpr float kHomingInherit = 0.3f;
     constexpr int kHomingLife = 60 * 4; // ~4 seconds before self-destruct
+    const int power = weaponPower();
+    const int volleyCount = std::max(1, power);
 
-    entityPlayerMissile* missile = nullptr;
-    for (std::size_t i = 0; i < missiles.size(); i++) {
-        if (!missiles[i].getEnabled()) {
-            missile = &missiles[i];
-            break;
+    const float center = mathutils::calculate2dAngle(Point3d(0, 0, 0), fireAngle) + mathutils::DegreesToRads(90);
+    const float halfAngle = 0.08f * (volleyCount - 1);
+    const float spreadStep = (volleyCount > 1) ? ((2.0f * halfAngle) / (volleyCount - 1)) : 0.0f;
+
+    for (int i = 0; i < volleyCount; ++i) {
+        entityPlayerMissile* missile = nullptr;
+        for (std::size_t j = 0; j < missiles.size(); j++) {
+            if (!missiles[j].getEnabled()) {
+                missile = &missiles[j];
+                break;
+            }
         }
+        if (!missile)
+            return;
+
+        const float angle = center - halfAngle + (spreadStep * i);
+
+        missile->setState(ENTITY_STATE_SPAWN_TRANSITION);
+        missile->mType = 4; // homing
+        missile->mPlayerSource = mPlayerAssignment;
+
+        Point3d missilePos;
+        Point3d missileSpeedVector(kHomingSpeed, 0, 0);
+        Point3d missileOffsetVector(kHomingOffset, 0, 0);
+
+        missilePos = this->getPos() + mathutils::rotate2dPoint(missileOffsetVector, angle);
+        missileSpeedVector = mathutils::rotate2dPoint(missileSpeedVector, angle);
+
+        missile->setPos(missilePos);
+        missile->setAngle(angle - mathutils::DegreesToRads(90));
+        missile->setSpeed(missileSpeedVector + (playerSpeed * kHomingInherit));
+        missile->mVelocity = kHomingSpeed;
+        missile->mLife = kHomingLife;
     }
-    if (!missile)
-        return;
-
-    float angle = mathutils::calculate2dAngle(Point3d(0, 0, 0), fireAngle) + mathutils::DegreesToRads(90);
-
-    missile->setState(ENTITY_STATE_SPAWN_TRANSITION);
-    missile->mType = 4; // homing
-    missile->mPlayerSource = mPlayerAssignment;
-
-    Point3d missilePos;
-    Point3d missileSpeedVector(kHomingSpeed, 0, 0);
-    Point3d missileOffsetVector(kHomingOffset, 0, 0);
-
-    missilePos = this->getPos() + mathutils::rotate2dPoint(missileOffsetVector, angle);
-    missileSpeedVector = mathutils::rotate2dPoint(missileSpeedVector, angle);
-
-    missile->setPos(missilePos);
-    missile->setAngle(angle - mathutils::DegreesToRads(90));
-    missile->setSpeed(missileSpeedVector + (playerSpeed * kHomingInherit));
-    missile->mVelocity = kHomingSpeed;
-    missile->mLife = kHomingLife;
 }
 
 void player::destroyTransition()
