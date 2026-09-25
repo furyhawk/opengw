@@ -883,21 +883,11 @@ void player::fireHomingMissile(const Point3d& fireAngle, const Point3d& playerSp
     const float spreadStep = (volleyCount > 1) ? ((2.0f * halfAngle) / (volleyCount - 1)) : 0.0f;
 
     for (int i = 0; i < volleyCount; ++i) {
-        entityPlayerMissile* missile = nullptr;
-        for (std::size_t j = 0; j < missiles.size(); j++) {
-            if (!missiles[j].getEnabled()) {
-                missile = &missiles[j];
-                break;
-            }
-        }
+        entityPlayerMissile* missile = allocMissile(4);
         if (!missile)
-            return;
+            continue;
 
         const float angle = center - halfAngle + (spreadStep * i);
-
-        missile->setState(ENTITY_STATE_SPAWN_TRANSITION);
-        missile->mType = 4; // homing
-        missile->mPlayerSource = mPlayerAssignment;
 
         Point3d missilePos;
         Point3d missileSpeedVector(kHomingSpeed, 0, 0);
