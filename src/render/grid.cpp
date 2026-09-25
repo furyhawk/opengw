@@ -41,7 +41,8 @@ struct Vertex
 };
 
 static std::vector<Vertex> gridVertices;
-static std::vector<GLushort> gridElements;
+// Endless can exceed 65,535 vertices, so indices must be 32-bit.
+static std::vector<GLuint> gridElements;
 
 /*
 static SDL_mutex* game::mAttractors.mMutex;
@@ -305,24 +306,20 @@ void grid::initializeElements()
     }
 
     // Horizontal light
-    for (int y = 0; y < resolution_y; y++) {
-        GLuint vertex = lightStartHorizontal + y * resolution_x / 4;
+    for (int y = 0, lightRow = 0; y < resolution_y; y += 4, ++lightRow) {
+        GLuint vertex = static_cast<GLuint>(lightStartHorizontal + (static_cast<std::size_t>(lightRow) * static_cast<std::size_t>(resolution_x)));
         for (int x = 0; x < resolution_x - 1; x++) {
-            if (y % 4 == 0) {
-                gridElements.push_back(vertex++);
-                gridElements.push_back(vertex);
-            }
+            gridElements.push_back(vertex++);
+            gridElements.push_back(vertex);
         }
     }
 
     // Vertical light
-    for (int x = 0; x < resolution_x; x++) {
-        GLuint vertex = lightStartVertical + x * resolution_y / 4;
+    for (int x = 0, lightColumn = 0; x < resolution_x; x += 4, ++lightColumn) {
+        GLuint vertex = static_cast<GLuint>(lightStartVertical + (static_cast<std::size_t>(lightColumn) * static_cast<std::size_t>(resolution_y)));
         for (int y = 0; y < resolution_y - 1; y++) {
-            if (x % 4 == 0) {
-                gridElements.push_back(vertex++);
-                gridElements.push_back(vertex);
-            }
+            gridElements.push_back(vertex++);
+            gridElements.push_back(vertex);
         }
     }
 }
@@ -396,7 +393,7 @@ void grid::draw()
     // Draw lines
     glVertexPointer(2, GL_FLOAT, sizeof(Vertex), gridVertices.data());
     glColorPointer(4, GL_FLOAT, sizeof(Vertex), ((char*)gridVertices.data() + 2 * sizeof(GLfloat)));
-    glDrawElements(GL_LINES, gridElements.size(), GL_UNSIGNED_SHORT, gridElements.data());
+    glDrawElements(GL_LINES, static_cast<GLsizei>(gridElements.size()), GL_UNSIGNED_INT, gridElements.data());
 
     glDisableClientState(GL_COLOR_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
