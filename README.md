@@ -38,7 +38,8 @@ more per-frame CPU image read-back.
 ## Dependencies
 
 - A C++20 compiler (`g++` / `clang++`)
-- [SDL3](https://github.com/libsdl-org/SDL) development files
+- [SDL3](https://github.com/libsdl-org/SDL) development files, validated with
+  SDL3 3.4.16+
 - OpenGL 3.3 **core profile** support (functions are loaded at runtime via
   `SDL_GL_GetProcAddress`, so no GLEW/GLAD and no GLU is required)
 
@@ -47,6 +48,8 @@ more per-frame CPU image read-back.
 The default `Makefile` auto-detects your OS and picks up SDL3 either from the
 macOS framework install or via `pkg-config` (e.g. Homebrew / Linux distro
 packages).
+
+This repository is currently validated against SDL3 3.4.16.
 
 ```sh
 make            # build the game (produces ./trigwars)
