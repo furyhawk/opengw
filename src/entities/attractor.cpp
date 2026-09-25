@@ -36,19 +36,20 @@ Point3d attractor::evaluateParticle(particle::PARTICLE* p)
     for (const auto& a: mAttractors) {
         if (a.enabled && a.attractsParticles) {
             const Point3d& apoint = a.pos;
-            const float dx = p->posStream[0].x - apoint.x;
-            const float dy = p->posStream[0].y - apoint.y;
+            const float dx = apoint.x - p->posStream[0].x;
+            const float dy = apoint.y - p->posStream[0].y;
             const float distanceSquared = dx * dx + dy * dy;
             const float radiusSquared = a.radius * a.radius;
 
             if (distanceSquared < radiusSquared) {
-                const float distance = std::sqrt(distanceSquared < 1.0e-5f ? 1.0e-5f : distanceSquared);
-                const float r = 1.0f / (distance * distance);
+                const float clampedDistanceSquared = (distanceSquared > 0.0f) ? distanceSquared : radiusSquared;
+                const float r = 1.0f / clampedDistanceSquared;
                 const float angle = std::atan2(dy, dx);
 
-                // Add a slight curving vector to the gravity
-                Point3d gravityVector(-r * a.strength * .5f, 0.0f, 0.0f);                  // .5
-                Point3d g = mathutils::rotate2dPoint(gravityVector, angle + .25f); // .35 , .7
+                // Use the inverse-square law directly to avoid the sqrt/reciprocal
+                // square-root cost for every particle in the attractor field.
+                Point3d gravityVector(-r * a.strength * .5f, 0.0f, 0.0f);
+                Point3d g = mathutils::rotate2dPoint(gravityVector, angle + .25f);
 
                 speed.x += g.x;
                 speed.y += g.y;

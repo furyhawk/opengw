@@ -107,8 +107,8 @@ static int runThread(void* /*ptr*/)
                         p++;
                         const Point3d& gpoint = p->pos;
 
-                        const float dx = gpoint.x - apoint.x;
-                        const float dy = gpoint.y - apoint.y;
+                        const float dx = apoint.x - gpoint.x;
+                        const float dy = apoint.y - gpoint.y;
                         const float distanceSquared = dx * dx + dy * dy;
 
                         if (distanceSquared < arSquared && distanceSquared > 0.0f) {
