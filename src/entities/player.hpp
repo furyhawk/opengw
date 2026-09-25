@@ -88,6 +88,7 @@ class player : public entity
     // ---- Secondary weapon: homing missiles --------------------------------
     // Granted as a power-up in Endless. While the player is firing, homing
     // missiles auto-launch alongside the main weapon and steer at enemies.
+    // Their volley size scales with the equipped weapon's power level.
     bool hasHomingMissiles() const { return mHasHoming; }
     void enableHomingMissiles() { mHasHoming = true; }
 
