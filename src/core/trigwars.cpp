@@ -169,7 +169,7 @@ static bool OGLCreate()
 
     bgfxInited = bgfx_bridge_init(window, mWidth, mHeight, settings::get().mVsync);
     if (bgfxInited) {
-        printf("renderer: bgfx interop enabled (OpenGL backend)\n");
+        printf("renderer: bgfx detected; using SDL/OpenGL presentation path\n");
     } else {
         printf("renderer: bgfx unavailable, continuing with OpenGL backend (%s)\n", bgfx_bridge_last_error());
     }
@@ -235,8 +235,7 @@ static void applySettingsToWindow()
         lastFullscreen = s.mFullscreen;
     }
     if (s.mVsync != lastVsync) {
-        if (!bgfxInited)
-            SDL_GL_SetSwapInterval(s.mVsync ? 1 : 0);
+        SDL_GL_SetSwapInterval(s.mVsync ? 1 : 0);
         bgfx_bridge_resize(lastW, lastH, s.mVsync);
         lastVsync = s.mVsync;
     }
@@ -244,9 +243,6 @@ static void applySettingsToWindow()
 
 static void drawOffscreens()
 {
-    if (bgfxInited)
-        bgfx_bridge_begin_frame();
-
     // Ensure we're drawing to the default framebuffer, the viewport covers
     // the whole back buffer, and it's cleared to black.
     gfx_begin_frame();
@@ -337,11 +333,7 @@ static void run()
 
         drawOffscreens();
 
-        if (bgfxInited) {
-            bgfx_bridge_end_frame();
-        } else {
-            SDL_GL_SwapWindow(window);
-        }
+        SDL_GL_SwapWindow(window);
         updateFps(now);
     }
 }
