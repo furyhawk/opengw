@@ -58,13 +58,7 @@ endif
 CPPFLAGS += $(SDL_CFLAGS)
 
 ifeq ($(USE_BGFX),1)
-    BGFX_HOME ?= $(firstword $(wildcard \
-        $(BGFX_HOME) \
-        /Users/user/projects/bgfx \
-        $(HOME)/projects/bgfx \
-        /opt/homebrew/opt/bgfx \
-        /usr/local/opt/bgfx \
-    ))
+    BGFX_HOME ?=
 
     BGFX_PKG ?= $(shell \
         if $(PKG_CONFIG) --exists bgfx 2>/dev/null; then \
@@ -93,13 +87,15 @@ ifeq ($(USE_BGFX),1)
         ifeq ($(UNAME_S),Darwin)
             BGFX_LIBS += -framework Cocoa -framework IOKit -framework OpenGL -framework QuartzCore -weak_framework Metal -weak_framework MetalKit -weak_framework VideoToolbox -weak_framework CoreMedia -weak_framework CoreVideo
         endif
+    else ifneq ($(strip $(BGFX_CFLAGS) $(BGFX_LIBS)),)
+        # Explicit bgfx flags were provided directly; do not guess a source tree.
     else
         BGFX_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags $(BGFX_PKG) 2>/dev/null)
         BGFX_LIBS   ?= $(shell $(PKG_CONFIG) --libs $(BGFX_PKG) 2>/dev/null)
     endif
 
     ifeq ($(strip $(BGFX_CFLAGS) $(BGFX_LIBS)),)
-        $(error USE_BGFX=1 requested, but bgfx metadata or local checkout was not found. Set BGFX_CFLAGS and BGFX_LIBS explicitly.)
+        $(error USE_BGFX=1 requested, but bgfx metadata or local checkout was not found. Set BGFX_HOME to a bgfx source root, or set BGFX_CFLAGS and BGFX_LIBS explicitly.)
     endif
     CPPFLAGS += -DUSE_BGFX_RENDERER $(BGFX_CFLAGS)
     LIBS += $(BGFX_LIBS)
