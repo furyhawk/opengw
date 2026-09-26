@@ -69,12 +69,18 @@ bool bgfx_bridge_init(SDL_Window* window, int width, int height, bool vsync)
         return false;
     }
 
-    pd.context = SDL_GL_GetCurrentContext();
-
     bgfx::renderFrame();
 
     bgfx::Init init {};
     init.type = bgfx::RendererType::OpenGL;
+
+    // The app owns a native OpenGL context and is not initializing a Metal
+    // backend. bgfx should not receive the SDL GL context as a Metal device.
+    // Leaving the platform context null keeps the OpenGL path on the expected
+    // native API contract and avoids the macOS crash where Metal calls
+    // registryID() on an SDL OpenGL context object.
+    pd.context = nullptr;
+
     init.platformData = pd;
     init.swapChain.nwh = nativeWindowHandle;
     init.swapChain.ndt = nativeDisplayType;
