@@ -15,9 +15,9 @@ replaced by a small shader/VAO/VBO backend (`src/render/gl3.{h,cpp}`) and the
 more per-frame CPU image read-back.
 
 There is now also an optional **bgfx interop host path** (`src/render/bgfx_bridge.{hpp,cpp}`):
-when built with `USE_BGFX=1`, the game probes/initialises bgfx support but
-keeps frame presentation on the SDL/OpenGL path so the existing renderer runs
-correctly (avoids the pink-only frame issue seen when bgfx owns presentation).
+when built with `USE_BGFX=1`, the game currently keeps runtime rendering and
+presentation fully on the SDL/OpenGL path (to avoid the pink-only frame issue
+seen when bgfx owns presentation).
 
 ## Features
 
