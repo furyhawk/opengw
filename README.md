@@ -14,6 +14,11 @@ replaced by a small shader/VAO/VBO backend (`src/render/gl3.{h,cpp}`) and the
 "bloom" glow is produced with a GPU framebuffer-object Gaussian blur — no
 more per-frame CPU image read-back.
 
+There is now also an optional **bgfx interop host path** (`src/render/bgfx_bridge.{hpp,cpp}`):
+when built with `USE_BGFX=1`, bgfx owns frame submission/presentation while the
+existing game draw path continues to run through the compatibility OpenGL
+backend.
+
 ## Features
 
 - Fast, glow-heavy vector rendering (grid, particles, enemies) with a GPU
@@ -42,6 +47,8 @@ more per-frame CPU image read-back.
   SDL3 3.4.16+
 - OpenGL 3.3 **core profile** support (functions are loaded at runtime via
   `SDL_GL_GetProcAddress`, so no GLEW/GLAD and no GLU is required)
+- Optional: [bgfx](https://github.com/bkaradzic/bgfx) development files (for
+  `USE_BGFX=1` builds)
 
 ## Building
 
@@ -56,6 +63,9 @@ make            # build the game (produces ./trigwars)
 make run        # build and run
 make clean      # remove build objects and the binary
 make help       # show available targets
+
+# Build with bgfx interop host path enabled
+make USE_BGFX=1
 ```
 
 > **Run from the project root.** The game loads `assets/sounds/` and

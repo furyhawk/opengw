@@ -14,6 +14,7 @@
 CXX      ?= c++
 NAME     := trigwars
 OBJDIR   := obj
+USE_BGFX ?= 0
 
 CXXFLAGS := -std=c++20 -Wall -Wextra -O3 -ggdb
 CPPFLAGS := -Isrc
@@ -52,6 +53,16 @@ else
 endif
 
 CPPFLAGS += $(SDL_CFLAGS)
+
+ifeq ($(USE_BGFX),1)
+    BGFX_CFLAGS ?= $(shell pkg-config --cflags bgfx 2>/dev/null)
+    BGFX_LIBS   ?= $(shell pkg-config --libs bgfx 2>/dev/null)
+    ifeq ($(strip $(BGFX_CFLAGS) $(BGFX_LIBS)),)
+        $(error USE_BGFX=1 requested, but bgfx pkg-config metadata was not found. Set BGFX_CFLAGS and BGFX_LIBS explicitly.)
+    endif
+    CPPFLAGS += -DUSE_BGFX_RENDERER $(BGFX_CFLAGS)
+    LIBS += $(BGFX_LIBS)
+endif
 
 # ---------------------------------------------------------------------------
 # Sources / objects / dependencies
