@@ -8,6 +8,7 @@
 # Targets:
 #   make        - build the game (produces ./trigwars)
 #   make run    - build and run the game
+#   make run-bgfx - build and run with bgfx interop enabled (USE_BGFX=1)
 #   make clean  - remove build objects and the binary
 #   make help   - show this help text
 
@@ -81,11 +82,15 @@ help:
 	@echo "Trigonometry Wars build targets:"
 	@echo "  make          - build the game (./$(NAME))"
 	@echo "  make run      - build and run the game"
+	@echo "  make run-bgfx - build and run with bgfx interop (USE_BGFX=1)"
 	@echo "  make clean    - remove build objects and the binary"
 	@echo "  make help     - show this help text"
 
 run: $(NAME)
 	./$(NAME)
+
+run-bgfx:
+	$(MAKE) USE_BGFX=1 run
 
 $(NAME): $(OBJS)
 	$(CXX) -o $@ $(OBJS) $(LIBS) $(CLANG_FLAGS)
@@ -115,4 +120,4 @@ ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)
 endif
 
-.PHONY: all help run clean
+.PHONY: all help run run-bgfx clean

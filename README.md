@@ -61,6 +61,7 @@ This repository is currently validated against SDL3 3.4.16.
 ```sh
 make            # build the game (produces ./trigwars)
 make run        # build and run
+make run-bgfx   # build and run with bgfx interop enabled
 make clean      # remove build objects and the binary
 make help       # show available targets
 
