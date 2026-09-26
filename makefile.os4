@@ -5,6 +5,17 @@ DEFINES =
 CFLAGS = -std=c++20 -Wall -Wextra -O3 -gstabs
 NAME = trigwars
 OBJDIR = obj
+USE_BGFX ?= 0
+
+ifeq ($(USE_BGFX),1)
+BGFX_CFLAGS ?=
+BGFX_LIBS ?=
+ifeq ($(strip $(BGFX_CFLAGS) $(BGFX_LIBS)),)
+$(error USE_BGFX=1 requested, set BGFX_CFLAGS and BGFX_LIBS for your bgfx install)
+endif
+DEFINES += -DUSE_BGFX_RENDERER $(BGFX_CFLAGS)
+LIBS += $(BGFX_LIBS)
+endif
 
 SRC_DIRS = core entities render audio ui math vendor
 SRC_FILES = $(foreach d,$(SRC_DIRS),$(wildcard src/$(d)/*.cpp))

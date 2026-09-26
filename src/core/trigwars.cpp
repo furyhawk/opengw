@@ -4,6 +4,7 @@
 #include "render/scene.hpp"
 #include "core/settings.hpp"
 #include "render/gl3.h"
+#include "render/bgfx_bridge.hpp"
 #include "math/sincos.hpp"
 
 #include <SDL3/SDL.h>
@@ -22,6 +23,7 @@ static void applySettingsToWindow();
 std::unique_ptr<scene> oglScene;
 
 static bool oglInited = false;
+static bool bgfxInited = false;
 
 static void drawOffscreens();
 static void run();
@@ -165,6 +167,13 @@ static bool OGLCreate()
     // Apply fullscreen/vsync from the (possibly restored) settings.
     applySettingsToWindow();
 
+    bgfxInited = bgfx_bridge_init(window, mWidth, mHeight, settings::get().mVsync);
+    if (bgfxInited) {
+        printf("renderer: bgfx interop enabled (OpenGL backend)\n");
+    } else {
+        printf("renderer: bgfx unavailable, continuing with OpenGL backend (%s)\n", bgfx_bridge_last_error());
+    }
+
     oglInited = true;
     return true;
 }
@@ -172,6 +181,9 @@ static bool OGLCreate()
 static void OGLDestroy()
 {
     oglInited = false;
+
+    bgfx_bridge_shutdown();
+    bgfxInited = false;
 
     gfx_context_shutdown();
 
@@ -197,6 +209,7 @@ static void OGLSize(int cx, int cy)
     mHeight = dh;
 
     gfx_resize(dw, dh);
+    bgfx_bridge_resize(dw, dh, settings::get().mVsync);
 }
 
 // Applies any graphics-option changes made in the options screen (window
@@ -222,13 +235,18 @@ static void applySettingsToWindow()
         lastFullscreen = s.mFullscreen;
     }
     if (s.mVsync != lastVsync) {
-        SDL_GL_SetSwapInterval(s.mVsync ? 1 : 0);
+        if (!bgfxInited)
+            SDL_GL_SetSwapInterval(s.mVsync ? 1 : 0);
+        bgfx_bridge_resize(lastW, lastH, s.mVsync);
         lastVsync = s.mVsync;
     }
 }
 
 static void drawOffscreens()
 {
+    if (bgfxInited)
+        bgfx_bridge_begin_frame();
+
     // Ensure we're drawing to the default framebuffer, the viewport covers
     // the whole back buffer, and it's cleared to black.
     gfx_begin_frame();
@@ -319,7 +337,11 @@ static void run()
 
         drawOffscreens();
 
-        SDL_GL_SwapWindow(window);
+        if (bgfxInited) {
+            bgfx_bridge_end_frame();
+        } else {
+            SDL_GL_SwapWindow(window);
+        }
         updateFps(now);
     }
 }
