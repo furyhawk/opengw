@@ -68,16 +68,16 @@ make help       # show available targets
 make USE_BGFX=1
 ```
 
-For `USE_BGFX=1`, the makefiles look for bgfx via `pkg-config` package
-`bgfx` first, then `bgfx-shared`. If your install does not provide either
-metadata file, pass flags explicitly, for example:
+For `USE_BGFX=1`, the makefiles look for a system `bgfx` install via
+`pkg-config` (`bgfx`, then `bgfx-shared`). If you have a local bgfx checkout,
+set `BGFX_HOME` to its source root (for example `~/projects/bgfx`) or pass
+`BGFX_CFLAGS` / `BGFX_LIBS` explicitly:
 
 ```sh
+make USE_BGFX=1 BGFX_HOME="$HOME/projects/bgfx"
+# or
 make USE_BGFX=1 BGFX_CFLAGS="..." BGFX_LIBS="..."
 ```
-
-The bgfx bridge includes only `<bgfx/bgfx.h>`, which keeps builds compatible
-with current bgfx header layouts that may not ship `bgfx/platform.h`.
 
 > **Run from the project root.** The game loads `assets/sounds/` and
 > `assets/images/` and writes its `scores.sav` high-score file relative to the
