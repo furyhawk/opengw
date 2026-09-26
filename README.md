@@ -15,9 +15,15 @@ replaced by a small shader/VAO/VBO backend (`src/render/gl3.{h,cpp}`) and the
 more per-frame CPU image read-back.
 
 There is now also an optional **bgfx interop host path** (`src/render/bgfx_bridge.{hpp,cpp}`):
-when built with `USE_BGFX=1`, the game probes/initialises bgfx support but
-keeps frame presentation on the SDL/OpenGL path so the existing renderer runs
-correctly (avoids the pink-only frame issue seen when bgfx owns presentation).
+when built with `USE_BGFX=1`, the game probes bgfx and only hands the window
+over if bgfx really has an **OpenGL** backend that can share the game's
+SDL/OpenGL 3.3 context. That is currently the case on Linux and Windows. On
+macOS/iOS it is not: upstream bgfx removed OpenGL there, so `bgfx::init()` would
+silently fall back to Metal, attach a Metal layer to the SDL window and never
+present anything — which is exactly the solid **pink screen** you got from
+`make run-bgfx`. The bridge now detects that (via
+`bgfx::getSupportedRenderers()`), refuses to initialise and keeps the
+SDL/OpenGL presentation path, so `make run-bgfx` runs the normal renderer.
 
 ## Features
 
@@ -64,8 +70,9 @@ make run        # build and run
 make clean      # remove build objects and the binary
 make help       # show available targets
 
-# Build with bgfx interop host path enabled
+# Build with the bgfx interop host path enabled
 make USE_BGFX=1
+make run-bgfx   # build and run with USE_BGFX=1
 ```
 
 For `USE_BGFX=1`, the makefiles look for a system `bgfx` install via
@@ -79,10 +86,18 @@ make USE_BGFX=1 BGFX_HOME="$HOME/projects/bgfx"
 make USE_BGFX=1 BGFX_CFLAGS="..." BGFX_LIBS="..."
 ```
 
+`USE_BGFX=1` adds `-DUSE_BGFX_RENDERER`, so those builds use their own object
+directory (`obj-bgfx/`) and can coexist with a normal `obj/` build.
+
 > **Run from the project root.** The game loads `assets/sounds/` and
 > `assets/images/` and writes its `scores.sav` high-score file relative to the
 > current working directory, so launch it from here (or from a folder that
 > contains those folders).
+
+> **macOS note.** `make run-bgfx` on macOS builds and runs the normal
+> SDL/OpenGL renderer: bgfx has no OpenGL backend on Apple platforms (upstream
+> removed it), so the bridge declines to initialise rather than letting bgfx
+> fall back to Metal and blank the window.
 
 ### macOS
 

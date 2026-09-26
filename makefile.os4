@@ -4,8 +4,14 @@ HEADERS = $(OWN_PATHS) -I/SDK/local/newlib/include
 DEFINES =
 CFLAGS = -std=c++20 -Wall -Wextra -O3 -gstabs
 NAME = trigwars
-OBJDIR = obj
+# bgfx builds add -DUSE_BGFX_RENDERER, which changes the compiled result, so
+# they get their own object tree (see the canonical Makefile).
 USE_BGFX ?= 0
+ifeq ($(USE_BGFX),1)
+OBJDIR = obj-bgfx
+else
+OBJDIR = obj
+endif
 
 ifeq ($(USE_BGFX),1)
 BGFX_CFLAGS ?=
@@ -40,7 +46,7 @@ $(OBJDIR)/%.o : %.cpp | $(OBJDIR)
 	$(COMPILER) -o $@ -c $< $(CFLAGS) $(DEFINES) $(HEADERS)
 
 clean:
-	rm $(OBJDIR)/*
+	rm -rf obj obj-bgfx
 
 $(NAME): $(OBJS)
 	$(COMPILER) -o $@ $(OBJS) $(LIBS) -athread=native

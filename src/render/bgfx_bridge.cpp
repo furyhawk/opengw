@@ -17,6 +17,36 @@ void setLastError(const char* msg)
     sLastError = msg ? msg : "unknown bgfx error";
 }
 
+#if defined(USE_BGFX_RENDERER)
+// bgfx can only host this game when it can render with the same API the game
+// draws with, which is OpenGL.  Upstream bgfx removed its macOS/iOS OpenGL
+// backend (commit 928800fea, "macOS, iOS: Removed OpenGL/OpenGLES support"),
+// and that is exactly where the pink screen came from:
+//
+//   * bgfx::init() scores every *supported* renderer and only gives the
+//     requested one (OpenGL) its bonus if that backend is actually compiled
+//     in.  On macOS OpenGL is not in the list at all, so bgfx silently
+//     selected Metal instead,
+//   * bgfx then attached a CAMetalLayer to the SDL window's view and took over
+//     presentation, while the game kept drawing through SDL/OpenGL and never
+//     submitted a single bgfx command,
+//   * what was left on screen was the uninitialised native layer: a solid
+//     pink/magenta screen instead of the game.
+//
+// A Metal or Vulkan swap chain cannot share an SDL/OpenGL 3.3 context, so
+// there is nothing to interoperate with unless bgfx really has a GL backend.
+bool hasOpenGLBackend()
+{
+    bgfx::RendererType::Enum types[bgfx::RendererType::Count];
+    const uint8_t count = bgfx::getSupportedRenderers(bgfx::RendererType::Count, types);
+    for (uint8_t i = 0; i < count; ++i) {
+        if (types[i] == bgfx::RendererType::OpenGL)
+            return true;
+    }
+    return false;
+}
+#endif // USE_BGFX_RENDERER
+
 } // namespace
 
 bool bgfx_bridge_init(SDL_Window* window, int width, int height, bool vsync)
@@ -32,6 +62,15 @@ bool bgfx_bridge_init(SDL_Window* window, int width, int height, bool vsync)
     setLastError("bgfx support was not compiled in (build with USE_BGFX=1)");
     return false;
 #else
+    // Never let bgfx take the window unless it can share the game's OpenGL
+    // context; otherwise it falls back to Metal/Vulkan and blanks the screen
+    // (see hasOpenGLBackend() above).
+    if (!hasOpenGLBackend()) {
+        setLastError("bgfx has no OpenGL backend on this platform "
+                     "(macOS/iOS dropped OpenGL support)");
+        return false;
+    }
+
     if (window == nullptr) {
         setLastError("window was null");
         return false;
@@ -90,6 +129,15 @@ bool bgfx_bridge_init(SDL_Window* window, int width, int height, bool vsync)
 
     if (!bgfx::init(init)) {
         setLastError("bgfx::init failed");
+        return false;
+    }
+
+    // Belt and braces: if bgfx still selected a renderer that cannot share our
+    // GL context, shut it down again rather than letting it own presentation
+    // and leave an uninitialised native layer on screen.
+    if (bgfx::getRendererType() != bgfx::RendererType::OpenGL) {
+        bgfx::shutdown();
+        setLastError("bgfx initialised a non-OpenGL renderer");
         return false;
     }
 

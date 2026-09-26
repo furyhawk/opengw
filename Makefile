@@ -15,8 +15,15 @@
 
 CXX      ?= c++
 NAME     := trigwars
-OBJDIR   := obj
 USE_BGFX ?= 0
+# bgfx builds add -DUSE_BGFX_RENDERER, which changes the compiled result, so
+# they get their own object tree.  Sharing one tree would silently reuse
+# objects built with the other setting (or fail to link).
+ifeq ($(USE_BGFX),1)
+OBJDIR   := obj-bgfx
+else
+OBJDIR   := obj
+endif
 PKG_CONFIG ?= pkg-config
 
 CXXFLAGS := -std=c++20 -Wall -Wextra -O3 -ggdb
@@ -156,7 +163,7 @@ $(OBJDIR)/%.o: %.cpp | $(OBJDIR)
 # Cleanup
 # ---------------------------------------------------------------------------
 clean:
-	rm -rf $(OBJDIR) $(NAME)
+	rm -rf obj obj-bgfx $(NAME)
 
 # Load generated dependency files (skip during clean)
 ifneq ($(MAKECMDGOALS),clean)

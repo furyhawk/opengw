@@ -169,9 +169,10 @@ static bool OGLCreate()
 
     bgfxInited = bgfx_bridge_init(window, mWidth, mHeight, settings::get().mVsync);
     if (bgfxInited) {
-        printf("renderer: bgfx detected; using SDL/OpenGL presentation path\n");
+        printf("renderer: bgfx interop enabled (OpenGL backend)\n");
     } else {
-        printf("renderer: bgfx unavailable, continuing with OpenGL backend (%s)\n", bgfx_bridge_last_error());
+        printf("renderer: SDL/OpenGL presentation path (bgfx unavailable: %s)\n",
+               bgfx_bridge_last_error());
     }
 
     oglInited = true;
