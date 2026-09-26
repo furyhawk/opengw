@@ -10,10 +10,16 @@ USE_BGFX ?= 0
 # they get their own object tree (see the canonical Makefile).
 ifeq ($(USE_BGFX),1)
 OBJDIR = obj-bgfx
+NAME = trigwars-bgfx
 else
 OBJDIR = obj
 endif
 PKG_CONFIG ?= pkg-config
+# The bgfx block below picks the platform library directory and the macOS
+# frameworks from this; without it every $(UNAME_S) test silently read as "not
+# Darwin" and a USE_BGFX=1 build looked under .build/linux64 and linked no
+# frameworks at all.
+UNAME_S := $(shell uname -s)
 
 ifeq ($(USE_BGFX),1)
 	# The bgfx backend renders through bgfx itself (Metal on macOS) instead of
@@ -41,6 +47,33 @@ ifeq ($(USE_BGFX),1)
 	ifeq ($(UNAME_S),Darwin)
 	    BGFX_LIBS += -framework Cocoa -framework IOKit -framework OpenGL -framework QuartzCore -weak_framework Metal -weak_framework MetalKit -weak_framework VideoToolbox -weak_framework CoreMedia -weak_framework CoreVideo
 	endif
+
+    # BGFX_LIBS above is only a *default*: an inherited BGFX_LIBS=... in the
+    # environment (or on the command line) replaces it wholesale, and a list
+    # that names a static libbgfx but drops a companion is not a working
+    # configuration -- it can only fail at link time with a wall of
+    # "undefined symbols: bimg::...".  Fill in the companions from BGFX_LIBDIR
+    # instead of making the user read the linker's output to find that out.
+    # A *shared* bgfx bundles bimg and bx, so it is deliberately left alone.
+    ifneq ($(findstring libbgfx,$(filter %.a,$(BGFX_LIBS))),)
+        ifeq ($(strip $(findstring libbimg,$(BGFX_LIBS))),)
+            BGFX_LIBS_ADDED += $(wildcard $(BGFX_LIBDIR)/libbimgRelease.a)
+        endif
+        ifeq ($(strip $(findstring libbx,$(BGFX_LIBS))),)
+            BGFX_LIBS_ADDED += $(wildcard $(BGFX_LIBDIR)/libbxRelease.a)
+        endif
+        ifneq ($(strip $(BGFX_LIBS_ADDED)),)
+            # Anchored on the last of bgfx/bimg already on the line, so the
+            # result still reads bgfx -> bimg -> bx (left to right is the order
+            # the linker resolves archives in, and bimg calls into bx).
+            BGFX_HAVE_BIMG := $(strip $(foreach lib,$(filter %.a,$(BGFX_LIBS)),$(if $(findstring libbimg,$(lib)),$(lib))))
+            BGFX_HAVE_BGFX := $(strip $(foreach lib,$(filter %.a,$(BGFX_LIBS)),$(if $(findstring libbgfx,$(lib)),$(lib))))
+            BGFX_ANCHOR    := $(firstword $(BGFX_HAVE_BIMG) $(BGFX_HAVE_BGFX))
+            BGFX_LIBS      := $(foreach tok,$(BGFX_LIBS),$(if $(filter $(BGFX_ANCHOR),$(tok)),$(tok) $(strip $(BGFX_LIBS_ADDED)),$(tok)))
+            $(info bgfx: the given BGFX_LIBS named a static libbgfx but no $(notdir $(BGFX_LIBS_ADDED)); inserting $(BGFX_LIBS_ADDED).)
+            $(info bgfx: unset BGFX_LIBS to use the default list for $(BGFX_LIBDIR).)
+        endif
+    endif
 
 
 	ifeq ($(USE_BGFX),1)
@@ -92,10 +125,12 @@ clean:
 
 # ---------------------------------------------------------------------------
 # Validated bgfx link flags (a partial list is the classic cause of
-# "undefined symbols: bimg::..."); a no-op when building without bgfx.
+# "undefined symbols: bimg::..."); a no-op when building without bgfx -- the
+# OpenGL build links no bgfx at all, so an inherited BGFX_LIBS from the
+# environment must not be inspected (or allowed to fail) there.
 # ---------------------------------------------------------------------------
 bgfx-libs-check:
-	@if [ -n "$(strip $(BGFX_LIBS))" ]; then sh tools/check_bgfx_libs.sh $(BGFX_LIBS); fi
+	@if [ "$(USE_BGFX)" = "1" ] && [ -n "$(strip $(BGFX_LIBS))" ]; then sh tools/check_bgfx_libs.sh $(BGFX_LIBS); fi
 
 $(NAME): $(OBJS) | bgfx-libs-check
 	$(COMPILER) -o $@ $(OBJS) $(LIBS) $(CLANG_FLAGS)

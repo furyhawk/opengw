@@ -8,12 +8,15 @@
 # real cause (a partial library list), so the flags are inspected here first.
 #
 # The library *names* are checked exactly — that is what actually breaks the
-# link.  File existence is only reported as a note: on sandboxed/agent setups
-# stat-ing a path outside the project can be denied even though the file is
-# there, and this must never fail a build for that reason.
+# link.  A static libbgfx named without its bimg/bx companions is a link that
+# cannot possibly succeed, so that case is a hard error (exit 1) with an
+# explanation instead of a page of undefined symbols.  File existence, on the
+# other hand, is only reported as a note: on sandboxed/agent setups stat-ing a
+# path outside the project can be denied even though the file is there, and
+# this must never fail a build for that reason.
 #
 # Usage: tools/check_bgfx_libs.sh <link flags...>
-# Diagnostics go to stderr and the exit status is always 0.
+# Diagnostics go to stderr.
 
 if [ "$#" -eq 0 ]; then
     echo "check_bgfx_libs.sh: no link flags given" >&2
@@ -51,18 +54,22 @@ if [ -n "$unverifiable" ]; then
 fi
 
 # A static bgfx archive needs its companions; the names alone tell us that.
+status=0
 case "$have_bgfx" in
     *.a)
-        if [ -z "$have_bimg" ]; then
-            echo "bgfx: a static libbgfx is linked without a bimg archive, but" >&2
-            echo "      bgfx references bimg (imageParse, imageGetSize, ...)." >&2
-            echo "      Add libbimg to BGFX_LIBS -- unless you link a *shared*" >&2
-            echo "      bgfx library, which bundles bimg and bx." >&2
-        fi
-        if [ -z "$have_bx" ]; then
-            echo "bgfx: a static libbgfx is linked without the bx archive; add libbx." >&2
+        if [ -z "$have_bimg" ] || [ -z "$have_bx" ]; then
+            missing=""
+            [ -z "$have_bimg" ] && missing="$missing libbimg"
+            [ -z "$have_bx" ] && missing="$missing libbx"
+            echo "bgfx: the link line has a static libbgfx but no$missing next to it," >&2
+            echo "      so bgfx's references into bimg/bx cannot be resolved." >&2
+            echo "      A static libbgfx always needs all three archives; only a" >&2
+            echo "      *shared* bgfx bundles bimg and bx." >&2
+            echo "      Put the missing archives in BGFX_LIBDIR, or pass a full" >&2
+            echo "      list in BGFX_LIBS ('make bgfx-env' shows what is used)." >&2
+            status=1
         fi
         ;;
 esac
 
-exit 0
+exit $status

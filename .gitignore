@@ -1,4 +1,5 @@
 trigwars
+trigwars-bgfx
 obj/
 obj-bgfx/
 scores.sav

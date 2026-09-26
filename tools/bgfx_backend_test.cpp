@@ -392,6 +392,49 @@ void testClientArrays()
     check((pixelNdc(-0.99f, 0.0f) >> 8 & 0xff) > 150, "client-array line loop left edge is drawn");
 }
 
+// The legacy code sets the blend mode *before* the primitives that use it, so a
+// batch is still pending when the next draw's glBlendFunc() arrives. Flushing
+// that batch with the state as of the flush (instead of the state it was
+// accumulated under) renders it with the next draw's blending -- e.g. the
+// attract-mode scene, drawn additively and then multiplied by the overlay
+// quad's DST_COLOR blend, comes out black.
+void testBatchKeepsItsBlendState()
+{
+    printf("batched geometry keeps the blend state it was drawn with\n");
+
+    gfx_begin_frame();
+    gfx_disable(GL_BLEND);
+    gfx_clearcolor(0, 0, 0, 1);
+    gfx_clear(GL_COLOR_BUFFER_BIT);
+
+    // Additive white quad in the left half of the screen.
+    gfx_enable(GL_BLEND);
+    gfx_blendfunc(GL_SRC_ALPHA, GL_ONE);
+    gfx_color4f(1, 1, 1, 1);
+    gfx_begin(GL_QUADS);
+    gfx_vertex2d(-0.9f, -0.5f);
+    gfx_vertex2d(-0.1f, -0.5f);
+    gfx_vertex2d(-0.1f, 0.5f);
+    gfx_vertex2d(-0.9f, 0.5f);
+    gfx_end();
+
+    // The next draw changes the blend mode; that state change is what flushes
+    // the quad above. It must still be submitted as additive.
+    gfx_blendfunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
+    gfx_color4f(1, 0, 0, 1);
+    gfx_begin(GL_QUADS);
+    gfx_vertex2d(0.1f, -0.5f);
+    gfx_vertex2d(0.9f, -0.5f);
+    gfx_vertex2d(0.9f, 0.5f);
+    gfx_vertex2d(0.1f, 0.5f);
+    gfx_end();
+    capture();
+
+    const uint32_t p = pixelNdc(-0.5f, 0.0f);
+    check(rgbr(p) > 200 && (p >> 8 & 0xff) > 200 && (p >> 16 & 0xff) > 200,
+          "the additive quad stayed additive after a later blend-mode change");
+}
+
 // The glow pass is the easiest place to introduce a silent vertical flip: the
 // bloom must line up with the geometry that produced it.
 void testGlowAlignment()
@@ -489,6 +532,7 @@ int main()
     testWideLinesAndPoints();
     testTextures();
     testClientArrays();
+    testBatchKeepsItsBlendState();
     testGlowAlignment();
     testGlowOffIsUnchanged();
 

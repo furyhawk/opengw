@@ -71,7 +71,7 @@ make help       # show available targets
 
 # Build with the bgfx interop host path enabled
 make USE_BGFX=1
-make run-bgfx   # build and run with USE_BGFX=1
+make run-bgfx   # build and run with USE_BGFX=1 (produces ./trigwars-bgfx)
 ```
 
 For `USE_BGFX=1` the bgfx paths are derived from `BGFX_HOME` (a local bgfx
@@ -90,13 +90,19 @@ bgfx is linked statically, so all three of `libbgfx`, `libbimg` and `libbx` are
 on the link line (`bgfx` calls into `bimg` for image handling and into `bx`);
 `tools/check_bgfx_libs.sh` inspects the flags before linking and explains the
 usual mistake — a partial list, which otherwise only shows up as a wall of
-`undefined symbols: bimg::...`. Build the libraries once with `make -C
-"$BGFX_HOME"` (add `shaderc` if you want to regenerate the shaders).
+`undefined symbols: bimg::...`. A `BGFX_LIBS` that names a static `libbgfx` but
+drops one of its companions (a stale `export` in your shell, say) is completed
+from `BGFX_LIBDIR` with a note from make; a complete list, or one naming a
+*shared* bgfx (which bundles bimg and bx), is used exactly as given. Build the
+libraries once with `make -C "$BGFX_HOME"` (add `shaderc` if you want to
+regenerate the shaders).
 
-`USE_BGFX=1` builds use their own object directory (`obj-bgfx/`) and are
-currently **macOS-only**: the backend renders with bgfx/Metal and the embedded
-shaders are compiled for Metal (see `tools/compile_shaders.sh`). On other
-platforms use the default `make` (OpenGL backend).
+`USE_BGFX=1` builds use their own object directory (`obj-bgfx/`) and their own
+binary (`trigwars-bgfx`, so neither build can be mistaken for — or silently
+reused as — the other), and are currently **macOS-only**: the backend renders
+with bgfx/Metal and the embedded shaders are compiled for Metal (see
+`tools/compile_shaders.sh`). On other platforms use the default `make` (OpenGL
+backend).
 
 > **Run from the project root.** The game loads `assets/sounds/` and
 > `assets/images/` and writes its `scores.sav` high-score file relative to the

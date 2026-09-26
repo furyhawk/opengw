@@ -364,6 +364,12 @@ struct Batch
     bool blendEnabled { false };
     GLenum blendSrc { GL_SRC_ALPHA };
     GLenum blendDst { GL_ONE };
+    // The bgfx state this geometry was accumulated under.  It has to be
+    // captured when the batch *starts*, because the legacy code sets the blend
+    // mode *before* the primitives that use it: by the time a later primitive
+    // flushes this batch, the current GL state already belongs to that next
+    // draw (see beginBatch()).
+    uint64_t state { 0 };
     std::vector<SolidVert> solid;
     std::vector<TexVert> tex;
 };
@@ -375,7 +381,12 @@ void flushBatch()
     if (!g_loaded)
         return;
 
-    const uint64_t state = currentState();
+    // The state the batch was built with -- not currentState(), which by now
+    // describes the draw that triggered this flush.  Submitting with the wrong
+    // state silently changes how the geometry blends: an attract-mode scene
+    // drawn additively was then multiplied by the overlay quad's
+    // DST_COLOR/ONE_MINUS_SRC_ALPHA and came out black.
+    const uint64_t state = g_batch.state;
 
     if (!g_batch.solid.empty()) {
         submitVertices(g_batch.view, g_solidProg, g_solidLayout, g_batch.solid.data(),
@@ -413,6 +424,7 @@ void beginBatch(BatchKind kind, GLuint texture)
     g_batch.blendEnabled = g_blendEnabled;
     g_batch.blendSrc = g_blendSrc;
     g_batch.blendDst = g_blendDst;
+    g_batch.state = currentState();
 }
 
 } // namespace

@@ -222,10 +222,24 @@ static void OGLDestroy()
 {
     oglInited = false;
 
+#if defined(USE_BGFX_RENDERER)
+    // Order matters: gfx_context_shutdown() releases the backend's bgfx
+    // programs, textures and render targets, and every one of those
+    // bgfx::destroy() calls needs a live bgfx context.  Shutting the bridge
+    // down first (it calls bgfx::shutdown()) leaves them dereferencing a
+    // NULL context, which segfaults inside bgfx's own mutex.
+    gfx_context_shutdown();
+
+    bgfx_bridge_shutdown();
+    bgfxInited = false;
+#else
+    // In the OpenGL build the bridge is an interop *consumer* of the GL
+    // objects, so it has to go first there.
     bgfx_bridge_shutdown();
     bgfxInited = false;
 
     gfx_context_shutdown();
+#endif
 
     if (context) {
         SDL_GL_MakeCurrent(nullptr, nullptr);

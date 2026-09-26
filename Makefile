@@ -8,19 +8,23 @@
 # Targets:
 #   make        - build the game (produces ./trigwars)
 #   make run    - build and run the game
-#   make bgfx   - build with the bgfx renderer enabled
+#   make bgfx   - build with the bgfx renderer enabled (produces ./trigwars-bgfx)
 #   make run-bgfx - build and run with the bgfx renderer enabled
-#   make clean  - remove build objects and the binary
+#   make clean  - remove build objects and the binaries
 #   make help   - show this help text
 
 CXX      ?= c++
 NAME     := trigwars
 USE_BGFX ?= 0
 # bgfx builds add -DUSE_BGFX_RENDERER, which changes the compiled result, so
-# they get their own object tree.  Sharing one tree would silently reuse
-# objects built with the other setting (or fail to link).
+# they get their own object tree *and* their own binary.  Sharing either would
+# silently reuse the other renderer's build: a shared object tree fails (or
+# worse, links) across the two settings, and a shared binary name leaves the
+# other mode's executable looking up to date, so `make run-bgfx` after a plain
+# `make` would happily run the OpenGL build.
 ifeq ($(USE_BGFX),1)
 OBJDIR   := obj-bgfx
+NAME     := trigwars-bgfx
 else
 OBJDIR   := obj
 endif
@@ -95,6 +99,33 @@ ifeq ($(USE_BGFX),1)
         BGFX_LIBS += -framework Cocoa -framework IOKit -framework OpenGL -framework QuartzCore -weak_framework Metal -weak_framework MetalKit -weak_framework VideoToolbox -weak_framework CoreMedia -weak_framework CoreVideo
     endif
 
+    # BGFX_LIBS above is only a *default*: an inherited BGFX_LIBS=... in the
+    # environment (or on the command line) replaces it wholesale, and a list
+    # that names a static libbgfx but drops a companion is not a working
+    # configuration -- it can only fail at link time with a wall of
+    # "undefined symbols: bimg::...".  Fill in the companions from BGFX_LIBDIR
+    # instead of making the user read the linker's output to find that out.
+    # A *shared* bgfx bundles bimg and bx, so it is deliberately left alone.
+    ifneq ($(findstring libbgfx,$(filter %.a,$(BGFX_LIBS))),)
+        ifeq ($(strip $(findstring libbimg,$(BGFX_LIBS))),)
+            BGFX_LIBS_ADDED += $(wildcard $(BGFX_LIBDIR)/libbimgRelease.a)
+        endif
+        ifeq ($(strip $(findstring libbx,$(BGFX_LIBS))),)
+            BGFX_LIBS_ADDED += $(wildcard $(BGFX_LIBDIR)/libbxRelease.a)
+        endif
+        ifneq ($(strip $(BGFX_LIBS_ADDED)),)
+            # Anchored on the last of bgfx/bimg already on the line, so the
+            # result still reads bgfx -> bimg -> bx (left to right is the order
+            # the linker resolves archives in, and bimg calls into bx).
+            BGFX_HAVE_BIMG := $(strip $(foreach lib,$(filter %.a,$(BGFX_LIBS)),$(if $(findstring libbimg,$(lib)),$(lib))))
+            BGFX_HAVE_BGFX := $(strip $(foreach lib,$(filter %.a,$(BGFX_LIBS)),$(if $(findstring libbgfx,$(lib)),$(lib))))
+            BGFX_ANCHOR    := $(firstword $(BGFX_HAVE_BIMG) $(BGFX_HAVE_BGFX))
+            BGFX_LIBS      := $(foreach tok,$(BGFX_LIBS),$(if $(filter $(BGFX_ANCHOR),$(tok)),$(tok) $(strip $(BGFX_LIBS_ADDED)),$(tok)))
+            $(info bgfx: the given BGFX_LIBS named a static libbgfx but no $(notdir $(BGFX_LIBS_ADDED)); inserting $(BGFX_LIBS_ADDED).)
+            $(info bgfx: unset BGFX_LIBS to use the default list for $(BGFX_LIBDIR).)
+        endif
+    endif
+
 
     CPPFLAGS += -DUSE_BGFX_RENDERER $(BGFX_CFLAGS)
     LIBS += $(BGFX_LIBS)
@@ -127,16 +158,17 @@ bgfx-env:
 	@echo "  BGFX_LIBDIR = $(if $(strip $(BGFX_LIBDIR)),$(BGFX_LIBDIR),<not found>)"
 	@echo "  BGFX_LIBS   = $(if $(strip $(BGFX_LIBS)),$(BGFX_LIBS),<none>)"
 	@echo "  OBJDIR      = $(OBJDIR)"
+	@echo "  NAME        = $(NAME)"
 	@echo "A static bgfx needs libbgfx, libbimg and libbx on the link line"
 	@echo "(bgfx calls into bimg and bx); pass BGFX_LIBS to override."
 
 help:
 	@echo "Trigonometry Wars build targets:"
-	@echo "  make          - build the game (./$(NAME))"
+	@echo "  make          - build the game (./trigwars)"
 	@echo "  make run      - build and run the game"
-	@echo "  make bgfx     - build with the bgfx renderer enabled"
+	@echo "  make bgfx     - build with the bgfx renderer enabled (./trigwars-bgfx)"
 	@echo "  make run-bgfx - build and run with the bgfx renderer enabled"
-	@echo "  make clean    - remove build objects and the binary"
+	@echo "  make clean    - remove build objects and the binaries"
 	@echo "  make bgfx-env - show the detected bgfx paths/flags"
 	@echo "  make help     - show this help text"
 
@@ -151,10 +183,12 @@ run-bgfx:
 
 # ---------------------------------------------------------------------------
 # Validated bgfx link flags (a partial list is the classic cause of
-# "undefined symbols: bimg::..."); a no-op when building without bgfx.
+# "undefined symbols: bimg::..."); a no-op when building without bgfx -- the
+# OpenGL build links no bgfx at all, so an inherited BGFX_LIBS from the
+# environment must not be inspected (or allowed to fail) there.
 # ---------------------------------------------------------------------------
 bgfx-libs-check:
-	@if [ -n "$(strip $(BGFX_LIBS))" ]; then sh tools/check_bgfx_libs.sh $(BGFX_LIBS); fi
+	@if [ "$(USE_BGFX)" = "1" ] && [ -n "$(strip $(BGFX_LIBS))" ]; then sh tools/check_bgfx_libs.sh $(BGFX_LIBS); fi
 
 $(NAME): $(OBJS) | bgfx-libs-check
 	$(CXX) -o $@ $(OBJS) $(LIBS) $(CLANG_FLAGS)
@@ -177,7 +211,7 @@ $(OBJDIR)/%.o: %.cpp | $(OBJDIR)
 # Cleanup
 # ---------------------------------------------------------------------------
 clean:
-	rm -rf obj obj-bgfx $(NAME)
+	rm -rf obj obj-bgfx trigwars trigwars-bgfx
 
 # Load generated dependency files (skip during clean)
 ifneq ($(MAKECMDGOALS),clean)
