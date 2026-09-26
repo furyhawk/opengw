@@ -76,6 +76,9 @@ metadata file, pass flags explicitly, for example:
 make USE_BGFX=1 BGFX_CFLAGS="..." BGFX_LIBS="..."
 ```
 
+The bgfx bridge includes only `<bgfx/bgfx.h>`, which keeps builds compatible
+with current bgfx header layouts that may not ship `bgfx/platform.h`.
+
 > **Run from the project root.** The game loads `assets/sounds/` and
 > `assets/images/` and writes its `scores.sav` high-score file relative to the
 > current working directory, so launch it from here (or from a folder that
