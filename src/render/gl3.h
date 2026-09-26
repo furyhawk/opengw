@@ -257,6 +257,11 @@ void gfx_resize(int width, int height);
 // clear it to black. Call at the start of every rendered frame.
 void gfx_begin_frame();
 
+// Flush any geometry the backend has batched up. Call once per frame, after all
+// drawing and before presenting (the OpenGL backend draws immediately and only
+// implements this as a no-op).
+void gfx_end_frame();
+
 // Bind/unbind the glow render target (used to render the RENDERPASS_BLUR pass
 // into a low-resolution texture instead of reading pixels back to the CPU).
 void gfx_glow_bind();

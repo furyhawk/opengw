@@ -76,7 +76,13 @@ int main(int /*argc*/, char** /*argv*/)
     // ------------------------------------------------------------------
     // Request a modern OpenGL 3.3 CORE profile context with MSAA.
     // The old fixed-function / compatibility pipeline is no longer used.
+    // (The bgfx build renders with bgfx instead — Metal on macOS — and does
+    // not create a GL context at all.)
     // ------------------------------------------------------------------
+    Uint32 flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+#if defined(USE_BGFX_RENDERER)
+    flags |= SDL_WINDOW_METAL;
+#else
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
@@ -84,8 +90,8 @@ int main(int /*argc*/, char** /*argv*/)
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
-
-    Uint32 flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+    flags |= SDL_WINDOW_OPENGL;
+#endif
     if (0) {
         flags |= SDL_WINDOW_FULLSCREEN;
     }
@@ -121,6 +127,38 @@ int main(int /*argc*/, char** /*argv*/)
 
 static bool OGLCreate()
 {
+#if defined(USE_BGFX_RENDERER)
+    // ------------------------------------------------------------------
+    // bgfx render path (Metal on macOS). bgfx owns the window's CAMetalLayer
+    // and presentation; the render backend draws through bgfx.
+    // ------------------------------------------------------------------
+    bgfxInited = bgfx_bridge_init(window, settings::get().displayWidth, settings::get().displayHeight,
+                                  settings::get().mVsync);
+    if (!bgfxInited) {
+        // This build has no OpenGL backend to fall back to.
+        printf("bgfx: renderer initialisation failed (%s)\n", bgfx_bridge_last_error());
+        SDL_ShowSimpleMessageBox(0, "Trigonometry Wars - bgfx error",
+                                 "Could not initialise the bgfx renderer.\n\n"
+                                 "Check the console output for details.",
+                                 window);
+        return false;
+    }
+    printf("renderer: bgfx backend\n");
+
+    // The backend needs a live bgfx device (programs, render targets).
+    gfx_context_init();
+    if (!gfx_healthy()) {
+        printf("bgfx: render backend failed to initialise (see errors above)\n");
+        gfx_context_shutdown();
+        bgfx_bridge_shutdown();
+        bgfxInited = false;
+        SDL_ShowSimpleMessageBox(0, "Trigonometry Wars - Shader error",
+                                 "The bgfx render backend failed to start\n"
+                                 "(shader load errors - see console).",
+                                 window);
+        return false;
+    }
+#else
     context = SDL_GL_CreateContext(window);
 
     if (context == nullptr) {
@@ -159,14 +197,6 @@ static bool OGLCreate()
         return false;
     }
 
-    gfx_set_glow_enabled(settings::get().mEnableGlow);
-
-    // (Re)create glow/blur render targets for the current window size.
-    OGLSize(settings::get().displayWidth, settings::get().displayHeight);
-
-    // Apply fullscreen/vsync from the (possibly restored) settings.
-    applySettingsToWindow();
-
     bgfxInited = bgfx_bridge_init(window, mWidth, mHeight, settings::get().mVsync);
     if (bgfxInited) {
         printf("renderer: bgfx interop enabled (OpenGL backend)\n");
@@ -174,6 +204,15 @@ static bool OGLCreate()
         printf("renderer: SDL/OpenGL presentation path (bgfx unavailable: %s)\n",
                bgfx_bridge_last_error());
     }
+#endif
+
+    gfx_set_glow_enabled(settings::get().mEnableGlow);
+
+    // (Re)create glow/blur render targets for the current window size.
+    OGLSize(settings::get().displayWidth, settings::get().displayHeight);
+
+    // Apply fullscreen/vsync from the (possibly restored) settings.
+    applySettingsToWindow();
 
     oglInited = true;
     return true;
@@ -236,7 +275,10 @@ static void applySettingsToWindow()
         lastFullscreen = s.mFullscreen;
     }
     if (s.mVsync != lastVsync) {
+#if !defined(USE_BGFX_RENDERER)
         SDL_GL_SetSwapInterval(s.mVsync ? 1 : 0);
+#endif
+        // bgfx applies vsync through its swap chain reset.
         bgfx_bridge_resize(lastW, lastH, s.mVsync);
         lastVsync = s.mVsync;
     }
@@ -274,6 +316,10 @@ static void drawOffscreens()
         // Glow disabled — single full-resolution pass.
         oglScene->draw(scene::RENDERPASS_PRIMARY);
     }
+
+    // Hand everything to the renderer before the buffer swap (the bgfx backend
+    // batches geometry and submits it here).
+    gfx_end_frame();
 }
 
 static void updateFps(Uint32 now)
@@ -334,7 +380,13 @@ static void run()
 
         drawOffscreens();
 
+#if defined(USE_BGFX_RENDERER)
+        // bgfx owns presentation: submit the frame it built above.
+        if (bgfxInited)
+            bgfx_bridge_end_frame();
+#else
         SDL_GL_SwapWindow(window);
+#endif
         updateFps(now);
     }
 }

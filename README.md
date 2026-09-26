@@ -14,16 +14,14 @@ replaced by a small shader/VAO/VBO backend (`src/render/gl3.{h,cpp}`) and the
 "bloom" glow is produced with a GPU framebuffer-object Gaussian blur — no
 more per-frame CPU image read-back.
 
-There is now also an optional **bgfx interop host path** (`src/render/bgfx_bridge.{hpp,cpp}`):
-when built with `USE_BGFX=1`, the game probes bgfx and only hands the window
-over if bgfx really has an **OpenGL** backend that can share the game's
-SDL/OpenGL 3.3 context. That is currently the case on Linux and Windows. On
-macOS/iOS it is not: upstream bgfx removed OpenGL there, so `bgfx::init()` would
-silently fall back to Metal, attach a Metal layer to the SDL window and never
-present anything — which is exactly the solid **pink screen** you got from
-`make run-bgfx`. The bridge now detects that (via
-`bgfx::getSupportedRenderers()`), refuses to initialise and keeps the
-SDL/OpenGL presentation path, so `make run-bgfx` runs the normal renderer.
+An alternative **bgfx render backend** (`src/render/bgfx_backend.cpp`) can be
+selected with `USE_BGFX=1`. It implements exactly the same `gfx_*` API (see
+`src/render/gl3.h`), so no game code changes: vertex transform, wide lines and
+points, batching, textures and the glow/blur pass are simply driven through
+bgfx. On macOS bgfx has no OpenGL backend any more (upstream removed it), so
+that build renders with **Metal** — `make run-bgfx` gives you the Metal path
+with the game's existing look. `src/render/bgfx_bridge.{hpp,cpp}` owns the bgfx
+device (window/layer, resize, vsync, frame submission).
 
 ## Features
 
@@ -53,8 +51,9 @@ SDL/OpenGL presentation path, so `make run-bgfx` runs the normal renderer.
   SDL3 3.4.16+
 - OpenGL 3.3 **core profile** support (functions are loaded at runtime via
   `SDL_GL_GetProcAddress`, so no GLEW/GLAD and no GLU is required)
-- Optional: [bgfx](https://github.com/bkaradzic/bgfx) development files (for
-  `USE_BGFX=1` builds)
+- Optional (macOS, for `USE_BGFX=1` builds):
+  [bgfx](https://github.com/bkaradzic/bgfx) built with Metal support, plus its
+  `shaderc` tool if you want to change the shaders
 
 ## Building
 
@@ -75,29 +74,40 @@ make USE_BGFX=1
 make run-bgfx   # build and run with USE_BGFX=1
 ```
 
-For `USE_BGFX=1`, the makefiles look for a system `bgfx` install via
-`pkg-config` (`bgfx`, then `bgfx-shared`). If you have a local bgfx checkout,
-set `BGFX_HOME` to its source root (for example `~/projects/bgfx`) or pass
-`BGFX_CFLAGS` / `BGFX_LIBS` explicitly:
+For `USE_BGFX=1` the bgfx paths are derived from `BGFX_HOME` (a local bgfx
+checkout, default `~/projects/bgfx`); `BGFX_LIBDIR`, `BGFX_CFLAGS` and
+`BGFX_LIBS` can be overridden individually. `make bgfx-env` prints what is being
+used:
 
 ```sh
-make USE_BGFX=1 BGFX_HOME="$HOME/projects/bgfx"
-# or
-make USE_BGFX=1 BGFX_CFLAGS="..." BGFX_LIBS="..."
+make USE_BGFX=1                       # ~/projects/bgfx by default
+make USE_BGFX=1 BGFX_HOME="$HOME/src/bgfx"
+make USE_BGFX=1 BGFX_LIBS="..."       # e.g. a shared bgfx library
+make USE_BGFX=1 bgfx-env              # show the detected paths and flags
 ```
 
-`USE_BGFX=1` adds `-DUSE_BGFX_RENDERER`, so those builds use their own object
-directory (`obj-bgfx/`) and can coexist with a normal `obj/` build.
+bgfx is linked statically, so all three of `libbgfx`, `libbimg` and `libbx` are
+on the link line (`bgfx` calls into `bimg` for image handling and into `bx`);
+`tools/check_bgfx_libs.sh` inspects the flags before linking and explains the
+usual mistake — a partial list, which otherwise only shows up as a wall of
+`undefined symbols: bimg::...`. Build the libraries once with `make -C
+"$BGFX_HOME"` (add `shaderc` if you want to regenerate the shaders).
+
+`USE_BGFX=1` builds use their own object directory (`obj-bgfx/`) and are
+currently **macOS-only**: the backend renders with bgfx/Metal and the embedded
+shaders are compiled for Metal (see `tools/compile_shaders.sh`). On other
+platforms use the default `make` (OpenGL backend).
 
 > **Run from the project root.** The game loads `assets/sounds/` and
 > `assets/images/` and writes its `scores.sav` high-score file relative to the
 > current working directory, so launch it from here (or from a folder that
 > contains those folders).
 
-> **macOS note.** `make run-bgfx` on macOS builds and runs the normal
-> SDL/OpenGL renderer: bgfx has no OpenGL backend on Apple platforms (upstream
-> removed it), so the bridge declines to initialise rather than letting bgfx
-> fall back to Metal and blank the window.
+> **macOS `run-bgfx` note.** The bgfx build renders with **Metal** (bgfx has no
+> OpenGL backend on Apple platforms) and keeps the game's existing look: the
+> same CPU-side fixed-function emulation, the same glow/blur pass, just driven
+> through bgfx. Close other GPU-heavy apps if you see frame pacing oddities —
+> vsync is applied through the bgfx swap chain.
 
 ### macOS
 
@@ -162,7 +172,10 @@ src/
   core/      main loop, game state, camera, input, settings, high scores
   entities/  entity base, player ships, enemies and projectiles
   render/    scene, grid/stars background, GPU glow, textures, fonts,
-             gl3.{h,cpp} (modern OpenGL 3.3 core backend)
+             gl3.{h,cpp}          (modern OpenGL 3.3 core backend, default)
+             bgfx_backend.cpp     (bgfx backend, Metal on macOS — USE_BGFX=1)
+             bgfx_bridge.{hpp,cpp}(bgfx device / window / frame submission)
+             shaders/             bgfx shader sources + embedded Metal binaries
   audio/     SDL3 sound mixer
   ui/        menus (game-type select)
   math/      vectors/matrices, math helpers, shared constants
@@ -170,10 +183,45 @@ src/
 assets/
   images/    runtime images (marquee, icon)
   sounds/    runtime sounds (.wav)
+tools/
+  classicalcfg_check.cpp      standalone classical.cfg loader check
+  compile_shaders.sh          regenerate the embedded bgfx shaders (needs shaderc)
+  check_bgfx_libs.sh          validate the bgfx link flags before linking
+  bgfx_backend_test.cpp       headless bgfx backend verification
+  run_bgfx_backend_test.sh    build + run the above
 ```
 
 Run `make` from the repo root so the CWD-relative `assets/…` and
 `scores.sav` paths resolve.
+
+## Renderer backends
+
+Both backends implement the same API (`src/render/gl3.h`), so all game code is
+shared:
+
+| | default (`make`) | `USE_BGFX=1` (`make run-bgfx`) |
+| --- | --- | --- |
+| API | OpenGL 3.3 core | bgfx (Metal on macOS) |
+| Context | SDL GL context | SDL Metal view / bgfx swap chain |
+| Shaders | GLSL strings compiled at runtime | pre-compiled bgfx blobs (`src/render/shaders/*.bin.h`) |
+| Objects | `obj/` | `obj-bgfx/` |
+
+### Verifying the bgfx backend without a display
+
+`tools/run_bgfx_backend_test.sh` renders into an offscreen Metal framebuffer,
+reads the pixels back and checks the things that are easy to get silently wrong
+in a port: clip-space orientation, the NDC depth convention (Metal uses
+`[0,1]`), blend modes, wide lines/points, client arrays (the grid), texture
+orientation and glow/blur alignment.
+
+```sh
+tools/run_bgfx_backend_test.sh          # build + run, exits non-zero on failure
+tools/compile_shaders.sh                # regenerate src/render/shaders/*.bin.h
+```
+
+`compile_shaders.sh` needs the `shaderc` tool from a bgfx checkout (run
+`make shaderc` there once); the generated headers are committed, so normal
+builds do not need it.
 
 ## License
 

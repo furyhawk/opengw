@@ -65,48 +65,37 @@ endif
 CPPFLAGS += $(SDL_CFLAGS)
 
 ifeq ($(USE_BGFX),1)
-    BGFX_HOME ?= $(firstword $(wildcard \
-        /Users/user/projects/bgfx \
-        $(HOME)/projects/bgfx \
-        /opt/homebrew/opt/bgfx \
-        /usr/local/opt/bgfx \
-    ))
+    # The bgfx backend renders through bgfx itself (Metal on macOS) instead of
+    # the game's own OpenGL context.  The embedded shaders are generated for
+    # Metal (see tools/compile_shaders.sh), so the bgfx build is currently
+    # macOS-only.
+    ifneq ($(UNAME_S),Darwin)
+        $(error USE_BGFX=1 is currently supported on macOS only (the bgfx backend renders with Metal; run the default `make` here, or generate shaders for another bgfx backend with tools/compile_shaders.sh))
+    endif
 
-    BGFX_PKG ?= $(shell \
-        if $(PKG_CONFIG) --exists bgfx 2>/dev/null; then \
-            echo bgfx; \
-        elif $(PKG_CONFIG) --exists bgfx-shared 2>/dev/null; then \
-            echo bgfx-shared; \
-        fi)
-
-    ifneq ($(strip $(BGFX_HOME)),)
-        BGFX_CFLAGS ?= -I$(BGFX_HOME)/include -I$(BGFX_HOME)/../bx/include -I$(BGFX_HOME)/../bimg/include
-        BGFX_LIBDIR ?= $(shell \
-            if [ -d "$(BGFX_HOME)/.build/osx-arm64/bin" ]; then \
-                echo "$(BGFX_HOME)/.build/osx-arm64/bin"; \
-            elif [ -d "$(BGFX_HOME)/.build/linux64/bin" ]; then \
-                echo "$(BGFX_HOME)/.build/linux64/bin"; \
-            elif [ -d "$(BGFX_HOME)/.build/x64/bin" ]; then \
-                echo "$(BGFX_HOME)/.build/x64/bin"; \
-            elif [ -d "$(BGFX_HOME)/.build/bin" ]; then \
-                echo "$(BGFX_HOME)/.build/bin"; \
-            fi)
-        BGFX_LIBS ?= $(if $(strip $(BGFX_LIBDIR)), \
-            $(foreach lib,bgfx bimg bx, \
-                $(firstword $(wildcard $(BGFX_LIBDIR)/lib$(lib)Release.a $(BGFX_LIBDIR)/lib$(lib).a)) \
-            ) \
-        )
-        ifeq ($(UNAME_S),Darwin)
-            BGFX_LIBS += -framework Cocoa -framework IOKit -framework OpenGL -framework QuartzCore -weak_framework Metal -weak_framework MetalKit -weak_framework VideoToolbox -weak_framework CoreMedia -weak_framework CoreVideo
-        endif
+    BGFX_HOME ?= $(HOME)/projects/bgfx
+    ifeq ($(UNAME_S),Darwin)
+        BGFX_PLATFORM_DIR ?= $(if $(filter x86_64,$(shell uname -m)),osx-x64,osx-arm64)
     else
-        BGFX_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags $(BGFX_PKG) 2>/dev/null)
-        BGFX_LIBS   ?= $(shell $(PKG_CONFIG) --libs $(BGFX_PKG) 2>/dev/null)
+        BGFX_PLATFORM_DIR ?= linux64
+    endif
+    BGFX_LIBDIR ?= $(BGFX_HOME)/.build/$(BGFX_PLATFORM_DIR)/bin
+
+    BGFX_CFLAGS ?= -I$(BGFX_HOME)/include -I$(BGFX_HOME)/../bx/include -I$(BGFX_HOME)/../bimg/include
+    # A statically linked bgfx calls into bimg (image parsing, format queries)
+    # and bx, so all three archives must be on the link line -- a partial list
+    # only shows up as "undefined symbols: bimg::..." much later.  If your
+    # bgfx build additionally splits bimg into decode/encode archives, append
+    # them to BGFX_LIBS.
+    BGFX_LIBS ?= \
+        $(BGFX_LIBDIR)/libbgfxRelease.a \
+        $(BGFX_LIBDIR)/libbimgRelease.a \
+        $(BGFX_LIBDIR)/libbxRelease.a
+    ifeq ($(UNAME_S),Darwin)
+        BGFX_LIBS += -framework Cocoa -framework IOKit -framework OpenGL -framework QuartzCore -weak_framework Metal -weak_framework MetalKit -weak_framework VideoToolbox -weak_framework CoreMedia -weak_framework CoreVideo
     endif
 
-    ifeq ($(strip $(BGFX_CFLAGS) $(BGFX_LIBS)),)
-        $(error USE_BGFX=1 requested, but bgfx metadata or local checkout was not found. Set BGFX_CFLAGS and BGFX_LIBS explicitly.)
-    endif
+
     CPPFLAGS += -DUSE_BGFX_RENDERER $(BGFX_CFLAGS)
     LIBS += $(BGFX_LIBS)
 endif
@@ -116,6 +105,13 @@ endif
 # ---------------------------------------------------------------------------
 SRC_DIRS  := core entities render audio ui math vendor
 SRC_FILES := $(foreach d,$(SRC_DIRS),$(wildcard src/$(d)/*.cpp))
+# The bgfx build replaces the OpenGL backend with the bgfx one (whichever is not
+# used would not even compile without the other's headers).
+ifeq ($(USE_BGFX),1)
+SRC_FILES := $(filter-out src/render/gl3.cpp,$(SRC_FILES))
+else
+SRC_FILES := $(filter-out src/render/bgfx_backend.cpp,$(SRC_FILES))
+endif
 OBJS      := $(patsubst %.cpp,$(OBJDIR)/%.o,$(SRC_FILES))
 DEPS      := $(OBJS:.o=.d)
 
@@ -124,6 +120,16 @@ DEPS      := $(OBJS:.o=.d)
 # ---------------------------------------------------------------------------
 all: $(NAME)
 
+bgfx-env:
+	@echo "bgfx detection (USE_BGFX=$(USE_BGFX)):"
+	@echo "  BGFX_HOME   = $(if $(strip $(BGFX_HOME)),$(BGFX_HOME),<not found>)"
+	@echo "  BGFX_CFLAGS = $(if $(strip $(BGFX_CFLAGS)),$(BGFX_CFLAGS),<none>)"
+	@echo "  BGFX_LIBDIR = $(if $(strip $(BGFX_LIBDIR)),$(BGFX_LIBDIR),<not found>)"
+	@echo "  BGFX_LIBS   = $(if $(strip $(BGFX_LIBS)),$(BGFX_LIBS),<none>)"
+	@echo "  OBJDIR      = $(OBJDIR)"
+	@echo "A static bgfx needs libbgfx, libbimg and libbx on the link line"
+	@echo "(bgfx calls into bimg and bx); pass BGFX_LIBS to override."
+
 help:
 	@echo "Trigonometry Wars build targets:"
 	@echo "  make          - build the game (./$(NAME))"
@@ -131,6 +137,7 @@ help:
 	@echo "  make bgfx     - build with the bgfx renderer enabled"
 	@echo "  make run-bgfx - build and run with the bgfx renderer enabled"
 	@echo "  make clean    - remove build objects and the binary"
+	@echo "  make bgfx-env - show the detected bgfx paths/flags"
 	@echo "  make help     - show this help text"
 
 run: $(NAME)
@@ -142,7 +149,14 @@ bgfx:
 run-bgfx:
 	$(MAKE) USE_BGFX=1 run
 
-$(NAME): $(OBJS)
+# ---------------------------------------------------------------------------
+# Validated bgfx link flags (a partial list is the classic cause of
+# "undefined symbols: bimg::..."); a no-op when building without bgfx.
+# ---------------------------------------------------------------------------
+bgfx-libs-check:
+	@if [ -n "$(strip $(BGFX_LIBS))" ]; then sh tools/check_bgfx_libs.sh $(BGFX_LIBS); fi
+
+$(NAME): $(OBJS) | bgfx-libs-check
 	$(CXX) -o $@ $(OBJS) $(LIBS) $(CLANG_FLAGS)
 
 # ---------------------------------------------------------------------------
@@ -170,4 +184,4 @@ ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)
 endif
 
-.PHONY: all help run bgfx run-bgfx clean
+.PHONY: all help bgfx-env run bgfx run-bgfx clean

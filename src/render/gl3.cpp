@@ -1479,4 +1479,9 @@ bool gfx_healthy()
     return g_loaded && g_solidProg != 0 && g_texProg != 0 && g_blurProg != 0;
 }
 
+void gfx_end_frame()
+{
+    // OpenGL draws every batch immediately; nothing is pending here.
+}
+
 } // extern "C"

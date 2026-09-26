@@ -12,35 +12,41 @@ namespace {
 bool sActive = false;
 std::string sLastError;
 
+#if defined(USE_BGFX_RENDERER) && defined(__APPLE__)
+// The Metal view SDL created for us (bgfx renders into its CAMetalLayer).
+SDL_MetalView sMetalView = nullptr;
+#endif
+
 void setLastError(const char* msg)
 {
     sLastError = msg ? msg : "unknown bgfx error";
 }
 
 #if defined(USE_BGFX_RENDERER)
-// bgfx can only host this game when it can render with the same API the game
-// draws with, which is OpenGL.  Upstream bgfx removed its macOS/iOS OpenGL
-// backend (commit 928800fea, "macOS, iOS: Removed OpenGL/OpenGLES support"),
-// and that is exactly where the pink screen came from:
-//
-//   * bgfx::init() scores every *supported* renderer and only gives the
-//     requested one (OpenGL) its bonus if that backend is actually compiled
-//     in.  On macOS OpenGL is not in the list at all, so bgfx silently
-//     selected Metal instead,
-//   * bgfx then attached a CAMetalLayer to the SDL window's view and took over
-//     presentation, while the game kept drawing through SDL/OpenGL and never
-//     submitted a single bgfx command,
-//   * what was left on screen was the uninitialised native layer: a solid
-//     pink/magenta screen instead of the game.
-//
-// A Metal or Vulkan swap chain cannot share an SDL/OpenGL 3.3 context, so
-// there is nothing to interoperate with unless bgfx really has a GL backend.
-bool hasOpenGLBackend()
+// The renderer this build wants bgfx to use.  bgfx no longer ships an OpenGL
+// backend on Apple platforms (upstream commit 928800fea, "macOS, iOS: Removed
+// OpenGL/OpenGLES support"), so the only way to hand presentation to bgfx there
+// is Metal — which is exactly what `USE_BGFX=1` does on macOS.  Everywhere else
+// bgfx is asked for OpenGL so it can share the game's GL context.
+bgfx::RendererType::Enum wantedRendererType()
+{
+#if defined(__APPLE__)
+    return bgfx::RendererType::Metal;
+#else
+    return bgfx::RendererType::OpenGL;
+#endif
+}
+
+// Only let bgfx take the window when it really has the backend we need.
+// bgfx silently falls back to another renderer otherwise (to Metal instead of
+// OpenGL on macOS), and because nothing used to be submitted through bgfx the
+// window then showed the uninitialised native layer — the solid pink screen.
+bool hasRendererBackend(bgfx::RendererType::Enum type)
 {
     bgfx::RendererType::Enum types[bgfx::RendererType::Count];
     const uint8_t count = bgfx::getSupportedRenderers(bgfx::RendererType::Count, types);
     for (uint8_t i = 0; i < count; ++i) {
-        if (types[i] == bgfx::RendererType::OpenGL)
+        if (types[i] == type)
             return true;
     }
     return false;
@@ -62,17 +68,9 @@ bool bgfx_bridge_init(SDL_Window* window, int width, int height, bool vsync)
     setLastError("bgfx support was not compiled in (build with USE_BGFX=1)");
     return false;
 #else
-    // Never let bgfx take the window unless it can share the game's OpenGL
-    // context; otherwise it falls back to Metal/Vulkan and blanks the screen
-    // (see hasOpenGLBackend() above).
-    if (!hasOpenGLBackend()) {
-        setLastError("bgfx has no OpenGL backend on this platform "
-                     "(macOS/iOS dropped OpenGL support)");
-        return false;
-    }
-
-    if (window == nullptr) {
-        setLastError("window was null");
+    const bgfx::RendererType::Enum wanted = wantedRendererType();
+    if (!hasRendererBackend(wanted)) {
+        setLastError("bgfx has no usable backend for this platform");
         return false;
     }
 
@@ -81,67 +79,81 @@ bool bgfx_bridge_init(SDL_Window* window, int width, int height, bool vsync)
 
     void* nativeWindowHandle = nullptr;
     void* nativeDisplayType = nullptr;
-    SDL_PropertiesID props = SDL_GetWindowProperties(window);
-    if (!props) {
-        setLastError("SDL_GetWindowProperties failed");
-        return false;
-    }
 
+    if (window != nullptr) {
 #if defined(__APPLE__)
-    nativeWindowHandle = SDL_GetPointerProperty(props, "SDL.window.cocoa.window", nullptr);
-#elif defined(_WIN32)
-    nativeWindowHandle = SDL_GetPointerProperty(props, "SDL.window.win32.hwnd", nullptr);
+        // Let SDL create the Metal view; bgfx renders into its CAMetalLayer.
+        sMetalView = SDL_Metal_CreateView(window);
+        if (sMetalView == nullptr) {
+            setLastError("SDL_Metal_CreateView failed");
+            return false;
+        }
+        nativeWindowHandle = SDL_Metal_GetLayer(sMetalView);
+        if (nativeWindowHandle == nullptr) {
+            SDL_Metal_DestroyView(sMetalView);
+            sMetalView = nullptr;
+            setLastError("SDL_Metal_GetLayer returned no layer");
+            return false;
+        }
+#else
+        SDL_PropertiesID props = SDL_GetWindowProperties(window);
+        if (!props) {
+            setLastError("SDL_GetWindowProperties failed");
+            return false;
+        }
+#if defined(_WIN32)
+        nativeWindowHandle = SDL_GetPointerProperty(props, "SDL.window.win32.hwnd", nullptr);
 #elif defined(__linux__)
-    nativeWindowHandle = SDL_GetPointerProperty(props, "SDL.window.wayland.surface", nullptr);
-    nativeDisplayType = SDL_GetPointerProperty(props, "SDL.window.wayland.display", nullptr);
-    if (nativeWindowHandle != nullptr) {
-        pd.type = bgfx::NativeWindowHandleType::Wayland;
-    } else {
-        const Sint64 x11Window = SDL_GetNumberProperty(props, "SDL.window.x11.window", 0);
-        nativeWindowHandle = reinterpret_cast<void*>(static_cast<uintptr_t>(x11Window));
-        nativeDisplayType = SDL_GetPointerProperty(props, "SDL.window.x11.display", nullptr);
-    }
+        nativeWindowHandle = SDL_GetPointerProperty(props, "SDL.window.wayland.surface", nullptr);
+        nativeDisplayType = SDL_GetPointerProperty(props, "SDL.window.wayland.display", nullptr);
+        if (nativeWindowHandle != nullptr) {
+            pd.type = bgfx::NativeWindowHandleType::Wayland;
+        } else {
+            const Sint64 x11Window = SDL_GetNumberProperty(props, "SDL.window.x11.window", 0);
+            nativeWindowHandle = reinterpret_cast<void*>(static_cast<uintptr_t>(x11Window));
+            nativeDisplayType = SDL_GetPointerProperty(props, "SDL.window.x11.display", nullptr);
+        }
 #endif
-
-    if (nativeWindowHandle == nullptr) {
-        setLastError("could not resolve native window handle from SDL");
-        return false;
+        if (nativeWindowHandle == nullptr) {
+            setLastError("could not resolve native window handle from SDL");
+            return false;
+        }
+#endif // __APPLE__
     }
-
-    bgfx::renderFrame();
 
     bgfx::Init init {};
-    init.type = bgfx::RendererType::OpenGL;
-
-    // The app owns a native OpenGL context and is not initializing a Metal
-    // backend. bgfx should not receive the SDL GL context as a Metal device.
-    // Leaving the platform context null keeps the OpenGL path on the expected
-    // native API contract and avoids the macOS crash where Metal calls
-    // registryID() on an SDL OpenGL context object.
-    pd.context = nullptr;
-
-    init.platformData = pd;
-    init.swapChain.nwh = nativeWindowHandle;
-    init.swapChain.ndt = nativeDisplayType;
-    init.swapChain.width = static_cast<uint32_t>(width);
-    init.swapChain.height = static_cast<uint32_t>(height);
+    init.type = wanted;
+    // Never let bgfx silently switch renderer: this build renders through the
+    // backend we ask for, and a fallback (e.g. Metal failing over to Noop)
+    // would leave the window blank instead of reporting the problem.
+    init.fallback = false;
     init.reset = vsync ? BGFX_RESET_VSYNC : BGFX_RESET_NONE;
+
+    if (window != nullptr) {
+        init.platformData = pd;
+        init.swapChain.nwh = nativeWindowHandle;
+        init.swapChain.ndt = nativeDisplayType;
+        init.swapChain.width = static_cast<uint32_t>(width);
+        init.swapChain.height = static_cast<uint32_t>(height);
+    } else {
+        // Headless: no swap chain (used by the offscreen verification tooling).
+        init.swapChain.width = 0;
+        init.swapChain.height = 0;
+    }
 
     if (!bgfx::init(init)) {
         setLastError("bgfx::init failed");
         return false;
     }
 
-    // Belt and braces: if bgfx still selected a renderer that cannot share our
-    // GL context, shut it down again rather than letting it own presentation
-    // and leave an uninitialised native layer on screen.
-    if (bgfx::getRendererType() != bgfx::RendererType::OpenGL) {
+    // Belt and braces: if bgfx still selected another renderer, shut it down
+    // again rather than letting it own presentation and blank the window.
+    if (bgfx::getRendererType() != wanted) {
         bgfx::shutdown();
-        setLastError("bgfx initialised a non-OpenGL renderer");
+        setLastError("bgfx initialised a different renderer than requested");
         return false;
     }
 
-    bgfx::setViewClear(0, BGFX_CLEAR_COLOR, 0x000000ff, 1.0f, 0);
     sActive = true;
     return true;
 #endif
@@ -152,6 +164,12 @@ void bgfx_bridge_shutdown()
 #if defined(USE_BGFX_RENDERER)
     if (sActive)
         bgfx::shutdown();
+#if defined(__APPLE__)
+    if (sMetalView != nullptr) {
+        SDL_Metal_DestroyView(sMetalView);
+        sMetalView = nullptr;
+    }
+#endif
 #endif
     sActive = false;
 }
@@ -159,7 +177,7 @@ void bgfx_bridge_shutdown()
 void bgfx_bridge_resize(int width, int height, bool vsync)
 {
 #if defined(USE_BGFX_RENDERER)
-    if (!sActive)
+    if (!sActive || width <= 0 || height <= 0)
         return;
     bgfx::SwapChain swapChain {};
     swapChain.width = static_cast<uint32_t>(width);
@@ -169,14 +187,6 @@ void bgfx_bridge_resize(int width, int height, bool vsync)
     (void)width;
     (void)height;
     (void)vsync;
-#endif
-}
-
-void bgfx_bridge_begin_frame()
-{
-#if defined(USE_BGFX_RENDERER)
-    if (sActive)
-        bgfx::touch(0);
 #endif
 }
 

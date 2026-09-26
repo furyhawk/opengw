@@ -16,49 +16,48 @@ endif
 PKG_CONFIG ?= pkg-config
 
 ifeq ($(USE_BGFX),1)
-BGFX_HOME ?= $(firstword $(wildcard \
-	/Users/user/projects/bgfx \
-	$(HOME)/projects/bgfx \
-	/opt/homebrew/opt/bgfx \
-	/usr/local/opt/bgfx \
-))
-BGFX_PKG ?= $(shell \
-	if $(PKG_CONFIG) --exists bgfx 2>/dev/null; then \
-		echo bgfx; \
-	elif $(PKG_CONFIG) --exists bgfx-shared 2>/dev/null; then \
-		echo bgfx-shared; \
-	fi)
-ifneq ($(strip $(BGFX_HOME)),)
+	# The bgfx backend renders through bgfx itself (Metal on macOS) instead of
+	# the game's own OpenGL context.  The embedded shaders are generated for
+	# Metal (see tools/compile_shaders.sh), so the bgfx build is currently
+	# macOS-only.
+	BGFX_HOME ?= $(HOME)/projects/bgfx
+	ifeq ($(UNAME_S),Darwin)
+	    BGFX_PLATFORM_DIR ?= $(if $(filter arm64,$(shell uname -m)),osx-arm64,osx-x64)
+	else
+	    BGFX_PLATFORM_DIR ?= linux64
+	endif
+	BGFX_LIBDIR ?= $(BGFX_HOME)/.build/$(BGFX_PLATFORM_DIR)/bin
+
 	BGFX_CFLAGS ?= -I$(BGFX_HOME)/include -I$(BGFX_HOME)/../bx/include -I$(BGFX_HOME)/../bimg/include
-	BGFX_LIBDIR ?= $(shell \
-		if [ -d "$(BGFX_HOME)/.build/osx-arm64/bin" ]; then \
-			echo "$(BGFX_HOME)/.build/osx-arm64/bin"; \
-		elif [ -d "$(BGFX_HOME)/.build/linux64/bin" ]; then \
-			echo "$(BGFX_HOME)/.build/linux64/bin"; \
-		elif [ -d "$(BGFX_HOME)/.build/x64/bin" ]; then \
-			echo "$(BGFX_HOME)/.build/x64/bin"; \
-		elif [ -d "$(BGFX_HOME)/.build/bin" ]; then \
-			echo "$(BGFX_HOME)/.build/bin"; \
-		fi)
-	BGFX_LIBS ?= $(if $(strip $(BGFX_LIBDIR)), \
-		$(foreach lib,bgfx bimg bx, \
-			$(firstword $(wildcard $(BGFX_LIBDIR)/lib$(lib)Release.a $(BGFX_LIBDIR)/lib$(lib).a)) \
-		) \
-	)
-	BGFX_LIBS += -framework Cocoa -framework IOKit -framework OpenGL -framework QuartzCore -weak_framework Metal -weak_framework MetalKit -weak_framework VideoToolbox -weak_framework CoreMedia -weak_framework CoreVideo
-else
-	BGFX_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags $(BGFX_PKG) 2>/dev/null)
-	BGFX_LIBS ?= $(shell $(PKG_CONFIG) --libs $(BGFX_PKG) 2>/dev/null)
-endif
-ifeq ($(strip $(BGFX_CFLAGS) $(BGFX_LIBS)),)
-$(error USE_BGFX=1 requested, but bgfx metadata or local checkout was not found. Set BGFX_CFLAGS and BGFX_LIBS explicitly.)
-endif
-DEFINES += -DUSE_BGFX_RENDERER $(BGFX_CFLAGS)
-LIBS += $(BGFX_LIBS)
+	# A statically linked bgfx calls into bimg (image parsing, format queries)
+	# and bx, so all three archives must be on the link line -- a partial list
+	# only shows up as "undefined symbols: bimg::..." much later.  If your
+	# bgfx build additionally splits bimg into decode/encode archives, append
+	# them to BGFX_LIBS.
+	BGFX_LIBS ?= \
+	    $(BGFX_LIBDIR)/libbgfxRelease.a \
+	    $(BGFX_LIBDIR)/libbimgRelease.a \
+	    $(BGFX_LIBDIR)/libbxRelease.a
+	ifeq ($(UNAME_S),Darwin)
+	    BGFX_LIBS += -framework Cocoa -framework IOKit -framework OpenGL -framework QuartzCore -weak_framework Metal -weak_framework MetalKit -weak_framework VideoToolbox -weak_framework CoreMedia -weak_framework CoreVideo
+	endif
+
+
+	ifeq ($(USE_BGFX),1)
+	CPPFLAGS += -DUSE_BGFX_RENDERER $(BGFX_CFLAGS)
+	LIBS += $(BGFX_LIBS)
+	endif
 endif
 
 SRC_DIRS = core entities render audio ui math vendor
 SRC_FILES = $(foreach d,$(SRC_DIRS),$(wildcard src/$(d)/*.cpp))
+# The bgfx build replaces the OpenGL backend with the bgfx one (whichever is not
+# used would not even compile without the other's headers).
+ifeq ($(USE_BGFX),1)
+SRC_FILES := $(filter-out src/render/gl3.cpp,$(SRC_FILES))
+else
+SRC_FILES := $(filter-out src/render/bgfx_backend.cpp,$(SRC_FILES))
+endif
 OBJ_FILES = $(SRC_FILES:.cpp=.o)
 
 OBJS = $(addprefix $(OBJDIR)/, $(OBJ_FILES))
@@ -91,7 +90,14 @@ $(OBJDIR)/%.o : %.cpp | $(OBJDIR)
 clean:
 	rm -rf obj obj-bgfx
 
-$(NAME): $(OBJS)
+# ---------------------------------------------------------------------------
+# Validated bgfx link flags (a partial list is the classic cause of
+# "undefined symbols: bimg::..."); a no-op when building without bgfx.
+# ---------------------------------------------------------------------------
+bgfx-libs-check:
+	@if [ -n "$(strip $(BGFX_LIBS))" ]; then sh tools/check_bgfx_libs.sh $(BGFX_LIBS); fi
+
+$(NAME): $(OBJS) | bgfx-libs-check
 	$(COMPILER) -o $@ $(OBJS) $(LIBS) $(CLANG_FLAGS)
 
 $(OBJDIR):
