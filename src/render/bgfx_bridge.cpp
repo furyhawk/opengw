@@ -179,6 +179,20 @@ void bgfx_bridge_resize(int width, int height, bool vsync)
 #if defined(USE_BGFX_RENDERER)
     if (!sActive || width <= 0 || height <= 0)
         return;
+
+    // Every reset tears down and rebuilds the swap chain and waits for the
+    // render thread to drain, so an event that changes nothing must not pay
+    // that cost (macOS repeats resize events, and a window drag delivers one
+    // per step).
+    static int lastWidth = 0;
+    static int lastHeight = 0;
+    static bool lastVsync = false;
+    if (width == lastWidth && height == lastHeight && vsync == lastVsync)
+        return;
+    lastWidth = width;
+    lastHeight = height;
+    lastVsync = vsync;
+
     bgfx::SwapChain swapChain {};
     swapChain.width = static_cast<uint32_t>(width);
     swapChain.height = static_cast<uint32_t>(height);

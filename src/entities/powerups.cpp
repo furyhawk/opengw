@@ -258,6 +258,7 @@ void powerups::collect(game& owner, Pickup& pk, player* p)
 
 void powerups::draw(game& owner, int pass)
 {
+    if (getenv("TW_NO_POWERUPS")) return; // TEMP
     (void)owner;
 
     if (pass != 0)

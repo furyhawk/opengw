@@ -26,6 +26,7 @@ static bool oglInited = false;
 static bool bgfxInited = false;
 
 static void drawOffscreens();
+static void fitWindowToDisplay(int& width, int& height);
 static void run();
 
 static int mWidth, mHeight;
@@ -96,11 +97,13 @@ int main(int /*argc*/, char** /*argv*/)
         flags |= SDL_WINDOW_FULLSCREEN;
     }
 
-    window = SDL_CreateWindow("Trigonometry Wars",
-                              settings::get().displayWidth, settings::get().displayHeight, flags);
+    int winW = settings::get().displayWidth;
+    int winH = settings::get().displayHeight;
+    fitWindowToDisplay(winW, winH);
+    window = SDL_CreateWindow("Trigonometry Wars", winW, winH, flags);
 
     if (window) {
-        srand(SDL_GetTicks());
+        srand(getenv("TW_SEED") ? atoi(getenv("TW_SEED")) : SDL_GetTicks()); // TEMP
         make_sin_cos_tables();
         oglScene = std::make_unique<scene>();
 
@@ -266,6 +269,26 @@ static void OGLSize(int cx, int cy)
     bgfx_bridge_resize(dw, dh, settings::get().mVsync);
 }
 
+// The configured resolution can be larger than this display (e.g. a 1920x1080
+// window on a smaller built-in screen). macOS then resizes the window itself,
+// and every such resize resets the bgfx swap chain and recreates the render
+// targets, which stalls the frame for seconds -- seen as a freeze right after a
+// game mode starts. Fit the request to the display instead.
+static void fitWindowToDisplay(int& width, int& height)
+{
+    SDL_Rect bounds;
+    if (!SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay(), &bounds))
+        return;
+    if (bounds.w <= 0 || bounds.h <= 0 || (width <= bounds.w && height <= bounds.h))
+        return;
+
+    const float scaleX = static_cast<float>(bounds.w) / static_cast<float>(width);
+    const float scaleY = static_cast<float>(bounds.h) / static_cast<float>(height);
+    const float scale = scaleX < scaleY ? scaleX : scaleY;
+    width = static_cast<int>(static_cast<float>(width) * scale);
+    height = static_cast<int>(static_cast<float>(height) * scale);
+}
+
 // Applies any graphics-option changes made in the options screen (window
 // resolution, fullscreen, vsync) to the live window / GL context.
 static void applySettingsToWindow()
@@ -279,10 +302,13 @@ static void applySettingsToWindow()
 
     const settings& s = settings::get();
 
-    if (s.displayWidth != lastW || s.displayHeight != lastH) {
-        SDL_SetWindowSize(window, s.displayWidth, s.displayHeight);
-        lastW = s.displayWidth;
-        lastH = s.displayHeight;
+    int wantW = s.displayWidth;
+    int wantH = s.displayHeight;
+    fitWindowToDisplay(wantW, wantH);
+    if (wantW != lastW || wantH != lastH) {
+        SDL_SetWindowSize(window, wantW, wantH);
+        lastW = wantW;
+        lastH = wantH;
     }
     if (s.mFullscreen != lastFullscreen) {
         SDL_SetWindowFullscreen(window, s.mFullscreen);
@@ -336,6 +362,18 @@ static void drawOffscreens()
     gfx_end_frame();
 }
 
+// TEMP diagnostic accumulators.
+static double drawMs = 0.0;
+static double logicMs = 0.0;
+static double presentMs = 0.0;
+static int framesMeasured = 0;
+
+static double nowMs()
+{
+    return static_cast<double>(SDL_GetPerformanceCounter()) * 1000.0
+        / static_cast<double>(SDL_GetPerformanceFrequency());
+}
+
 static void updateFps(Uint32 now)
 {
     ++frameCount;
@@ -346,6 +384,14 @@ static void updateFps(Uint32 now)
         fpsTime = now;
         fps = (fps + frameCount) / 2;
         frameCount = 0;
+
+        // TEMP diagnostic: frame rate and where the time goes.
+        fprintf(stderr, "temp: fps=%d  draw=%.2fms  logic=%.2fms  present=%.2fms  (%d frames)\n",
+                fps, drawMs / (framesMeasured ? framesMeasured : 1),
+                logicMs / (framesMeasured ? framesMeasured : 1),
+                presentMs / (framesMeasured ? framesMeasured : 1), framesMeasured);
+        drawMs = logicMs = presentMs = 0.0;
+        framesMeasured = 0;
 
         char buf[64];
         snprintf(buf, sizeof(buf), "Trigonometry Wars - FPS %d", fps);
@@ -378,7 +424,9 @@ static void run()
                 running = false;
             }
 
+            const double t0 = nowMs(); // TEMP
             oglScene->run();
+            logicMs += nowMs() - t0; // TEMP
 
             // The front-end menus (pause menu / title menu) can request a
             // clean shutdown of the whole application.
@@ -392,8 +440,13 @@ static void run()
         // Apply any pending graphics-option changes to the window / GL state.
         applySettingsToWindow();
 
-        drawOffscreens();
+        {
+            const double t0 = nowMs(); // TEMP
+            drawOffscreens();
+            drawMs += nowMs() - t0; // TEMP
+        }
 
+        const double t1 = nowMs(); // TEMP
 #if defined(USE_BGFX_RENDERER)
         // bgfx owns presentation: submit the frame it built above.
         if (bgfxInited)
@@ -401,6 +454,8 @@ static void run()
 #else
         SDL_GL_SwapWindow(window);
 #endif
+        presentMs += nowMs() - t1; // TEMP
+        ++framesMeasured;          // TEMP
         updateFps(now);
     }
 }

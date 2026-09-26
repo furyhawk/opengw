@@ -317,6 +317,22 @@ float fixDepth(float z, float w)
     return g_depthZeroToOne ? (z * 0.5f + w * 0.5f) : z;
 }
 
+// TEMP diagnostics.
+unsigned long long g_tempVerts = 0;
+unsigned long long g_tempDraws = 0;
+unsigned long long g_tempNonFinite = 0; // TEMP
+unsigned long long g_tempFrameVerts = 0;   // TEMP
+unsigned long long g_tempPeakVerts = 0;    // TEMP
+double g_tempFrameArea = 0;                // TEMP
+double g_tempPeakArea = 0;                 // TEMP
+double g_tempTriMaxNdc = 0;             // TEMP
+float g_tempTriMinW = 1e30f;            // TEMP
+unsigned long long g_tempTriNonFinite = 0; // TEMP
+double g_tempArea = 0;
+float g_tempMaxWidth = 0;
+double g_tempMaxCoord = 0;                // TEMP
+unsigned long long g_tempHugeQuads = 0;   // TEMP
+
 template <typename V>
 void submitVertices(bgfx::ViewId view, bgfx::ProgramHandle prog, const bgfx::VertexLayout& layout,
                     const V* verts, uint32_t count, uint64_t state, bgfx::TextureHandle tex,
@@ -338,6 +354,9 @@ void submitVertices(bgfx::ViewId view, bgfx::ProgramHandle prog, const bgfx::Ver
             bgfx::setTexture(0, g_texSampler, tex, static_cast<uint32_t>(texFlags));
         bgfx::setState(state);
         bgfx::submit(view, prog);
+        ++g_tempDraws;      // TEMP
+        g_tempVerts += n;   // TEMP
+        g_tempFrameVerts += n; // TEMP
 
         verts += n;
         count -= n;
@@ -482,6 +501,58 @@ void pxToNdc(float px, float py, float out[4])
     out[3] = 1.0f;
 }
 
+// Legacy lines and points are expanded into screen-space triangles here, and
+// unlike a GPU this code did no clipping: geometry that projects far outside
+// the viewport (e.g. a particle flying past the camera, where w approaches 0)
+// turned into quads thousands of pixels off screen. The rasteriser then has to
+// clip and tile their enormous bounding boxes, which stalls the GPU for seconds
+// -- gameplay that spawns a lot of fast particles (a player death) froze the
+// frame. Clipping the segment to a margin around the viewport leaves everything
+// visible untouched and drops the rest.
+bool clipSegmentToRect(float& x0, float& y0, float& x1, float& y1,
+                       float xmin, float ymin, float xmax, float ymax)
+{
+    const float dx = x1 - x0;
+    const float dy = y1 - y0;
+
+    // Liang-Barsky: intersect [0,1] with the four half-space constraints.
+    float t0 = 0.0f;
+    float t1 = 1.0f;
+
+    const float p[4] = { -dx, dx, -dy, dy };
+    const float q[4] = { x0 - xmin, xmax - x0, y0 - ymin, ymax - y0 };
+
+    for (int i = 0; i < 4; ++i) {
+        if (p[i] == 0.0f) {
+            if (q[i] < 0.0f)
+                return false; // parallel to this edge and outside it
+            continue;
+        }
+        const float r = q[i] / p[i];
+        if (p[i] < 0.0f) {
+            if (r > t1)
+                return false;
+            if (r > t0)
+                t0 = r;
+        } else {
+            if (r < t0)
+                return false;
+            if (r < t1)
+                t1 = r;
+        }
+    }
+
+    const float nx0 = x0 + t0 * dx;
+    const float ny0 = y0 + t0 * dy;
+    const float nx1 = x0 + t1 * dx;
+    const float ny1 = y0 + t1 * dy;
+    x0 = nx0;
+    y0 = ny0;
+    x1 = nx1;
+    y1 = ny1;
+    return true;
+}
+
 void pushSolid(float x, float y, float z, float w, float r, float g, float b, float a)
 {
     beginBatch(BatchKind::Solid, 0);
@@ -496,6 +567,8 @@ void pushTex(float x, float y, float z, float w, float r, float g, float b, floa
 
 void pushSolidClipPx(const ClipV& a, float px, float py)
 {
+    if (!std::isfinite(px) || !std::isfinite(py))
+        ++g_tempNonFinite; // TEMP
     float ndc[4];
     pxToNdc(px, py, ndc);
     pushSolid(ndc[0], ndc[1], ndc[2], ndc[3], a.r, a.g, a.b, a.a);
@@ -510,13 +583,26 @@ void emitLineQuad(const ClipV& a, const ClipV& b)
     ndcToPx(a, ax, ay);
     ndcToPx(b, bx, by);
 
-    float dx = bx - ax;
-    float dy = by - ay;
-    const float len = std::sqrt(dx * dx + dy * dy);
     float width = g_lineWidth;
     if (width < 1.0f)
         width = 1.0f;
     const float half = width * 0.5f;
+
+    // A w that is denormal-tiny projects to infinities; there is nothing sane
+    // to draw for those.
+    if (!std::isfinite(ax) || !std::isfinite(ay) || !std::isfinite(bx) || !std::isfinite(by))
+        return;
+
+    // Keep the quad's width, but nothing beyond it (see clipSegmentToRect).
+    const float margin = half + 1.0f;
+    if (!clipSegmentToRect(ax, ay, bx, by, -margin, -margin,
+                           static_cast<float>(g_viewport[2]) + margin,
+                           static_cast<float>(g_viewport[3]) + margin))
+        return;
+
+    float dx = bx - ax;
+    float dy = by - ay;
+    const float len = std::sqrt(dx * dx + dy * dy);
     if (len < 1e-4f) {
         pushSolidClipPx(a, ax - half, ay - half);
         pushSolidClipPx(a, ax + half, ay - half);
@@ -550,6 +636,17 @@ void emitPointQuad(const ClipV& c)
     if (size < 1.0f)
         size = 1.0f;
     const float half = size * 0.5f;
+
+    if (!std::isfinite(cx) || !std::isfinite(cy))
+        return;
+
+    // A point can only contribute if its square overlaps the viewport, so the
+    // off-screen ones (which can project arbitrarily far away) are dropped.
+    const float margin = half + 1.0f;
+    if (cx < -margin || cx > static_cast<float>(g_viewport[2]) + margin
+        || cy < -margin || cy > static_cast<float>(g_viewport[3]) + margin)
+        return;
+
     pushSolidClipPx(c, cx - half, cy - half);
     pushSolidClipPx(c, cx + half, cy - half);
     pushSolidClipPx(c, cx + half, cy + half);
@@ -655,6 +752,15 @@ void gfx_end()
             const ClipV& a = clip[i0];
             const ClipV& b = clip[i1];
             const ClipV& c = clip[i2];
+            // TEMP: extremes of the filled path.
+            for (const ClipV* v : { &a, &b, &c }) {
+                const double ax = v->w != 0.0f ? std::fabs(double(v->x) / double(v->w)) : 1e30;
+                const double ay = v->w != 0.0f ? std::fabs(double(v->y) / double(v->w)) : 1e30;
+                if (ax > g_tempTriMaxNdc) g_tempTriMaxNdc = ax;
+                if (ay > g_tempTriMaxNdc) g_tempTriMaxNdc = ay;
+                if (v->w < g_tempTriMinW) g_tempTriMinW = v->w;
+                if (!std::isfinite(v->x) || !std::isfinite(v->y) || !std::isfinite(v->w)) ++g_tempTriNonFinite;
+            }
             if (textured) {
                 pushTex(a.x, a.y, a.z, a.w, a.r, a.g, a.b, a.a, a.u, a.v);
                 pushTex(b.x, b.y, b.z, b.w, b.r, b.g, b.b, b.a, b.u, b.v);
@@ -1293,8 +1399,20 @@ void gfx_context_shutdown()
     g_loaded = false;
 }
 
+unsigned long long g_tempShortAllocs = 0; // TEMP
+unsigned long long g_tempShortVerts = 0;  // TEMP
+unsigned long long g_tempResizes = 0; // TEMP
+unsigned long long g_tempFbs = 0;     // TEMP
+
 void gfx_resize(int width, int height)
 {
+    // Rebuilding the glow targets is not free, and a window drag delivers a
+    // resize event per step; nothing here changes unless the size actually did.
+    if (g_loaded && width == g_fbW && height == g_fbH
+        && bgfx::isValid(g_fbGlow) && bgfx::isValid(g_fbPing))
+        return;
+
+    ++g_tempResizes; // TEMP
     g_fbW = width;
     g_fbH = height;
     if (!g_loaded)
@@ -1309,6 +1427,7 @@ void gfx_resize(int width, int height)
     g_glowW = gw;
     g_glowH = gh;
 
+    ++g_tempFbs; // TEMP
     g_fbGlow = bgfx::createFrameBuffer(static_cast<uint16_t>(gw), static_cast<uint16_t>(gh),
                                        bgfx::TextureFormat::RGBA8,
                                        BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
@@ -1327,6 +1446,7 @@ void gfx_resize(int width, int height)
 
 void gfx_glow_bind()
 {
+    if (getenv("TW_SKIP_GLOW")) return; // TEMP
     if (!g_loaded)
         return;
     flushBatch();
@@ -1337,6 +1457,7 @@ void gfx_glow_bind()
 
 void gfx_glow_unbind()
 {
+    if (getenv("TW_SKIP_GLOW")) return; // TEMP
     if (!g_loaded)
         return;
     flushBatch();
@@ -1347,6 +1468,7 @@ void gfx_glow_unbind()
 
 void gfx_blur_glow()
 {
+    if (getenv("TW_SKIP_BLUR")) return; // TEMP
     if (!g_loaded || !bgfx::isValid(g_fbGlow) || !bgfx::isValid(g_fbPing))
         return;
 
@@ -1370,6 +1492,7 @@ void gfx_blur_glow()
 
 void gfx_draw_blurred_glow(float alpha)
 {
+    if (getenv("TW_SKIP_COMPOSITE")) return; // TEMP
     if (!g_loaded || !bgfx::isValid(g_fbGlow))
         return;
 
@@ -1421,6 +1544,100 @@ void gfx_begin_frame()
 {
     if (!g_loaded)
         return;
+
+    // TEMP diagnostic: submission volume and draw calls, per 60 frames.
+    {
+        static int n = 0;
+        // Also dump a line for every slow frame, which is what the stall shows
+        // up as.
+        {
+            const bgfx::Stats* st = bgfx::getStats();
+            if (st != nullptr && st->cpuTimerFreq != 0) {
+                const double frameMs = static_cast<double>(st->cpuTimeFrame)
+                    / static_cast<double>(st->cpuTimerFreq / 1000);
+                if (frameMs > 100.0) {
+                    fprintf(stderr, "temp: SLOW frame %.0fms waitRender=%.0fms waitSubmit=%.0fms"
+                                    " transientVb=%dKiB numDraw=%u\n",
+                            frameMs,
+                            static_cast<double>(st->waitRender) / static_cast<double>(st->cpuTimerFreq / 1000),
+                            static_cast<double>(st->waitSubmit) / static_cast<double>(st->cpuTimerFreq / 1000),
+                            st->transientVbUsed / 1024, st->numDraw);
+                    fprintf(stderr, "temp:   (gpu=%.1fms cpuFrame=%.0fms draws=%u)"
+                                    " sincePrint: verts=%llu area=%.2fMpx maxCoord=%.4g huge=%llu"
+                                    " short=%llu nonFinite=%llu resizes=%llu\n",
+                            st->gpuTimerFreq ? static_cast<double>(st->gpuTimeEnd - st->gpuTimeBegin)
+                                    / static_cast<double>(st->gpuTimerFreq / 1000) : 0.0,
+                            static_cast<double>(st->cpuTimeFrame) / static_cast<double>(st->cpuTimerFreq / 1000),
+                            st->numDraw,
+                            g_tempVerts, g_tempArea / 1e6, g_tempMaxCoord, g_tempHugeQuads,
+                            g_tempShortAllocs, g_tempNonFinite, g_tempResizes);
+                    fprintf(stderr, "temp:   tri maxNdc=%.4g minW=%.4g nonFinite=%llu\n",
+                            g_tempTriMaxNdc, double(g_tempTriMinW), g_tempTriNonFinite);
+                    g_tempTriMaxNdc = 0; g_tempTriMinW = 1e30f; g_tempTriNonFinite = 0;
+                    if (st->viewStats != nullptr && st->gpuTimerFreq != 0) {
+                        fprintf(stderr, "temp:   view gpu ms:");
+                        for (uint16_t vi = 0; vi < st->numViews; ++vi) {
+                            const bgfx::ViewStats& vs = st->viewStats[vi];
+                            if (vs.gpuTimeEnd == vs.gpuTimeBegin) continue;
+                            fprintf(stderr, " v%u=%.1f", unsigned(vs.view),
+                                    static_cast<double>(vs.gpuTimeEnd - vs.gpuTimeBegin)
+                                        / static_cast<double>(st->gpuTimerFreq / 1000));
+                        }
+                        fprintf(stderr, "\n");
+                    }
+                }
+            }
+        }
+        if (++n % 60 == 1) {
+            const bgfx::Stats* st = bgfx::getStats();
+            if (g_tempFrameVerts > g_tempPeakVerts) g_tempPeakVerts = g_tempFrameVerts;
+            if (g_tempFrameArea > g_tempPeakArea) g_tempPeakArea = g_tempFrameArea;
+            g_tempFrameVerts = 0;
+            g_tempFrameArea = 0;
+            fprintf(stderr, "temp: nonFinite=%llu triMaxNdc=%.4g triMinW=%.4g triNonFinite=%llu\n",
+                    g_tempNonFinite, g_tempTriMaxNdc, double(g_tempTriMinW), g_tempTriNonFinite);
+            g_tempTriMaxNdc = 0; g_tempTriMinW = 1e30f; g_tempTriNonFinite = 0;
+            g_tempNonFinite = 0;
+            fprintf(stderr, "temp: shortAllocs=%llu shortVerts=%llu resizes=%llu newFbs=%llu glow=%dx%d\n",
+                    g_tempShortAllocs, g_tempShortVerts,
+                    g_tempResizes, g_tempFbs, g_glowW, g_glowH);
+            g_tempShortAllocs = g_tempShortVerts = 0;
+            fprintf(stderr, "temp: IGNORED resizes=%llu newFbs=%llu glow=%dx%d\n",
+                    g_tempResizes, g_tempFbs, g_glowW, g_glowH);
+            g_tempResizes = g_tempFbs = 0;
+            fprintf(stderr, "temp: draws/60f=%llu verts/60f=%llu area=%.1fMpx gpuDraws=%u"
+                            " maxCoord=%.3g hugeQuads=%llu\n",
+                    g_tempDraws, g_tempVerts, g_tempArea / 1e6, st ? st->numDraw : 0,
+                    g_tempMaxCoord, g_tempHugeQuads);
+            g_tempMaxCoord = 0;
+            g_tempHugeQuads = 0;
+            if (st != nullptr) {
+                fprintf(stderr, "temp:   res tex=%u fb=%u vb=%u ib=%u prog=%u uni=%u shader=%u"
+                                " texMem=%lldKiB rtMem=%lldKiB gpuMem=%lldKiB\n",
+                        unsigned(st->numTextures), unsigned(st->numFrameBuffers),
+                        unsigned(st->numVertexBuffers), unsigned(st->numIndexBuffers),
+                        unsigned(st->numPrograms), unsigned(st->numUniforms),
+                        unsigned(st->numShaders), static_cast<long long>(st->textureMemoryUsed / 1024),
+                        static_cast<long long>(st->rtMemoryUsed / 1024),
+                        static_cast<long long>(st->gpuMemoryUsed / 1024));
+                fprintf(stderr, "temp:   transientVb=%d/%dKiB waitRender=%lldms waitSubmit=%lldms"
+                                " cpuFrame=%.1fms gpu=%.1fms drawCallsPeak=%u\n",
+                        st->transientVbUsed / 1024, (6 << 20) / 1024,
+                        static_cast<long long>(st->waitRender / (st->cpuTimerFreq / 1000)),
+                        static_cast<long long>(st->waitSubmit / (st->cpuTimerFreq / 1000)),
+                        static_cast<double>(st->cpuTimeFrame) / static_cast<double>(st->cpuTimerFreq / 1000),
+                        st->gpuTimerFreq ? static_cast<double>(st->gpuTimeEnd - st->gpuTimeBegin)
+                                / static_cast<double>(st->gpuTimerFreq / 1000)
+                                         : 0.0,
+                        st->numDrawCallsPeak);
+            }
+            g_tempDraws = g_tempVerts = 0;
+            g_tempArea = 0;
+            g_tempMaxWidth = 0;
+            g_tempPeakVerts = 0;
+            g_tempPeakArea = 0;
+        }
+    }
 
     flushBatch();
     g_targetView = VIEW_SCENE;
