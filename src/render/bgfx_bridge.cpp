@@ -5,7 +5,6 @@
 
 #if defined(USE_BGFX_RENDERER)
 #include <bgfx/bgfx.h>
-#include <bgfx/platform.h>
 #endif
 
 namespace {
@@ -39,6 +38,10 @@ bool bgfx_bridge_init(SDL_Window* window, int width, int height, bool vsync)
     }
 
     bgfx::PlatformData pd {};
+    pd.type = bgfx::NativeWindowHandleType::Default;
+
+    void* nativeWindowHandle = nullptr;
+    void* nativeDisplayType = nullptr;
     SDL_PropertiesID props = SDL_GetWindowProperties(window);
     if (!props) {
         setLastError("SDL_GetWindowProperties failed");
@@ -46,20 +49,22 @@ bool bgfx_bridge_init(SDL_Window* window, int width, int height, bool vsync)
     }
 
 #if defined(__APPLE__)
-    pd.nwh = SDL_GetPointerProperty(props, "SDL.window.cocoa.window", nullptr);
+    nativeWindowHandle = SDL_GetPointerProperty(props, "SDL.window.cocoa.window", nullptr);
 #elif defined(_WIN32)
-    pd.nwh = SDL_GetPointerProperty(props, "SDL.window.win32.hwnd", nullptr);
+    nativeWindowHandle = SDL_GetPointerProperty(props, "SDL.window.win32.hwnd", nullptr);
 #elif defined(__linux__)
-    pd.nwh = SDL_GetPointerProperty(props, "SDL.window.wayland.surface", nullptr);
-    pd.ndt = SDL_GetPointerProperty(props, "SDL.window.wayland.display", nullptr);
-    if (pd.nwh == nullptr) {
+    nativeWindowHandle = SDL_GetPointerProperty(props, "SDL.window.wayland.surface", nullptr);
+    nativeDisplayType = SDL_GetPointerProperty(props, "SDL.window.wayland.display", nullptr);
+    if (nativeWindowHandle != nullptr) {
+        pd.type = bgfx::NativeWindowHandleType::Wayland;
+    } else {
         const Sint64 x11Window = SDL_GetNumberProperty(props, "SDL.window.x11.window", 0);
-        pd.nwh = reinterpret_cast<void*>(static_cast<uintptr_t>(x11Window));
-        pd.ndt = SDL_GetPointerProperty(props, "SDL.window.x11.display", nullptr);
+        nativeWindowHandle = reinterpret_cast<void*>(static_cast<uintptr_t>(x11Window));
+        nativeDisplayType = SDL_GetPointerProperty(props, "SDL.window.x11.display", nullptr);
     }
 #endif
 
-    if (pd.nwh == nullptr) {
+    if (nativeWindowHandle == nullptr) {
         setLastError("could not resolve native window handle from SDL");
         return false;
     }
@@ -71,9 +76,11 @@ bool bgfx_bridge_init(SDL_Window* window, int width, int height, bool vsync)
     bgfx::Init init {};
     init.type = bgfx::RendererType::OpenGL;
     init.platformData = pd;
-    init.resolution.width = static_cast<uint32_t>(width);
-    init.resolution.height = static_cast<uint32_t>(height);
-    init.resolution.reset = vsync ? BGFX_RESET_VSYNC : BGFX_RESET_NONE;
+    init.swapChain.nwh = nativeWindowHandle;
+    init.swapChain.ndt = nativeDisplayType;
+    init.swapChain.width = static_cast<uint32_t>(width);
+    init.swapChain.height = static_cast<uint32_t>(height);
+    init.reset = vsync ? BGFX_RESET_VSYNC : BGFX_RESET_NONE;
 
     if (!bgfx::init(init)) {
         setLastError("bgfx::init failed");
@@ -100,7 +107,10 @@ void bgfx_bridge_resize(int width, int height, bool vsync)
 #if defined(USE_BGFX_RENDERER)
     if (!sActive)
         return;
-    bgfx::reset(static_cast<uint32_t>(width), static_cast<uint32_t>(height), vsync ? BGFX_RESET_VSYNC : BGFX_RESET_NONE);
+    bgfx::SwapChain swapChain {};
+    swapChain.width = static_cast<uint32_t>(width);
+    swapChain.height = static_cast<uint32_t>(height);
+    bgfx::reset(vsync ? BGFX_RESET_VSYNC : BGFX_RESET_NONE, &swapChain);
 #else
     (void)width;
     (void)height;
