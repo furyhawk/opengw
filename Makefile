@@ -59,7 +59,6 @@ CPPFLAGS += $(SDL_CFLAGS)
 
 ifeq ($(USE_BGFX),1)
     BGFX_HOME ?= $(firstword $(wildcard \
-        $(BGFX_HOME) \
         /Users/user/projects/bgfx \
         $(HOME)/projects/bgfx \
         /opt/homebrew/opt/bgfx \
