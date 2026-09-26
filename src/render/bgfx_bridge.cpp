@@ -80,7 +80,6 @@ bool bgfx_bridge_init(SDL_Window* window, int width, int height, bool vsync)
         return false;
     }
 
-    bgfx::setViewClear(0, BGFX_CLEAR_COLOR, 0x000000ff, 1.0f, 0);
     sActive = true;
     return true;
 #endif
@@ -111,8 +110,10 @@ void bgfx_bridge_resize(int width, int height, bool vsync)
 void bgfx_bridge_begin_frame()
 {
 #if defined(USE_BGFX_RENDERER)
-    if (sActive)
-        bgfx::touch(0);
+    if (sActive) {
+        // Interop/presentation-only mode: the game frame is rendered by raw
+        // OpenGL, so bgfx should not submit clears or draw commands here.
+    }
 #endif
 }
 

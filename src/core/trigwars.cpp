@@ -237,7 +237,7 @@ static void applySettingsToWindow()
     if (s.mVsync != lastVsync) {
         if (!bgfxInited)
             SDL_GL_SetSwapInterval(s.mVsync ? 1 : 0);
-        bgfx_bridge_resize(lastW, lastH, s.mVsync);
+        bgfx_bridge_resize(mWidth, mHeight, s.mVsync);
         lastVsync = s.mVsync;
     }
 }
