@@ -68,6 +68,14 @@ make help       # show available targets
 make USE_BGFX=1
 ```
 
+For `USE_BGFX=1`, the makefiles look for bgfx via `pkg-config` package
+`bgfx` first, then `bgfx-shared`. If your install does not provide either
+metadata file, pass flags explicitly, for example:
+
+```sh
+make USE_BGFX=1 BGFX_CFLAGS="..." BGFX_LIBS="..."
+```
+
 > **Run from the project root.** The game loads `assets/sounds/` and
 > `assets/images/` and writes its `scores.sav` high-score file relative to the
 > current working directory, so launch it from here (or from a folder that

@@ -17,6 +17,7 @@ CXX      ?= c++
 NAME     := trigwars
 OBJDIR   := obj
 USE_BGFX ?= 0
+PKG_CONFIG ?= pkg-config
 
 CXXFLAGS := -std=c++20 -Wall -Wextra -O3 -ggdb
 CPPFLAGS := -Isrc
@@ -44,23 +45,29 @@ ifeq ($(UNAME_S),Darwin)
         SDL_CFLAGS := -F/Library/Frameworks
         SDL_LIBS   := -F/Library/Frameworks -framework SDL3 -rpath /Library/Frameworks
     else
-        SDL_CFLAGS := $(shell pkg-config --cflags sdl3)
-        SDL_LIBS   := $(shell pkg-config --libs sdl3)
+        SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl3)
+        SDL_LIBS   := $(shell $(PKG_CONFIG) --libs sdl3)
     endif
     LIBS := $(SDL_LIBS) -framework OpenGL
 else
-    SDL_CFLAGS := $(shell pkg-config --cflags sdl3)
-    SDL_LIBS   := $(shell pkg-config --libs sdl3)
+    SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl3)
+    SDL_LIBS   := $(shell $(PKG_CONFIG) --libs sdl3)
     LIBS       := $(SDL_LIBS) -lGL
 endif
 
 CPPFLAGS += $(SDL_CFLAGS)
 
 ifeq ($(USE_BGFX),1)
-    BGFX_CFLAGS ?= $(shell pkg-config --cflags bgfx 2>/dev/null)
-    BGFX_LIBS   ?= $(shell pkg-config --libs bgfx 2>/dev/null)
+    BGFX_PKG ?= $(shell \
+        if $(PKG_CONFIG) --exists bgfx; then \
+            echo bgfx; \
+        elif $(PKG_CONFIG) --exists bgfx-shared; then \
+            echo bgfx-shared; \
+        fi)
+    BGFX_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags $(BGFX_PKG) 2>/dev/null)
+    BGFX_LIBS   ?= $(shell $(PKG_CONFIG) --libs $(BGFX_PKG) 2>/dev/null)
     ifeq ($(strip $(BGFX_CFLAGS) $(BGFX_LIBS)),)
-        $(error USE_BGFX=1 requested, but bgfx pkg-config metadata was not found. Set BGFX_CFLAGS and BGFX_LIBS explicitly.)
+        $(error USE_BGFX=1 requested, but bgfx pkg-config metadata (bgfx or bgfx-shared) was not found. Set BGFX_CFLAGS and BGFX_LIBS explicitly.)
     endif
     CPPFLAGS += -DUSE_BGFX_RENDERER $(BGFX_CFLAGS)
     LIBS += $(BGFX_LIBS)
