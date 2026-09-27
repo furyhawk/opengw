@@ -393,6 +393,69 @@ void testClientArrays()
     check((pixelNdc(-0.99f, 0.0f) >> 8 & 0xff) > 150, "client-array line loop left edge is drawn");
 }
 
+// The grid is the one draw that is large enough to be *streamed* (see the
+// "Streamed line batches" section of bgfx_backend.cpp): thousands of segments
+// expand into a per-frame block that bgfx reads by reference, instead of
+// accumulating in the batch vector first. The small loop above exercises the
+// batched path; this one makes sure the streamed path delivers every chunk of a
+// long run (a shared-buffer mistake loses the tail).
+void testStreamedClientArrays()
+{
+    printf("streamed client arrays (the grid)\n");
+
+    // More than kStreamMinIndices (4096) indices: 2100 segments = 4200 indices.
+    const int segments = 2100;
+    const float yBottom = 0.55f;
+    const float yTop = 0.75f;
+
+    std::vector<float> verts;
+    std::vector<float> colors;
+    std::vector<uint32_t> idx;
+    verts.reserve(static_cast<size_t>(segments) * 4);
+    colors.reserve(static_cast<size_t>(segments) * 8);
+    idx.reserve(static_cast<size_t>(segments) * 2);
+
+    for (int i = 0; i < segments; ++i) {
+        const float x = -0.95f + (1.9f * static_cast<float>(i)) / static_cast<float>(segments - 1);
+        verts.push_back(x);
+        verts.push_back(yBottom);
+        verts.push_back(x);
+        verts.push_back(yTop);
+        for (int c = 0; c < 8; ++c)
+            colors.push_back(1.0f); // opaque white
+        idx.push_back(static_cast<uint32_t>(i) * 2u);
+        idx.push_back(static_cast<uint32_t>(i) * 2u + 1u);
+    }
+
+    gfx_begin_frame();
+    gfx_disable(GL_BLEND);
+    gfx_clearcolor(0, 0, 0, 1);
+    gfx_clear(GL_COLOR_BUFFER_BIT);
+
+    gfx_linewidth(6.0f);
+    gfx_enableclientstate(GL_VERTEX_ARRAY);
+    gfx_enableclientstate(GL_COLOR_ARRAY);
+    gfx_vertexpointer(2, GL_FLOAT, 0, verts.data());
+    gfx_colorpointer(4, GL_FLOAT, 0, colors.data());
+    gfx_drawelements(GL_LINES, static_cast<GLsizei>(idx.size()), GL_UNSIGNED_INT, idx.data());
+    gfx_disableclientstate(GL_COLOR_ARRAY);
+    gfx_disableclientstate(GL_VERTEX_ARRAY);
+    capture();
+
+    // The lines are dense enough to merge into a band, so the band must be
+    // there across its whole width -- a chunk dropped at the pool size or a
+    // staging slot reused mid-frame would leave a gap.
+    const float samples[] = { -0.9f, -0.45f, 0.0f, 0.45f, 0.9f };
+    bool wholeBand = true;
+    for (float x : samples) {
+        if ((pixelNdc(x, 0.65f) >> 8 & 0xff) < 150)
+            wholeBand = false;
+    }
+    check(wholeBand, "a streamed client-array draw covers its whole length");
+    check((pixelNdc(0.0f, 0.65f) >> 8 & 0xff) > 150, "the streamed band is drawn where expected");
+    check((pixelNdc(0.0f, 0.0f) >> 8 & 0xff) < 60, "nothing is drawn away from the streamed band");
+}
+
 // A batch larger than bgfx's transient vertex pool (6 MiB, ~200k SolidVerts)
 // must not be streamed through that pool: it fills up, the tail is silently
 // dropped, and reclaiming the pool makes bgfx::frame() block for seconds --
@@ -576,6 +639,7 @@ int main()
     testWideLinesAndPoints();
     testTextures();
     testClientArrays();
+    testStreamedClientArrays();
     testOversizedBatch();
     testBatchKeepsItsBlendState();
     testGlowAlignment();

@@ -475,6 +475,114 @@ void submitVertices(bgfx::ViewId view, bgfx::ProgramHandle prog, const bgfx::Ver
     }
 }
 
+// ---------------------------------------------------------------------------
+// Streamed line batches (the grid)
+//
+// The legacy line expansion emits a screen-space quad (six vertices) per
+// segment, and Endless mode's 299x233 grid submits ~139k segments per frame --
+// ~14 MB of vertices once the off-screen ones are dropped, more than the 6 MiB
+// transient pool can hold. Those batches are streamed through a dynamic vertex
+// buffer (above), but accumulating them in the batch vector first meant every
+// byte was touched three times per frame (batch vector -> bgfx::copy's staging
+// block -> vertex buffer), which is what made Endless mode's frame memory-bandwidth
+// bound.
+//
+// Large client-array line draws (only the grid does this) therefore expand
+// straight into the staging block that is handed to bgfx::update() *by
+// reference*, so the data is written once and copied once.
+//
+// The staging block is double buffered exactly like the dynamic vertex buffers,
+// for the same reason: the swap in gfx_end_frame() means the copy the GPU reads
+// this frame is not the one the CPU fills during the next one.
+//
+// Cost: the block is reserved for the worst case (every segment visible -> six
+// vertices each: 2 x ~27 MB for the Endless grid, and bgfx::frame() guarantees
+// only that the *previous* frame has been consumed, so two are needed). That
+// buys the ~1.3 ms/frame the extra copies cost -- measured with
+// tools/run_bgfx_frame_bench.sh, which is also where a smaller vertex format (or
+// a shared index buffer to cut six vertices down to four) should be measured
+// before it is attempted.
+// ---------------------------------------------------------------------------
+constexpr GLsizei kStreamMinIndices = 4096; // below this, staging is cheaper than owning a block
+
+struct LineStream
+{
+    bgfx::DynamicVertexBufferHandle handle[2] { BGFX_INVALID_HANDLE, BGFX_INVALID_HANDLE };
+    uint32_t handleCapacity[2] { 0, 0 }; // bytes
+    std::vector<SolidVert> staging[2];
+    SolidVert* out { nullptr }; // emission target while a draw is being streamed
+    uint32_t capacityVerts { 0 };
+    uint32_t used { 0 };
+    std::size_t slot { 0 };
+    int batchesThisFrame { 0 };
+};
+
+LineStream g_stream;
+
+// Claim the stream for a draw of `indexCount` client-array indices. Returns the
+// buffer to expand into, or nullptr to fall back to the batched path.
+SolidVert* beginStreamedLines(GLsizei indexCount)
+{
+    // One streamed batch per frame: a second one would have to share the slot,
+    // and bgfx executes a frame's update commands as a group, so the first
+    // draw would end up reading the second one's vertices.
+    if (g_stream.batchesThisFrame != 0)
+        return nullptr;
+
+    // Worst case: every segment is visible and expands to six vertices.
+    const uint32_t maxVerts = (static_cast<uint32_t>(indexCount) / 2u) * 6u;
+    if (maxVerts == 0)
+        return nullptr;
+
+    g_stream.slot = g_frameParity & 1u;
+    std::vector<SolidVert>& staging = g_stream.staging[g_stream.slot];
+    if (staging.size() < maxVerts)
+        staging.resize(maxVerts); // grows once, then stays
+
+    g_stream.batchesThisFrame = 1;
+    g_stream.out = staging.data();
+    g_stream.capacityVerts = static_cast<uint32_t>(staging.size());
+    g_stream.used = 0;
+    return g_stream.out;
+}
+
+void endStreamedLines(uint64_t state, bgfx::ViewId view)
+{
+    SolidVert* data = g_stream.out;
+    const std::size_t slot = g_stream.slot;
+    const uint32_t count = g_stream.used;
+    g_stream.out = nullptr;
+    g_stream.capacityVerts = 0;
+    g_stream.used = 0;
+
+    if (data == nullptr || count == 0)
+        return;
+
+    const uint32_t stride = g_solidLayout.getStride();
+    const uint32_t bytes = count * stride;
+
+    if (!bgfx::isValid(g_stream.handle[slot]) || g_stream.handleCapacity[slot] < bytes) {
+        if (bgfx::isValid(g_stream.handle[slot]))
+            bgfx::destroy(g_stream.handle[slot]);
+        const uint32_t capacity = bytes + (bytes / 4u) + (stride * 256u);
+        g_stream.handle[slot] = bgfx::createDynamicVertexBuffer(capacity / stride, g_solidLayout);
+        g_stream.handleCapacity[slot] = bgfx::isValid(g_stream.handle[slot]) ? capacity : 0;
+        if (!bgfx::isValid(g_stream.handle[slot]))
+            return;
+    }
+
+    bgfx::update(g_stream.handle[slot], 0, bgfx::makeRef(data, bytes));
+    bgfx::setVertexBuffer(0, g_stream.handle[slot], 0, count);
+    bgfx::setState(state);
+    bgfx::submit(view, g_solidProg);
+
+#ifdef TW_DEBUG
+    ++g_tempDraws;             // TEMP
+    g_tempVerts += count;      // TEMP
+    g_tempFrameVerts += count; // TEMP
+#endif
+}
+
 } // namespace
 
 // ===========================================================================
@@ -597,20 +705,55 @@ void projectImmediate(const float m[16], std::vector<ClipV>& out)
     }
 }
 
+// Scratch space for the polygon path of gfx_end(): kept across frames so the
+// (potentially multi-megabyte) ClipV array is not reallocated per draw call.
+std::vector<ClipV> g_clipScratch;
+
+// Transform one immediate-mode vertex into clip space (the shared body of
+// projectImmediate() and of the streaming line path in gfx_end()).
+void transformImm(const float m[16], const ImmVertex& iv, ClipV& cv)
+{
+    const float in[4] = { iv.x, iv.y, iv.z, 1.0f };
+    float c[4];
+    matTransform(m, in, c);
+    cv.x = c[0];
+    cv.y = c[1];
+    cv.z = fixDepth(c[2], c[3]);
+    cv.w = c[3];
+    cv.r = iv.r;
+    cv.g = iv.g;
+    cv.b = iv.b;
+    cv.a = iv.a;
+    cv.u = iv.u;
+    cv.v = iv.v;
+    cv.hasUV = iv.hasUV;
+}
+
+// Pixel <-> NDC conversion factors for the current viewport. The line/point
+// expansion below converts six corners per segment, and the grid submits ~139k
+// segments per frame in Endless mode -- a division per corner was measurable
+// there. The factors are refreshed once per gfx_end() call instead.
+float g_pxWidth = 800.0f;
+float g_pxHeight = 600.0f;
+float g_pxToNdcX = 2.0f / 800.0f;
+float g_pxToNdcY = 2.0f / 600.0f;
+float g_legacyClipZ = 1.0f; // clip-space z of the legacy 2D geometry (z == 0)
+
+void refreshViewportConstants()
+{
+    g_pxWidth = static_cast<float>(g_viewport[2]);
+    g_pxHeight = static_cast<float>(g_viewport[3]);
+    g_pxToNdcX = (g_pxWidth > 0.0f) ? (2.0f / g_pxWidth) : 0.0f;
+    g_pxToNdcY = (g_pxHeight > 0.0f) ? (2.0f / g_pxHeight) : 0.0f;
+    g_legacyClipZ = fixDepth(0.0f, 1.0f);
+}
+
 // Convert NDC to pixel coordinates (window origin bottom-left).
 void ndcToPx(const ClipV& c, float& px, float& py)
 {
     const float invw = (c.w != 0.0f) ? (1.0f / c.w) : 0.0f;
-    px = (c.x * invw * 0.5f + 0.5f) * static_cast<float>(g_viewport[2]);
-    py = (c.y * invw * 0.5f + 0.5f) * static_cast<float>(g_viewport[3]);
-}
-
-void pxToNdc(float px, float py, float out[4])
-{
-    out[0] = (px / static_cast<float>(g_viewport[2])) * 2.0f - 1.0f;
-    out[1] = (py / static_cast<float>(g_viewport[3])) * 2.0f - 1.0f;
-    out[2] = fixDepth(0.0f, 1.0f);
-    out[3] = 1.0f;
+    px = (c.x * invw + 1.0f) * g_pxWidth * 0.5f;
+    py = (c.y * invw + 1.0f) * g_pxHeight * 0.5f;
 }
 
 // Legacy lines and points are expanded into screen-space triangles here, and
@@ -624,6 +767,14 @@ void pxToNdc(float px, float py, float out[4])
 bool clipSegmentToRect(float& x0, float& y0, float& x1, float& y1,
                        float xmin, float ymin, float xmax, float ymax)
 {
+    // Trivial reject before the (four-division) Liang-Barsky loop: a segment
+    // with both endpoints outside the same edge can never contribute. Most of
+    // the grid is off screen, so this is what keeps its cost proportional to
+    // the visible part instead of to the whole arena.
+    if ((x0 < xmin && x1 < xmin) || (x0 > xmax && x1 > xmax) || (y0 < ymin && y1 < ymin)
+        || (y0 > ymax && y1 > ymax))
+        return false;
+
     const float dx = x1 - x0;
     const float dy = y1 - y0;
 
@@ -677,18 +828,30 @@ void pushTex(float x, float y, float z, float w, float r, float g, float b, floa
     g_batch.tex.push_back(TexVert { x, y, z, w, r, g, b, a, u, v });
 }
 
-void pushSolidClipPx(const ClipV& a, float px, float py)
+void appendSolidClipPx(const ClipV& a, float px, float py)
 {
 #ifdef TW_DEBUG
     if (!std::isfinite(px) || !std::isfinite(py))
         ++g_tempNonFinite; // TEMP
 #endif
-    float ndc[4];
-    pxToNdc(px, py, ndc);
-    pushSolid(ndc[0], ndc[1], ndc[2], ndc[3], a.r, a.g, a.b, a.a);
+    const SolidVert v { px * g_pxToNdcX - 1.0f, py * g_pxToNdcY - 1.0f, g_legacyClipZ, 1.0f, a.r, a.g, a.b,
+                        a.a };
+
+    // A streamed draw writes straight into the vertex buffer's staging block
+    // (see beginStreamedLines); everything else accumulates in the batch.
+    if (g_stream.out != nullptr) {
+        if (g_stream.used < g_stream.capacityVerts)
+            g_stream.out[g_stream.used++] = v;
+        return;
+    }
+
+    g_batch.solid.push_back(v);
 }
 
 // Emit a thick screen-space quad for one line segment (a->b), width in px.
+// The caller has already opened the solid batch this appends to (see gfx_end
+// and gfx_drawelements): a whole glBegin/glEnd or client-array draw shares one
+// state, so checking it per vertex is wasted work on the hot path.
 void emitLineQuad(const ClipV& a, const ClipV& b)
 {
     if (a.w <= 0.0f || b.w <= 0.0f)
@@ -709,37 +872,46 @@ void emitLineQuad(const ClipV& a, const ClipV& b)
 
     // Keep the quad's width, but nothing beyond it (see clipSegmentToRect).
     const float margin = half + 1.0f;
-    if (!clipSegmentToRect(ax, ay, bx, by, -margin, -margin,
-                           static_cast<float>(g_viewport[2]) + margin,
-                           static_cast<float>(g_viewport[3]) + margin))
+    const float xmin = -margin;
+    const float ymin = -margin;
+    const float xmax = g_pxWidth + margin;
+    const float ymax = g_pxHeight + margin;
+    // Fast accept: a segment with both endpoints inside needs no clipping at
+    // all (the common case for the visible part of the grid), so it skips the
+    // Liang-Barsky loop below.
+    if (!((ax >= xmin && ax <= xmax && ay >= ymin && ay <= ymax && bx >= xmin && bx <= xmax && by >= ymin
+           && by <= ymax)
+          || clipSegmentToRect(ax, ay, bx, by, xmin, ymin, xmax, ymax)))
         return;
 
     float dx = bx - ax;
     float dy = by - ay;
-    const float len = std::sqrt(dx * dx + dy * dy);
-    if (len < 1e-4f) {
-        pushSolidClipPx(a, ax - half, ay - half);
-        pushSolidClipPx(a, ax + half, ay - half);
-        pushSolidClipPx(a, ax + half, ay + half);
-        pushSolidClipPx(a, ax - half, ay - half);
-        pushSolidClipPx(a, ax + half, ay + half);
-        pushSolidClipPx(a, ax - half, ay + half);
+    const float lenSquared = dx * dx + dy * dy;
+    if (lenSquared < 1e-8f) {
+        appendSolidClipPx(a, ax - half, ay - half);
+        appendSolidClipPx(a, ax + half, ay - half);
+        appendSolidClipPx(a, ax + half, ay + half);
+        appendSolidClipPx(a, ax - half, ay - half);
+        appendSolidClipPx(a, ax + half, ay + half);
+        appendSolidClipPx(a, ax - half, ay + half);
         return;
     }
 
-    const float nx = -dy / len * half;
-    const float ny = dx / len * half;
+    const float invLen = half / std::sqrt(lenSquared);
+    const float nx = -dy * invLen;
+    const float ny = dx * invLen;
 
-    pushSolidClipPx(a, ax + nx, ay + ny);
-    pushSolidClipPx(a, ax - nx, ay - ny);
-    pushSolidClipPx(b, bx + nx, by + ny);
+    appendSolidClipPx(a, ax + nx, ay + ny);
+    appendSolidClipPx(a, ax - nx, ay - ny);
+    appendSolidClipPx(b, bx + nx, by + ny);
 
-    pushSolidClipPx(a, ax - nx, ay - ny);
-    pushSolidClipPx(b, bx - nx, by - ny);
-    pushSolidClipPx(b, bx + nx, by + ny);
+    appendSolidClipPx(a, ax - nx, ay - ny);
+    appendSolidClipPx(b, bx - nx, by - ny);
+    appendSolidClipPx(b, bx + nx, by + ny);
 }
 
-// Emit a screen-space square for a point, size in px.
+// Emit a screen-space square for a point, size in px. The caller has already
+// opened the solid batch (see gfx_end).
 void emitPointQuad(const ClipV& c)
 {
     if (c.w <= 0.0f)
@@ -757,16 +929,15 @@ void emitPointQuad(const ClipV& c)
     // A point can only contribute if its square overlaps the viewport, so the
     // off-screen ones (which can project arbitrarily far away) are dropped.
     const float margin = half + 1.0f;
-    if (cx < -margin || cx > static_cast<float>(g_viewport[2]) + margin
-        || cy < -margin || cy > static_cast<float>(g_viewport[3]) + margin)
+    if (cx < -margin || cx > g_pxWidth + margin || cy < -margin || cy > g_pxHeight + margin)
         return;
 
-    pushSolidClipPx(c, cx - half, cy - half);
-    pushSolidClipPx(c, cx + half, cy - half);
-    pushSolidClipPx(c, cx + half, cy + half);
-    pushSolidClipPx(c, cx - half, cy - half);
-    pushSolidClipPx(c, cx + half, cy + half);
-    pushSolidClipPx(c, cx - half, cy + half);
+    appendSolidClipPx(c, cx - half, cy - half);
+    appendSolidClipPx(c, cx + half, cy - half);
+    appendSolidClipPx(c, cx + half, cy + half);
+    appendSolidClipPx(c, cx - half, cy - half);
+    appendSolidClipPx(c, cx + half, cy + half);
+    appendSolidClipPx(c, cx - half, cy + half);
 }
 
 // glClear() is emulated with a fullscreen quad so that it keeps its place in
@@ -840,26 +1011,47 @@ void gfx_end()
 
     float m[16];
     combinedMatrix(m);
+    refreshViewportConstants();
 
-    std::vector<ClipV> clip;
-    projectImmediate(m, clip);
-    const std::size_t n = clip.size();
+    const std::size_t n = g_imm.size();
 
     if (g_beginMode == GL_POINTS) {
-        for (std::size_t i = 0; i < n; ++i)
-            emitPointQuad(clip[i]);
+        // Points and lines are untextured; opening the batch once here covers
+        // every vertex the expansion appends (see appendSolidClipPx).
+        beginBatch(BatchKind::Solid, 0);
+        for (std::size_t i = 0; i < n; ++i) {
+            ClipV c;
+            transformImm(m, g_imm[i], c);
+            emitPointQuad(c);
+        }
     } else if (g_beginMode == GL_LINES) {
-        for (std::size_t i = 0; i + 1 < n; i += 2)
-            emitLineQuad(clip[i], clip[i + 1]);
-    } else if (g_beginMode == GL_LINE_STRIP) {
-        for (std::size_t i = 0; i + 1 < n; ++i)
-            emitLineQuad(clip[i], clip[i + 1]);
-    } else if (g_beginMode == GL_LINE_LOOP) {
-        for (std::size_t i = 0; i + 1 < n; ++i)
-            emitLineQuad(clip[i], clip[i + 1]);
-        if (n >= 2)
-            emitLineQuad(clip[n - 1], clip[0]);
+        // Hot path: the grid submits ~139k segments per frame in Endless mode.
+        // Transform each pair straight into the expansion instead of staging
+        // every vertex in a ClipV array first.
+        beginBatch(BatchKind::Solid, 0);
+        for (std::size_t i = 0; i + 1 < n; i += 2) {
+            ClipV a, b;
+            transformImm(m, g_imm[i], a);
+            transformImm(m, g_imm[i + 1], b);
+            emitLineQuad(a, b);
+        }
+    } else if (g_beginMode == GL_LINE_STRIP || g_beginMode == GL_LINE_LOOP) {
+        beginBatch(BatchKind::Solid, 0);
+        for (std::size_t i = 0; i + 1 < n; ++i) {
+            ClipV a, b;
+            transformImm(m, g_imm[i], a);
+            transformImm(m, g_imm[i + 1], b);
+            emitLineQuad(a, b);
+        }
+        if (g_beginMode == GL_LINE_LOOP && n >= 2) {
+            ClipV a, b;
+            transformImm(m, g_imm[n - 1], a);
+            transformImm(m, g_imm[0], b);
+            emitLineQuad(a, b);
+        }
     } else {
+        std::vector<ClipV>& clip = g_clipScratch;
+        projectImmediate(m, clip);
         // Filled polygons: emitted as clip-space triangles.
         const bool textured = g_textureEnabled && (g_boundTexture != 0);
         auto emitTri = [&](std::size_t i0, std::size_t i1, std::size_t i2) {
@@ -1322,28 +1514,75 @@ void gfx_drawelements(GLenum mode, GLsizei count, GLenum type, const GLvoid* ind
         out.hasUV = false;
     };
 
-    g_imm.clear();
-    g_imm.reserve(count);
+    if (type != GL_UNSIGNED_SHORT && type != GL_UNSIGNED_INT)
+        return;
 
-    if (type == GL_UNSIGNED_SHORT) {
-        const GLushort* idx = static_cast<const GLushort*>(indices);
-        for (GLsizei i = 0; i < count; ++i) {
-            ImmVertex iv {};
-            fetchVertex(idx[i], iv);
-            g_imm.push_back(iv);
+    const GLushort* idx16 = (type == GL_UNSIGNED_SHORT) ? static_cast<const GLushort*>(indices) : nullptr;
+    const GLuint* idx32 = (type == GL_UNSIGNED_INT) ? static_cast<const GLuint*>(indices) : nullptr;
+    const auto indexAt = [idx16, idx32](GLsizei i) -> std::size_t {
+        return idx16 != nullptr ? static_cast<std::size_t>(idx16[i]) : static_cast<std::size_t>(idx32[i]);
+    };
+
+    if (mode == GL_LINES) {
+        // The grid's path, and the single most expensive draw in the game
+        // (~139k segments per frame in Endless mode, each expanded to a
+        // screen-space quad). Transform the pairs straight into the expansion:
+        // no ImmVertex/ClipV staging, and the batch state is checked once
+        // instead of per emitted vertex.
+        float m[16];
+        combinedMatrix(m);
+        refreshViewportConstants();
+
+        const uint64_t state = currentState();
+        const bgfx::ViewId view = g_targetView;
+        const bool streamed = (count >= kStreamMinIndices) && (beginStreamedLines(count) != nullptr);
+        if (streamed) {
+            // The stream is submitted as its own draw, in place, so whatever is
+            // still batched has to go out first (this keeps the draw order).
+            flushBatch();
+        } else {
+            beginBatch(BatchKind::Solid, 0);
         }
-    } else if (type == GL_UNSIGNED_INT) {
-        const GLuint* idx = static_cast<const GLuint*>(indices);
-        for (GLsizei i = 0; i < count; ++i) {
+
+        // The grid's index list is (long) runs of consecutive segments, so a
+        // one-entry cache reuses the endpoint a segment shares with the next
+        // one and skips both the client-array fetch and the transform.
+        std::size_t cachedIdx = static_cast<std::size_t>(-1);
+        ClipV cached {};
+        const auto clipFor = [&](std::size_t idx, ClipV& out) {
+            if (idx == cachedIdx) {
+                out = cached;
+                return;
+            }
             ImmVertex iv {};
-            fetchVertex(idx[i], iv);
-            g_imm.push_back(iv);
+            fetchVertex(idx, iv);
+            transformImm(m, iv, out);
+            cachedIdx = idx;
+            cached = out;
+        };
+
+        ClipV a, b;
+        for (GLsizei i = 0; i + 1 < count; i += 2) {
+            clipFor(indexAt(i), a);
+            clipFor(indexAt(i + 1), b);
+            emitLineQuad(a, b);
         }
-    } else {
+
+        if (streamed)
+            endStreamedLines(state, view);
         return;
     }
 
-    // Reuse the same assembly as immediate mode.
+    // GL_LINE_STRIP / GL_LINE_LOOP are rare; reuse the immediate-mode assembly
+    // (which expands a wide line per consecutive pair).
+    g_imm.clear();
+    g_imm.reserve(static_cast<std::size_t>(count));
+    for (GLsizei i = 0; i < count; ++i) {
+        ImmVertex iv {};
+        fetchVertex(indexAt(i), iv);
+        g_imm.push_back(iv);
+    }
+
     g_insideBegin = true;
     g_beginMode = mode;
     gfx_end();
@@ -1675,6 +1914,9 @@ void gfx_begin_frame()
 {
     if (!g_loaded)
         return;
+
+    // One streamed (large client-array line) batch per frame; see g_stream.
+    g_stream.batchesThisFrame = 0;
 
 #ifdef TW_DEBUG
     // TEMP diagnostic: submission volume and draw calls, per 60 frames.

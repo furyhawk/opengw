@@ -195,6 +195,8 @@ tools/
   check_bgfx_libs.sh          validate the bgfx link flags before linking
   bgfx_backend_test.cpp       headless bgfx backend verification
   run_bgfx_backend_test.sh    build + run the above
+  bgfx_frame_bench.cpp        headless per-frame render cost benchmark
+  run_bgfx_frame_bench.sh     build + run the above
 ```
 
 Run `make` from the repo root so the CWD-relative `assets/…` and
@@ -228,6 +230,25 @@ tools/compile_shaders.sh                # regenerate src/render/shaders/*.bin.h
 `compile_shaders.sh` needs the `shaderc` tool from a bgfx checkout (run
 `make shaderc` there once); the generated headers are committed, so normal
 builds do not need it.
+
+### Measuring the frame cost without a display
+
+`tools/run_bgfx_frame_bench.sh` renders a representative Endless-mode frame
+(the 299x233 grid through the client-array path, particles in both passes,
+enemies, glow/blur/composite) offscreen and reports where the frame time goes,
+so render-path changes can be A/B compared instead of guessed at:
+
+```sh
+sh tools/run_bgfx_frame_bench.sh                  # ~200 frames, section timings
+sh tools/run_bgfx_frame_bench.sh --gridres=133x89  # Classical arena
+sh tools/run_bgfx_frame_bench.sh --no-grid         # everything but the grid
+sh tools/run_bgfx_frame_bench.sh --particles=3000 --enemies=300
+sh tools/run_bgfx_frame_bench.sh --sim             # include the grid spring sim
+```
+
+For reference, on an M-series Mac at 1280x800 the Endless frame costs ~3.8 ms
+of CPU (~2.9 ms of it the grid's line expansion); the Classical arena's grid is
+~0.6 ms.
 
 ## License
 
