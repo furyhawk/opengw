@@ -1,6 +1,10 @@
 trigwars
 trigwars-bgfx
+trigwars-debug
+trigwars-bgfx-debug
 obj/
 obj-bgfx/
 scores.sav
 settings.cfg
+obj-debug/
+obj-bgfx-debug/

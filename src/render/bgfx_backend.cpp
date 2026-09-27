@@ -319,7 +319,11 @@ float fixDepth(float z, float w)
     return g_depthZeroToOne ? (z * 0.5f + w * 0.5f) : z;
 }
 
-// TEMP diagnostics.
+// TEMP diagnostics: submission volume, geometry extremes and resource churn.
+// They are compiled in only for debug builds (`make DEBUG=1`, which defines
+// TW_DEBUG); a release build carries neither the counters nor the per-vertex
+// checks that feed them.
+#ifdef TW_DEBUG
 unsigned long long g_tempVerts = 0;
 unsigned long long g_tempDraws = 0;
 unsigned long long g_tempNonFinite = 0; // TEMP
@@ -334,6 +338,7 @@ double g_tempArea = 0;
 float g_tempMaxWidth = 0;
 double g_tempMaxCoord = 0;                // TEMP
 unsigned long long g_tempHugeQuads = 0;   // TEMP
+#endif
 
 // ---------------------------------------------------------------------------
 // Oversized batches
@@ -407,9 +412,11 @@ void submitDynamicBatch(DynamicBatch& batch, bgfx::ViewId view, bgfx::ProgramHan
     bgfx::setState(state);
     bgfx::submit(view, prog);
 
+#ifdef TW_DEBUG
     ++g_tempDraws;             // TEMP
     g_tempVerts += count;      // TEMP
     g_tempFrameVerts += count; // TEMP
+#endif
 }
 
 void destroyDynamicBatches()
@@ -457,9 +464,11 @@ void submitVertices(bgfx::ViewId view, bgfx::ProgramHandle prog, const bgfx::Ver
             bgfx::setTexture(0, g_texSampler, tex, static_cast<uint32_t>(texFlags));
         bgfx::setState(state);
         bgfx::submit(view, prog);
+#ifdef TW_DEBUG
         ++g_tempDraws;      // TEMP
         g_tempVerts += n;   // TEMP
         g_tempFrameVerts += n; // TEMP
+#endif
 
         verts += n;
         count -= n;
@@ -670,8 +679,10 @@ void pushTex(float x, float y, float z, float w, float r, float g, float b, floa
 
 void pushSolidClipPx(const ClipV& a, float px, float py)
 {
+#ifdef TW_DEBUG
     if (!std::isfinite(px) || !std::isfinite(py))
         ++g_tempNonFinite; // TEMP
+#endif
     float ndc[4];
     pxToNdc(px, py, ndc);
     pushSolid(ndc[0], ndc[1], ndc[2], ndc[3], a.r, a.g, a.b, a.a);
@@ -855,6 +866,7 @@ void gfx_end()
             const ClipV& a = clip[i0];
             const ClipV& b = clip[i1];
             const ClipV& c = clip[i2];
+#ifdef TW_DEBUG
             // TEMP: extremes of the filled path.
             for (const ClipV* v : { &a, &b, &c }) {
                 const double ax = v->w != 0.0f ? std::fabs(double(v->x) / double(v->w)) : 1e30;
@@ -864,6 +876,7 @@ void gfx_end()
                 if (v->w < g_tempTriMinW) g_tempTriMinW = v->w;
                 if (!std::isfinite(v->x) || !std::isfinite(v->y) || !std::isfinite(v->w)) ++g_tempTriNonFinite;
             }
+#endif
             if (textured) {
                 pushTex(a.x, a.y, a.z, a.w, a.r, a.g, a.b, a.a, a.u, a.v);
                 pushTex(b.x, b.y, b.z, b.w, b.r, b.g, b.b, b.a, b.u, b.v);
@@ -1503,10 +1516,12 @@ void gfx_context_shutdown()
     g_loaded = false;
 }
 
+#ifdef TW_DEBUG
 unsigned long long g_tempShortAllocs = 0; // TEMP
 unsigned long long g_tempShortVerts = 0;  // TEMP
 unsigned long long g_tempResizes = 0; // TEMP
 unsigned long long g_tempFbs = 0;     // TEMP
+#endif
 
 void gfx_resize(int width, int height)
 {
@@ -1516,7 +1531,9 @@ void gfx_resize(int width, int height)
         && bgfx::isValid(g_fbGlow) && bgfx::isValid(g_fbPing))
         return;
 
+#ifdef TW_DEBUG
     ++g_tempResizes; // TEMP
+#endif
     g_fbW = width;
     g_fbH = height;
     if (!g_loaded)
@@ -1531,7 +1548,9 @@ void gfx_resize(int width, int height)
     g_glowW = gw;
     g_glowH = gh;
 
+#ifdef TW_DEBUG
     ++g_tempFbs; // TEMP
+#endif
     g_fbGlow = bgfx::createFrameBuffer(static_cast<uint16_t>(gw), static_cast<uint16_t>(gh),
                                        bgfx::TextureFormat::RGBA8,
                                        BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
@@ -1550,7 +1569,9 @@ void gfx_resize(int width, int height)
 
 void gfx_glow_bind()
 {
+#ifdef TW_DEBUG
     if (getenv("TW_SKIP_GLOW")) return; // TEMP
+#endif
     if (!g_loaded)
         return;
     flushBatch();
@@ -1561,7 +1582,9 @@ void gfx_glow_bind()
 
 void gfx_glow_unbind()
 {
+#ifdef TW_DEBUG
     if (getenv("TW_SKIP_GLOW")) return; // TEMP
+#endif
     if (!g_loaded)
         return;
     flushBatch();
@@ -1572,7 +1595,9 @@ void gfx_glow_unbind()
 
 void gfx_blur_glow()
 {
+#ifdef TW_DEBUG
     if (getenv("TW_SKIP_BLUR")) return; // TEMP
+#endif
     if (!g_loaded || !bgfx::isValid(g_fbGlow) || !bgfx::isValid(g_fbPing))
         return;
 
@@ -1596,7 +1621,9 @@ void gfx_blur_glow()
 
 void gfx_draw_blurred_glow(float alpha)
 {
+#ifdef TW_DEBUG
     if (getenv("TW_SKIP_COMPOSITE")) return; // TEMP
+#endif
     if (!g_loaded || !bgfx::isValid(g_fbGlow))
         return;
 
@@ -1649,6 +1676,7 @@ void gfx_begin_frame()
     if (!g_loaded)
         return;
 
+#ifdef TW_DEBUG
     // TEMP diagnostic: submission volume and draw calls, per 60 frames.
     {
         static int n = 0;
@@ -1742,6 +1770,7 @@ void gfx_begin_frame()
             g_tempPeakArea = 0;
         }
     }
+#endif
 
     flushBatch();
     g_targetView = VIEW_SCENE;

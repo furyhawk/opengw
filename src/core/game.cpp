@@ -235,16 +235,18 @@ void game::run()
     switch (mGameMode) {
     case GAMEMODE_ATTRACT:
     {
+#ifdef TW_DEBUG
         // TEMP: TW_FORCE_MATCH=1 starts a match after ~2s for reproduction.
         {
             static const bool force = getenv("TW_FORCE_MATCH") != nullptr;
             static int frames = 0;
             if (force && ++frames == 120) {
-                if (getenv("TW_MODE_INDEX")) mModeIndex = atoi(getenv("TW_MODE_INDEX")); // TEMP
+                if (getenv("TW_MODE_INDEX")) mModeIndex = atoi(getenv("TW_MODE_INDEX"));
                 startGame(GAMETYPE_SINGLEPLAYER);
                 break;
             }
         }
+#endif
         if (mCredits > 0) {
             mGameMode = GAMEMODE_CREDITED;
             mDebounce = true;
@@ -264,6 +266,7 @@ void game::run()
         break;
     case GAMEMODE_PLAYING:
     {
+#ifdef TW_DEBUG
         // TEMP: TW_FORCE_DEATH=1 kills the player after ~3s of play.
         {
             static const bool forceDeath = getenv("TW_FORCE_DEATH") != nullptr;
@@ -272,6 +275,7 @@ void game::run()
                 getPlayer1()->destroyTransition();
             }
         }
+#endif
         // The active gameplay mode (e.g. classical_mode) drives the match.
         if (mMode) {
             mMode->update(*this);

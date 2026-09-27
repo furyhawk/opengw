@@ -110,7 +110,12 @@ int main(int /*argc*/, char** /*argv*/)
     window = SDL_CreateWindow("Trigonometry Wars", winW, winH, flags);
 
     if (window) {
-        srand(getenv("TW_SEED") ? atoi(getenv("TW_SEED")) : SDL_GetTicks()); // TEMP
+#ifdef TW_DEBUG
+        // TEMP: TW_SEED=<n> reproduces a run with a fixed RNG seed.
+        srand(getenv("TW_SEED") ? atoi(getenv("TW_SEED")) : SDL_GetTicks());
+#else
+        srand(SDL_GetTicks());
+#endif
         make_sin_cos_tables();
         oglScene = std::make_unique<scene>();
 
@@ -389,6 +394,7 @@ static void drawOffscreens()
     gfx_end_frame();
 }
 
+#ifdef TW_DEBUG
 // TEMP diagnostic accumulators.
 static double drawMs = 0.0;
 static double logicMs = 0.0;
@@ -400,6 +406,7 @@ static double nowMs()
     return static_cast<double>(SDL_GetPerformanceCounter()) * 1000.0
         / static_cast<double>(SDL_GetPerformanceFrequency());
 }
+#endif
 
 static void updateFps(Uint32 now)
 {
@@ -412,6 +419,7 @@ static void updateFps(Uint32 now)
         fps = (fps + frameCount) / 2;
         frameCount = 0;
 
+#ifdef TW_DEBUG
         // TEMP diagnostic: frame rate and where the time goes.
         fprintf(stderr, "temp: fps=%d  draw=%.2fms  logic=%.2fms  present=%.2fms  (%d frames)\n",
                 fps, drawMs / (framesMeasured ? framesMeasured : 1),
@@ -419,6 +427,7 @@ static void updateFps(Uint32 now)
                 presentMs / (framesMeasured ? framesMeasured : 1), framesMeasured);
         drawMs = logicMs = presentMs = 0.0;
         framesMeasured = 0;
+#endif
 
         char buf[64];
         snprintf(buf, sizeof(buf), "Trigonometry Wars - FPS %d", fps);
@@ -451,9 +460,13 @@ static void run()
                 running = false;
             }
 
+#ifdef TW_DEBUG
             const double t0 = nowMs(); // TEMP
+#endif
             oglScene->run();
+#ifdef TW_DEBUG
             logicMs += nowMs() - t0; // TEMP
+#endif
 
             // The front-end menus (pause menu / title menu) can request a
             // clean shutdown of the whole application.
@@ -468,12 +481,18 @@ static void run()
         applySettingsToWindow();
 
         {
+#ifdef TW_DEBUG
             const double t0 = nowMs(); // TEMP
+#endif
             drawOffscreens();
+#ifdef TW_DEBUG
             drawMs += nowMs() - t0; // TEMP
+#endif
         }
 
+#ifdef TW_DEBUG
         const double t1 = nowMs(); // TEMP
+#endif
 #if defined(USE_BGFX_RENDERER)
         // bgfx owns presentation: submit the frame it built above.
         if (bgfxInited)
@@ -481,8 +500,10 @@ static void run()
 #else
         SDL_GL_SwapWindow(window);
 #endif
+#ifdef TW_DEBUG
         presentMs += nowMs() - t1; // TEMP
         ++framesMeasured;          // TEMP
+#endif
         updateFps(now);
     }
 }

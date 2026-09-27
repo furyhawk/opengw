@@ -13,6 +13,14 @@ else
 OBJDIR = obj
 endif
 
+# Debug builds compile in the TEMP diagnostics (see the canonical Makefile).
+DEBUG ?= 0
+ifeq ($(DEBUG),1)
+DEFINES += -DTW_DEBUG
+OBJDIR := $(OBJDIR)-debug
+NAME := trigwars-debug
+endif
+
 ifeq ($(USE_BGFX),1)
 BGFX_CFLAGS ?=
 BGFX_LIBS ?=
@@ -53,7 +61,7 @@ $(OBJDIR)/%.o : %.cpp | $(OBJDIR)
 	$(COMPILER) -o $@ -c $< $(CFLAGS) $(DEFINES) $(HEADERS)
 
 clean:
-	rm -rf obj obj-bgfx
+	rm -rf obj obj-bgfx obj-debug obj-bgfx-debug
 
 $(NAME): $(OBJS)
 	$(COMPILER) -o $@ $(OBJS) $(LIBS) -athread=native

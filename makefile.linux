@@ -13,6 +13,14 @@ NAME = trigwars-bgfx
 else
 OBJDIR = obj
 endif
+
+# Debug builds compile in the TEMP diagnostics (see the canonical Makefile).
+DEBUG ?= 0
+ifeq ($(DEBUG),1)
+DEFINES += -DTW_DEBUG
+OBJDIR := $(OBJDIR)-debug
+NAME := $(NAME)-debug
+endif
 PKG_CONFIG ?= pkg-config
 
 ifeq ($(USE_BGFX),1)
@@ -112,7 +120,7 @@ $(OBJDIR)/%.o : %.cpp | $(OBJDIR)
 	$(COMPILER) -o $@ -c $< $(CFLAGS) $(CLANG_FLAGS) $(DEFINES) $(HEADERS)
 
 clean:
-	rm -rf obj obj-bgfx
+	rm -rf obj obj-bgfx obj-debug obj-bgfx-debug
 
 # ---------------------------------------------------------------------------
 # Validated bgfx link flags (a partial list is the classic cause of

@@ -33,6 +33,21 @@ PKG_CONFIG ?= pkg-config
 CXXFLAGS := -std=c++20 -Wall -Wextra -O3 -ggdb
 CPPFLAGS := -Isrc
 
+# Debug builds compile in the TEMP diagnostics (the TW_DEBUG guards in
+# src/render/bgfx_backend.cpp, src/core/trigwars.cpp and src/core/game.cpp:
+# frame timing, draw/submission counters, the TW_* reproduction env vars).
+# Release builds carry none of them.  Like USE_BGFX the define changes the
+# compiled result, so a debug build gets its own object tree *and* binary --
+# otherwise `make` after `make DEBUG=1` would keep the instrumentation (or the
+# other way round) because make does not track flag changes.
+#   make DEBUG=1, make USE_BGFX=1 DEBUG=1, make run-bgfx DEBUG=1
+DEBUG ?= 0
+ifeq ($(DEBUG),1)
+    CPPFLAGS += -DTW_DEBUG
+    OBJDIR   := $(OBJDIR)-debug
+    NAME     := $(NAME)-debug
+endif
+
 # Optional Clang analyzer / sanitizers (off by default, e.g.):
 #   make CLANG_ADDRESS=-fsanitize=address
 CLANG_ANALYZE   :=
@@ -170,16 +185,17 @@ help:
 	@echo "  make run-bgfx - build and run with the bgfx renderer enabled"
 	@echo "  make clean    - remove build objects and the binaries"
 	@echo "  make bgfx-env - show the detected bgfx paths/flags"
+	@echo "  make DEBUG=1  - build (also USE_BGFX=1) with the TEMP diagnostics compiled in"
 	@echo "  make help     - show this help text"
 
 run: $(NAME)
 	./$(NAME)
 
 bgfx:
-	$(MAKE) USE_BGFX=1 all
+	$(MAKE) USE_BGFX=1 DEBUG=$(DEBUG) all
 
 run-bgfx:
-	$(MAKE) USE_BGFX=1 run
+	$(MAKE) USE_BGFX=1 DEBUG=$(DEBUG) run
 
 # ---------------------------------------------------------------------------
 # Validated bgfx link flags (a partial list is the classic cause of
@@ -211,7 +227,8 @@ $(OBJDIR)/%.o: %.cpp | $(OBJDIR)
 # Cleanup
 # ---------------------------------------------------------------------------
 clean:
-	rm -rf obj obj-bgfx trigwars trigwars-bgfx
+	rm -rf obj obj-bgfx obj-debug obj-bgfx-debug \
+	       trigwars trigwars-bgfx trigwars-debug trigwars-bgfx-debug
 
 # Load generated dependency files (skip during clean)
 ifneq ($(MAKECMDGOALS),clean)
