@@ -8,7 +8,8 @@
 //
 // It covers the parts of the backend that are easy to get wrong when porting
 // the OpenGL renderer to bgfx: clip-space orientation, NDC depth conventions,
-// additive blending, wide lines/points, textured quads and the glow/blur pass
+// additive blending, wide lines/points, textured quads, batches that are larger
+// than the transient vertex pool (the Endless grid) and the glow/blur pass
 // alignment (a flipped V coordinate in the blur chain would silently offset the
 // bloom).
 //
@@ -392,6 +393,49 @@ void testClientArrays()
     check((pixelNdc(-0.99f, 0.0f) >> 8 & 0xff) > 150, "client-array line loop left edge is drawn");
 }
 
+// A batch larger than bgfx's transient vertex pool (6 MiB, ~200k SolidVerts)
+// must not be streamed through that pool: it fills up, the tail is silently
+// dropped, and reclaiming the pool makes bgfx::frame() block for seconds --
+// Endless mode's 299x233 grid expands to ~500k screen-space vertices (~16 MiB)
+// per frame and froze the window exactly this way (while Classical's 133x89
+// grid, ~2.7 MiB, fitted). Oversized batches now go through a persistent
+// dynamic vertex buffer, so the whole batch must arrive.
+void testOversizedBatch()
+{
+    printf("oversized batch (past the transient vertex pool)\n");
+
+    // 80,000 quads -> 480,000 vertices -> ~15 MiB, more than twice the pool.
+    // The first half covers the left half of the screen, the second half the
+    // right half, so anything lost at the end of the batch is visible.
+    const int quads = 80000;
+
+    gfx_begin_frame();
+    gfx_disable(GL_BLEND);
+    gfx_clearcolor(0, 0, 0, 1);
+    gfx_clear(GL_COLOR_BUFFER_BIT);
+
+    gfx_color4f(1, 1, 1, 1);
+    gfx_begin(GL_QUADS);
+    for (int i = 0; i < quads; ++i) {
+        const bool leftHalf = (i < quads / 2);
+        const float x0 = leftHalf ? -0.9f : 0.1f;
+        const float x1 = leftHalf ? -0.1f : 0.9f;
+        gfx_vertex2d(x0, -0.9f);
+        gfx_vertex2d(x1, -0.9f);
+        gfx_vertex2d(x1, 0.9f);
+        gfx_vertex2d(x0, 0.9f);
+    }
+    gfx_end();
+    capture();
+
+    const uint32_t start = pixelNdc(-0.5f, 0.0f);
+    const uint32_t tail = pixelNdc(0.5f, 0.0f);
+    check(rgbr(start) > 200 && (start >> 8 & 0xff) > 200 && (start >> 16 & 0xff) > 200,
+          "the start of an oversized batch is drawn");
+    check(rgbr(tail) > 200 && (tail >> 8 & 0xff) > 200 && (tail >> 16 & 0xff) > 200,
+          "the tail of an oversized batch is drawn (nothing dropped at the pool size)");
+}
+
 // The legacy code sets the blend mode *before* the primitives that use it, so a
 // batch is still pending when the next draw's glBlendFunc() arrives. Flushing
 // that batch with the state as of the flush (instead of the state it was
@@ -532,6 +576,7 @@ int main()
     testWideLinesAndPoints();
     testTextures();
     testClientArrays();
+    testOversizedBatch();
     testBatchKeepsItsBlendState();
     testGlowAlignment();
     testGlowOffIsUnchanged();

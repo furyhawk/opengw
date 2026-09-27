@@ -15,7 +15,9 @@
 //   * wide lines / points expanded to screen-space triangles,
 //   * geometry accumulated in per-state batches and drawn from transient
 //     vertex buffers (one bgfx draw call per state change instead of one per
-//     legacy glBegin/glEnd pair),
+//     legacy glBegin/glEnd pair); batches that are too large for the transient
+//     pool (the Endless grid) go through persistent dynamic buffers instead
+//     (see "Oversized batches" below),
 //   * the glow/blur post-process runs in bgfx render targets with the same
 //     separable Gaussian kernel as the OpenGL backend.
 //
@@ -333,11 +335,112 @@ float g_tempMaxWidth = 0;
 double g_tempMaxCoord = 0;                // TEMP
 unsigned long long g_tempHugeQuads = 0;   // TEMP
 
+// ---------------------------------------------------------------------------
+// Oversized batches
+//
+// Batched geometry is streamed through bgfx's *transient* vertex buffers, which
+// come out of one fixed per-frame budget: BGFX_CONFIG_MAX_TRANSIENT_VERTEX_
+// BUFFER_SIZE bytes (6 MiB). That pool cannot be exceeded. Once it is full
+// every further allocation returns 0 and bgfx has to reclaim it from the render
+// thread before it can hand out more, which shows up as bgfx::frame() blocking
+// for seconds -- the window beachballs ("SLOW frame 6595ms ... transientVb=
+// 6143KiB", "present=8415.68ms").
+//
+// The Endless arena's 299x233 grid expands to ~500k screen-space vertices
+// (~16 MiB) every frame, several times that pool, while the Classical 133x89
+// grid needs ~2.7 MiB and fits. Batches that big are therefore streamed through
+// a persistent dynamic vertex buffer instead, which has no such limit.
+//
+// Two buffers are kept per layout and swapped every frame, so the GPU can still
+// be reading this frame's copy while the CPU fills the next one. Within a frame
+// bgfx executes the update commands in submission order, so several oversized
+// batches per frame are safe as well.
+// ---------------------------------------------------------------------------
+constexpr uint64_t kMaxTransientBatchBytes = 1u << 20; // 1 MiB: ~1/6 of the shared pool; no batch this size benefits from it
+constexpr uint64_t kMaxDynamicBatchBytes = 64u << 20;  // sanity cap (a bug must not allocate gigabytes)
+
+struct DynamicBatch
+{
+    bgfx::DynamicVertexBufferHandle handle[2] { BGFX_INVALID_HANDLE, BGFX_INVALID_HANDLE };
+    uint32_t capacity[2] { 0, 0 }; // bytes
+};
+
+DynamicBatch g_solidDynamic;
+DynamicBatch g_texDynamic;
+uint32_t g_frameParity = 0;
+
+template <typename V>
+void submitDynamicBatch(DynamicBatch& batch, bgfx::ViewId view, bgfx::ProgramHandle prog,
+                        const bgfx::VertexLayout& layout, const V* verts, uint32_t count,
+                        uint64_t state, bgfx::TextureHandle tex, uint64_t texFlags, bool textured)
+{
+    const uint32_t stride = layout.getStride();
+    const uint64_t byteCount = static_cast<uint64_t>(count) * stride;
+    if (byteCount > kMaxDynamicBatchBytes) {
+        fprintf(stderr, "bgfx_backend: dropping %llu KiB batch (over the %llu MiB cap)\n",
+                static_cast<unsigned long long>(byteCount >> 10),
+                static_cast<unsigned long long>(kMaxDynamicBatchBytes >> 20));
+        return;
+    }
+
+    const uint32_t bytes = static_cast<uint32_t>(byteCount);
+    const size_t slot = g_frameParity & 1u;
+
+    if (!bgfx::isValid(batch.handle[slot]) || batch.capacity[slot] < bytes) {
+        if (bgfx::isValid(batch.handle[slot]))
+            bgfx::destroy(batch.handle[slot]);
+
+        // Grow with headroom: the grid gains points as a match goes on, and
+        // reallocating a multi-megabyte buffer every frame would be worse than
+        // the transient path this replaces.
+        const uint32_t capacity = bytes + (bytes / 4u) + (stride * 256u);
+        batch.handle[slot] = bgfx::createDynamicVertexBuffer(capacity / stride, layout);
+        batch.capacity[slot] = bgfx::isValid(batch.handle[slot]) ? capacity : 0;
+        if (!bgfx::isValid(batch.handle[slot]))
+            return;
+    }
+
+    bgfx::update(batch.handle[slot], 0, bgfx::copy(verts, bytes));
+    bgfx::setVertexBuffer(0, batch.handle[slot], 0, count);
+    if (textured)
+        bgfx::setTexture(0, g_texSampler, tex, static_cast<uint32_t>(texFlags));
+    bgfx::setState(state);
+    bgfx::submit(view, prog);
+
+    ++g_tempDraws;             // TEMP
+    g_tempVerts += count;      // TEMP
+    g_tempFrameVerts += count; // TEMP
+}
+
+void destroyDynamicBatches()
+{
+    DynamicBatch* batches[2] = { &g_solidDynamic, &g_texDynamic };
+    for (DynamicBatch* batch : batches) {
+        for (size_t i = 0; i < 2; ++i) {
+            if (bgfx::isValid(batch->handle[i]))
+                bgfx::destroy(batch->handle[i]);
+            batch->handle[i] = BGFX_INVALID_HANDLE;
+            batch->capacity[i] = 0;
+        }
+    }
+}
+
 template <typename V>
 void submitVertices(bgfx::ViewId view, bgfx::ProgramHandle prog, const bgfx::VertexLayout& layout,
                     const V* verts, uint32_t count, uint64_t state, bgfx::TextureHandle tex,
                     uint64_t texFlags, bool textured)
 {
+    // Anything the transient pool cannot take in one go goes through the
+    // dynamic buffers: filling the pool and dropping the tail is what froze the
+    // frame, and it silently lost geometry too.
+    const uint64_t byteCount = static_cast<uint64_t>(count) * layout.getStride();
+    if (byteCount > kMaxTransientBatchBytes
+        || bgfx::getAvailTransientVertexBuffer(count, layout) < count) {
+        submitDynamicBatch(textured ? g_texDynamic : g_solidDynamic, view, prog, layout, verts,
+                           count, state, tex, texFlags, textured);
+        return;
+    }
+
     while (count > 0) {
         const uint32_t avail = bgfx::getAvailTransientVertexBuffer(count, layout);
         if (avail == 0)
@@ -1374,6 +1477,7 @@ void gfx_context_shutdown()
 
     flushBatch();
     destroyGlowTargets();
+    destroyDynamicBatches();
 
     for (TexRec& rec : g_tex) {
         if (bgfx::isValid(rec.handle))
@@ -1662,6 +1766,10 @@ void gfx_end_frame()
 {
     // Hand the accumulated batches to bgfx. Must run before bgfx::frame().
     flushBatch();
+
+    // Swap to the other copy of the oversized-batch buffers, so the GPU can
+    // keep reading this frame's while the next one is streamed into the other.
+    g_frameParity ^= 1u;
 }
 
 // ---------------------------------------------------------------------------
