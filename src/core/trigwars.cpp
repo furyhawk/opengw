@@ -49,6 +49,13 @@ static bool handleEvents()
         case SDL_EVENT_WINDOW_RESIZED:
             OGLSize(e.window.data1, e.window.data2);
             break;
+        case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+            // HiDPI scale changed (window moved between displays, or the
+            // display scale setting changed): the drawable size changed even
+            // though the logical window size did not, so the render targets
+            // and swap chain have to follow.
+            OGLSize(e.window.data1, e.window.data2);
+            break;
         case SDL_EVENT_GAMEPAD_ADDED:
             theGame->mControls->handleGamepadAdded(e.cdevice.which);
             break;
@@ -134,9 +141,17 @@ static bool OGLCreate()
     // ------------------------------------------------------------------
     // bgfx render path (Metal on macOS). bgfx owns the window's CAMetalLayer
     // and presentation; the render backend draws through bgfx.
+    //
+    // bgfx's swap chain size is a *drawable* size in device pixels (the Metal
+    // backend assigns it to CAMetalLayer.drawableSize), so seed it with the
+    // window's pixel size, not the logical (point) size -- otherwise the layer
+    // starts at half resolution on a Retina display.
     // ------------------------------------------------------------------
-    bgfxInited = bgfx_bridge_init(window, settings::get().displayWidth, settings::get().displayHeight,
-                                  settings::get().mVsync);
+    int pixelW = settings::get().displayWidth;
+    int pixelH = settings::get().displayHeight;
+    SDL_GetWindowSizeInPixels(window, &pixelW, &pixelH);
+
+    bgfxInited = bgfx_bridge_init(window, pixelW, pixelH, settings::get().mVsync);
     if (!bgfxInited) {
         // This build has no OpenGL backend to fall back to.
         printf("bgfx: renderer initialisation failed (%s)\n", bgfx_bridge_last_error());
@@ -295,10 +310,16 @@ static void applySettingsToWindow()
 {
     // Track the *actual* state of the window / GL, so the first call here
     // applies whatever the (possibly restored) settings.cfg requests.
-    static int lastW = 0;
+    static int lastW = 0; // logical (point) size the window was asked for
     static int lastH = 0;
     static bool lastFullscreen = false; // windows start windowed
-    static bool lastVsync = false;      // GL starts with swap interval 0
+#if defined(USE_BGFX_RENDERER)
+    // bgfx_bridge_init() was already given the vsync flag, so the renderer
+    // starts in sync with the settings.
+    static bool lastVsync = settings::get().mVsync;
+#else
+    static bool lastVsync = false; // a fresh GL context has swap interval 0
+#endif
 
     const settings& s = settings::get();
 
@@ -318,8 +339,14 @@ static void applySettingsToWindow()
 #if !defined(USE_BGFX_RENDERER)
         SDL_GL_SetSwapInterval(s.mVsync ? 1 : 0);
 #endif
-        // bgfx applies vsync through its swap chain reset.
-        bgfx_bridge_resize(lastW, lastH, s.mVsync);
+        // bgfx applies vsync through its swap chain reset -- but a reset also
+        // re-sizes the drawable (bgfx assigns the size it is given directly to
+        // CAMetalLayer.drawableSize), so it has to be given the *pixel* size
+        // that OGLSize() measured (mWidth/mHeight), never the logical window
+        // size. Handing it lastW/lastH (points) on a Retina display shrank the
+        // drawable to half the size of the render targets the backend draws
+        // into, and the frame came out stretched and misaligned.
+        bgfx_bridge_resize(mWidth, mHeight, s.mVsync);
         lastVsync = s.mVsync;
     }
 }
