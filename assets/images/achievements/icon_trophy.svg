@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Achievement Trophy Icon</title>
+  <desc id="desc">Bold trophy silhouette for game mode completion rewards.</desc>
+  <rect x="8" y="8" width="112" height="112" rx="22" fill="#111827"/>
+  <path fill="#F9FAFB" d="M42 28h44v12c0 15-10 27-22 30v10h14v10H50V80h14V70C52 67 42 55 42 40V28zm-16 10h12v12c0 9 5 16 14 19v10C34 74 22 62 22 47V38zm78 0h12v9c0 15-12 27-30 32V69c9-3 14-10 14-19V38z"/>
+</svg>

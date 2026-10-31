@@ -1,0 +1,66 @@
+{
+  "iconStyle": {
+    "format": "svg",
+    "size": 128,
+    "background": "#111827",
+    "foreground": "#F9FAFB",
+    "shape": "rounded-square",
+    "goal": "bold-readable-silhouette"
+  },
+  "achievements": [
+    {
+      "id": "classical_champion",
+      "name": "Classical Champion",
+      "icon": "icon_trophy.svg",
+      "iconPng": "icon_trophy.png",
+      "category": "mode_completion",
+      "description": "Complete a full run in Classical mode.",
+      "reward": "bonus_score"
+    },
+    {
+      "id": "endless_starlight",
+      "name": "Endless Starlight",
+      "icon": "icon_star.svg",
+      "iconPng": "icon_star.png",
+      "category": "mode_completion",
+      "description": "Reach a high threshold in Endless mode.",
+      "reward": "achievement_progress_boost"
+    },
+    {
+      "id": "pressure_breaker",
+      "name": "Pressure Breaker",
+      "icon": "icon_lightning.svg",
+      "iconPng": "icon_lightning.png",
+      "category": "mode_completion",
+      "description": "Survive high tiers in Pressure Ladder mode.",
+      "reward": "mode_multiplier_bonus"
+    },
+    {
+      "id": "mode_conqueror",
+      "name": "Mode Conqueror",
+      "icon": "icon_crown.svg",
+      "iconPng": "icon_crown.png",
+      "category": "mode_completion",
+      "description": "Earn completion marks in all major game modes.",
+      "reward": "all_mode_completion_bonus"
+    },
+    {
+      "id": "elite_decorated",
+      "name": "Elite Decorated",
+      "icon": "icon_medal.svg",
+      "iconPng": "icon_medal.png",
+      "category": "performance",
+      "description": "Complete elite challenges with high consistency.",
+      "reward": "rare_reward_drop"
+    },
+    {
+      "id": "lifelong_legend",
+      "name": "Lifelong Legend",
+      "icon": "icon_gem.svg",
+      "iconPng": "icon_gem.png",
+      "category": "lifelong",
+      "description": "Accumulate lifetime achievement points across all sessions.",
+      "reward": "lifetime_profile_badge"
+    }
+  ]
+}

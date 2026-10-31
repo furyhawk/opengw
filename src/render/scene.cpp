@@ -552,9 +552,34 @@ void scene::drawScores()
                 "%d/%d",
                 theGame->getPlayer1()->achievementProgress(),
                 theGame->getPlayer1()->achievementTarget());
-            // Keep achievement HUD on its own rows to avoid crowding score/lives.
-            font::AlphanumericsPrint(font::ALIGN_RIGHT, .013, .94, .75, &pen, "ACH LV %d", theGame->getPlayer1()->achievementLevel());
-            font::AlphanumericsPrint(font::ALIGN_RIGHT, .011, .94, .69, &pen, "NEXT %s", achProg);
+
+            if (!mAchievementGemTextureAttempted) {
+                mTextureAchievementGem.load("assets/images/achievements/icon_gem.png");
+                if (!mTextureAchievementGem.mLoaded)
+                    mTextureAchievementGem.load("assets/images/achievements/gem.png");
+                mAchievementGemTextureAttempted = true;
+            }
+
+            const int modeCompletions =
+                (settings::get().mModeCompleteClassical ? 1 : 0)
+                + (settings::get().mModeCompleteEndless ? 1 : 0)
+                + (settings::get().mModeCompletePressureLadder ? 1 : 0);
+            const int lifetimePoints = settings::get().mLifetimeAchievementPoints;
+            const int lifetimeRank = std::min(99, 1 + (lifetimePoints / 5000));
+
+            // Compact achievement block in the top-right so it does not span
+            // into the playfield.
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .009, .70, .76, &pen, "A %d", theGame->getPlayer1()->achievementLevel());
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .71, &pen, "N %s", achProg);
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .66, &pen, "L %d", lifetimeRank);
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .61, &pen, "M %d/3", modeCompletions);
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .56, &pen, "P %d", settings::get().mPerformanceMilestones);
+
+            if (mTextureAchievementGem.mLoaded) {
+                mTextureAchievementGem.draw(0.64f, 0.66f, 0.06f, 0.06f * mAspect);
+            } else {
+                font::AlphanumericsPrint(font::ALIGN_CENTER, .008, .64f, .66f, &pen, "G");
+            }
 
             pen.a = .1;
             pen.lineRadius = 8;
@@ -563,8 +588,13 @@ void scene::drawScores()
             else
                 font::AlphanumericsPrint(font::ALIGN_LEFT, .016, -.94, .9, &pen, "Score x%d", theGame->getPlayer1()->mMultiplier);
             font::AlphanumericsPrint(font::ALIGN_LEFT, .02, -.94, .82, &pen, s);
-            font::AlphanumericsPrint(font::ALIGN_RIGHT, .013, .94, .75, &pen, "ACH LV %d", theGame->getPlayer1()->achievementLevel());
-            font::AlphanumericsPrint(font::ALIGN_RIGHT, .011, .94, .69, &pen, "NEXT %s", achProg);
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .009, .70, .76, &pen, "A %d", theGame->getPlayer1()->achievementLevel());
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .71, &pen, "N %s", achProg);
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .66, &pen, "L %d", lifetimeRank);
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .61, &pen, "M %d/3", modeCompletions);
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .56, &pen, "P %d", settings::get().mPerformanceMilestones);
+            if (!mTextureAchievementGem.mLoaded)
+                font::AlphanumericsPrint(font::ALIGN_CENTER, .008, .64f, .66f, &pen, "G");
         }
     } else {
         // Multi player display

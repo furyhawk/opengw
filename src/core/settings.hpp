@@ -36,6 +36,19 @@ class settings
     int mParticles;
     int mGridPasses;
 
+    // --- Achievement meta progression ------------------------------------
+    // Session-independent totals used by lifelong achievements.
+    int mLifetimeAchievementPoints; // cumulative points earned over all runs
+    int mLifetimeAchievementLevel;  // cumulative achievement rank-ups
+
+    // Mode-completion badges.
+    bool mModeCompleteClassical;
+    bool mModeCompleteEndless;
+    bool mModeCompletePressureLadder;
+
+    // Performance milestones unlocked (e.g. high in-match rank reached).
+    int mPerformanceMilestones;
+
     int displayWidth;
     int displayHeight;
 };

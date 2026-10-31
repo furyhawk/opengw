@@ -50,4 +50,6 @@ class scene
     model mShieldSymbol;
 
     texture mTextureMarquee;
+    texture mTextureAchievementGem;
+    bool mAchievementGemTextureAttempted { false };
 };

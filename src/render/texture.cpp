@@ -17,7 +17,7 @@ texture::~texture(void)
 
 void texture::load(const char* filename)
 {
-    mLoaded = true;
+    mLoaded = false;
 
     // Load file and decode image.
     static std::vector<unsigned char> image;
@@ -38,6 +38,8 @@ void texture::load(const char* filename)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    mLoaded = true;
 
     image.clear();
 }

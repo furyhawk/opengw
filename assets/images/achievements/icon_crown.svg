@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Achievement Crown Icon</title>
+  <desc id="desc">Bold crown silhouette for completing all game modes.</desc>
+  <rect x="8" y="8" width="112" height="112" rx="22" fill="#111827"/>
+  <path fill="#F9FAFB" d="M24 44l20 14 20-24 20 24 20-14-8 44H32l-8-44zM32 94h64v10H32z"/>
+</svg>

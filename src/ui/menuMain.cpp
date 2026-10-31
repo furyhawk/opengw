@@ -2,9 +2,11 @@
 
 #include "core/game.hpp"
 #include "core/gamemodes.hpp"
+#include "core/settings.hpp"
 #include "math/vector.hpp"
 #include "render/font.hpp"
 #include "render/gl3.h"
+#include "render/texture.hpp"
 #include "ui/menuCommon.hpp"
 #include "ui/menuHighScores.hpp"
 #include "ui/menuSelectGameType.hpp"
@@ -37,6 +39,76 @@ const char* const kItemLabels[kNumItems] = {
 };
 
 menuCommon::State sState;
+
+texture sIconTrophy;
+texture sIconStar;
+texture sIconLightning;
+texture sIconCrown;
+texture sIconMedal;
+texture sIconGem;
+bool sBadgeTexturesAttempted = false;
+
+void ensureBadgeTexturesLoaded()
+{
+    if (sBadgeTexturesAttempted)
+        return;
+
+    sIconTrophy.load("assets/images/achievements/icon_trophy.png");
+    sIconStar.load("assets/images/achievements/icon_star.png");
+    sIconLightning.load("assets/images/achievements/icon_lightning.png");
+    sIconCrown.load("assets/images/achievements/icon_crown.png");
+    sIconMedal.load("assets/images/achievements/icon_medal.png");
+    sIconGem.load("assets/images/achievements/icon_gem.png");
+
+    sBadgeTexturesAttempted = true;
+}
+
+void drawBadgeIcon(texture& icon, float x, float y, float size, const char* fallback, vector::pen pen)
+{
+    if (icon.mLoaded) {
+        icon.draw(x, y, size, size);
+        return;
+    }
+
+    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.01f, x, y, &pen, "%s", fallback);
+}
+
+void drawAchievementBadges()
+{
+    ensureBadgeTexturesLoaded();
+
+    const settings& s = settings::get();
+    const int modeCompletions =
+        (s.mModeCompleteClassical ? 1 : 0)
+        + (s.mModeCompleteEndless ? 1 : 0)
+        + (s.mModeCompletePressureLadder ? 1 : 0);
+    const bool allModes = modeCompletions >= 3;
+    const int lifetimeRank = std::min(99, 1 + (s.mLifetimeAchievementPoints / 5000));
+
+    vector::pen labelPen(0.78f, 0.9f, 1.0f, 0.62f, 2);
+    vector::pen valuePen(1.0f, 1.0f, 1.0f, 0.9f, 2);
+
+    // MODE completion track: trophy + star + lightning + crown (all-modes).
+    const float modeY = -0.84f;
+    drawBadgeIcon(sIconTrophy, -0.60f, modeY, 0.06f, "TR", valuePen);
+    drawBadgeIcon(sIconStar, -0.53f, modeY, 0.06f, "ST", valuePen);
+    drawBadgeIcon(sIconLightning, -0.46f, modeY, 0.06f, "LT", valuePen);
+    drawBadgeIcon(sIconCrown, -0.39f, modeY, 0.06f, "CR", valuePen);
+    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.01f, -0.50f, -0.77f, &labelPen, "MODE TRACK");
+    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.01f, -0.50f, -0.91f, &valuePen, "%d/3  CROWN %s", modeCompletions, allModes ? "ON" : "OFF");
+
+    // PERFORMANCE track: medal + running milestone count.
+    const float perfY = -0.84f;
+    drawBadgeIcon(sIconMedal, 0.04f, perfY, 0.06f, "MD", valuePen);
+    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.01f, 0.04f, -0.77f, &labelPen, "PERFORMANCE");
+    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.01f, 0.04f, -0.91f, &valuePen, "MILESTONES %d", s.mPerformanceMilestones);
+
+    // LIFELONG track: gem rank/points across sessions.
+    const float lifeY = -0.84f;
+    drawBadgeIcon(sIconGem, 0.58f, lifeY, 0.06f, "GM", valuePen);
+    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.01f, 0.58f, -0.77f, &labelPen, "LIFELONG");
+    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.01f, 0.58f, -0.91f, &valuePen, "LV %d  PTS %d", lifetimeRank, s.mLifetimeAchievementPoints);
+}
 
 // Advance the selected gameplay mode by `dir` (+1 next, -1 previous) within
 // the modes available in the gameplaymodes registry. Ignored while there is
@@ -159,10 +231,12 @@ void draw()
         }
     }
 
+    drawAchievementBadges();
+
     // --- Help footer --------------------------------------------------------
     {
         vector::pen pen(0.6f, 0.8f, 1.0f, 0.5f, 2);
-        font::AlphanumericsPrint(font::ALIGN_CENTER, 0.011f, 0.0f, -0.78f, &pen, "Up Down Move   Space or Start Select   Back / O Settings");
+        font::AlphanumericsPrint(font::ALIGN_CENTER, 0.010f, 0.0f, -0.96f, &pen, "Up Down Move   Space or Start Select   Back / O Settings");
     }
 }
 

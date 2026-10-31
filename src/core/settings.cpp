@@ -47,6 +47,13 @@ settings::settings()
 
     mGridPasses = 4;
 
+    mLifetimeAchievementPoints = 0;
+    mLifetimeAchievementLevel = 0;
+    mModeCompleteClassical = false;
+    mModeCompleteEndless = false;
+    mModeCompletePressureLadder = false;
+    mPerformanceMilestones = 0;
+
     displayWidth = 800;
     displayHeight = 600;
 
@@ -109,6 +116,18 @@ void settings::load()
             displayWidth = std::atoi(value.c_str());
         else if (key == "height")
             displayHeight = std::atoi(value.c_str());
+        else if (key == "lifetimeAchievementPoints")
+            mLifetimeAchievementPoints = std::atoi(value.c_str());
+        else if (key == "lifetimeAchievementLevel")
+            mLifetimeAchievementLevel = std::atoi(value.c_str());
+        else if (key == "modeCompleteClassical")
+            mModeCompleteClassical = parseBool(value);
+        else if (key == "modeCompleteEndless")
+            mModeCompleteEndless = parseBool(value);
+        else if (key == "modeCompletePressureLadder")
+            mModeCompletePressureLadder = parseBool(value);
+        else if (key == "performanceMilestones")
+            mPerformanceMilestones = std::atoi(value.c_str());
     }
 
     // Sanity check the resolution.
@@ -120,6 +139,13 @@ void settings::load()
     // Sanity check the master volume.
     if (mSoundVolume < 0 || mSoundVolume > 100)
         mSoundVolume = 100;
+
+    if (mLifetimeAchievementPoints < 0)
+        mLifetimeAchievementPoints = 0;
+    if (mLifetimeAchievementLevel < 0)
+        mLifetimeAchievementLevel = 0;
+    if (mPerformanceMilestones < 0)
+        mPerformanceMilestones = 0;
 }
 
 void settings::save() const
@@ -141,4 +167,10 @@ void settings::save() const
     out << "volume=" << mSoundVolume << "\n";
     out << "width=" << displayWidth << "\n";
     out << "height=" << displayHeight << "\n";
+    out << "lifetimeAchievementPoints=" << mLifetimeAchievementPoints << "\n";
+    out << "lifetimeAchievementLevel=" << mLifetimeAchievementLevel << "\n";
+    out << "modeCompleteClassical=" << (mModeCompleteClassical ? 1 : 0) << "\n";
+    out << "modeCompleteEndless=" << (mModeCompleteEndless ? 1 : 0) << "\n";
+    out << "modeCompletePressureLadder=" << (mModeCompletePressureLadder ? 1 : 0) << "\n";
+    out << "performanceMilestones=" << mPerformanceMilestones << "\n";
 }

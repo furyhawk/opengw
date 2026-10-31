@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Achievement Lightning Icon</title>
+  <desc id="desc">Bold lightning silhouette for pressure mode mastery rewards.</desc>
+  <rect x="8" y="8" width="112" height="112" rx="22" fill="#111827"/>
+  <path fill="#F9FAFB" d="M74 20L41 69h20l-7 39 34-51H67l7-37z"/>
+</svg>

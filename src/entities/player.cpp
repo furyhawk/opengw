@@ -5,6 +5,7 @@
 #include "math/defines.hpp"
 #include "core/game.hpp"
 #include "core/gamemode.hpp"
+#include "core/settings.hpp"
 #include "entities/player.hpp"
 
 #include <algorithm>
@@ -76,6 +77,7 @@ void player::initPlayerForGame()
     mAchievementProgress = 0;
     mAchievementTarget = 120;
     mAchievementSurvivalCounter = 0;
+    mPerformanceMilestoneAwarded = false;
 
     mCurrentWeapon = 0;
 
@@ -1127,10 +1129,13 @@ void player::addAchievementProgress(int amount)
     if (amount <= 0)
         return;
 
+    settings::edit().mLifetimeAchievementPoints += amount;
+
     mAchievementProgress += amount;
     while (mAchievementProgress >= mAchievementTarget) {
         mAchievementProgress -= mAchievementTarget;
         ++mAchievementLevel;
+        ++settings::edit().mLifetimeAchievementLevel;
 
         // Escalate difficulty of each next achievement rank.
         if (mAchievementTarget < 900)
@@ -1156,6 +1161,13 @@ void player::addAchievementProgress(int amount)
             theGame->mSound->playTrack(SOUNDID_EXTRALIFE);
             char lifeMsg[] = "ACH REWARD +LIFE";
             game::showMessageAtLocation(lifeMsg, getPos(), getFontPen());
+        }
+
+        if (!mPerformanceMilestoneAwarded && (mAchievementLevel >= 10)) {
+            mPerformanceMilestoneAwarded = true;
+            ++settings::edit().mPerformanceMilestones;
+            char perfMsg[] = "PERFORMANCE MILESTONE";
+            game::showMessageAtLocation(perfMsg, getPos(), getFontPen());
         }
     }
 }

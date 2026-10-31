@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Achievement Star Icon</title>
+  <desc id="desc">Bold star silhouette for score and streak milestones.</desc>
+  <rect x="8" y="8" width="112" height="112" rx="22" fill="#111827"/>
+  <path fill="#F9FAFB" d="M64 23l11 22 25 4-18 17 4 25-22-12-22 12 4-25-18-17 25-4 11-22z"/>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Achievement Gem Icon</title>
+  <desc id="desc">Bold gem silhouette for lifelong cumulative achievements.</desc>
+  <rect x="8" y="8" width="112" height="112" rx="22" fill="#111827"/>
+  <path fill="#F9FAFB" d="M36 44l16-18h24l16 18-28 58-28-58z"/>
+  <path fill="#111827" d="M52 26l12 18 12-18h-24zm-8 18h16l4 42-20-42zm40 0h-16l-4 42 20-42z"/>
+</svg>

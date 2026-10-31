@@ -25,6 +25,7 @@
 #include "ui/menuSettings.hpp"
 
 #include <cstdio>
+#include <cstring>
 #include <memory>
 
 #include "render/gl3.h"
@@ -581,6 +582,16 @@ void game::endGame()
 {
     // Doesn't actually end the game, just does some work that happens after the last player life is used
     if (mMode) {
+        const char* modeName = mMode->name();
+        if (modeName) {
+            if (std::strcmp(modeName, "Classical") == 0)
+                settings::edit().mModeCompleteClassical = true;
+            else if (std::strcmp(modeName, "Endless") == 0)
+                settings::edit().mModeCompleteEndless = true;
+            else if (std::strcmp(modeName, "Pressure Ladder") == 0)
+                settings::edit().mModeCompletePressureLadder = true;
+        }
+
         mMode->end_match(*this);
     }
 }

@@ -143,6 +143,7 @@ class player : public entity
     int mAchievementProgress { 0 };
     int mAchievementTarget { 120 };
     int mAchievementSurvivalCounter { 0 };
+    bool mPerformanceMilestoneAwarded { false };
 
     int mNumLives;
     int mNumBombs;
