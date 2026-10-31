@@ -73,6 +73,7 @@ game::game()
     //
 
     mSound->loadTrack("assets/sounds/musicloop.wav", SOUNDID_MUSICLOOP, .2, true);
+    mSound->loadTrack("assets/sounds/musicloop2.wav", SOUNDID_MUSICLOOP_ALT, .2, true);
     mSound->loadTrack("assets/sounds/menumusicloop.wav", SOUNDID_MENU_MUSICLOOP, .2, true);
     mSound->loadTrack("assets/sounds/menuselect.wav", SOUNDID_MENU_SELECT, .2, false);
 
@@ -125,6 +126,8 @@ game::game()
     mSound->loadTrack("assets/sounds/playerfire1.wav", SOUNDID_PLAYERFIRE1, .9, true);
     mSound->loadTrack("assets/sounds/playerfire2.wav", SOUNDID_PLAYERFIRE2, .5, true);
     mSound->loadTrack("assets/sounds/playerfire3.wav", SOUNDID_PLAYERFIRE3, .8, true);
+    mSound->loadTrack("assets/sounds/matchstart.wav", SOUNDID_MATCHSTART, .6, false);
+    mSound->loadTrack("assets/sounds/gameover.wav", SOUNDID_GAMEOVER, .5, false);
 
     mSound->startSound();
 
@@ -294,6 +297,7 @@ void game::run()
         oglScene->showHighScores();
         break;
     case GAMEMODE_GAMEOVER_TRANSITION:
+        mSound->playTrack(SOUNDID_GAMEOVER);
         mGameMode = GAMEMODE_GAMEOVER;
         mGameOverTimer = 0;
         break;
@@ -573,6 +577,7 @@ void game::startGame(GameType gameType)
     }
     printf("Starting gameplay mode: %s\n", mMode->name());
 
+    mSound->playTrack(SOUNDID_MATCHSTART);
     mMode->begin_match(*this);
 
     mGameMode = GAMEMODE_PLAYING;

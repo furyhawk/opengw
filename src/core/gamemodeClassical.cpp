@@ -99,9 +99,14 @@ void classical_mode::begin_match(game& owner)
     mMusicSpeed = p.matchMusicNormalSpeed;
     mMusicSpeedTarget = p.matchMusicNormalSpeed;
 
+    static int musicToggle = 0;
+    const int activeMusicTrack = (musicToggle++ & 1) ? SOUNDID_MUSICLOOP_ALT : SOUNDID_MUSICLOOP;
+
     owner.mSound->stopTrack(SOUNDID_MENU_MUSICLOOP);
-    owner.mSound->playTrack(SOUNDID_MUSICLOOP);
-    owner.mSound->setTrackSpeed(SOUNDID_MUSICLOOP, mMusicSpeed);
+    owner.mSound->stopTrack(SOUNDID_MUSICLOOP);
+    owner.mSound->stopTrack(SOUNDID_MUSICLOOP_ALT);
+    owner.mSound->playTrack(activeMusicTrack);
+    owner.mSound->setTrackSpeed(activeMusicTrack, mMusicSpeed);
 
     owner.mSound->playTrack(SOUNDID_BACKGROUND_NOISELOOP);
 
