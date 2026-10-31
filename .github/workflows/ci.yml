@@ -18,9 +18,36 @@ jobs:
             install: |
               sudo apt-get update -qq
               sudo apt-get install -y --no-install-recommends \
-                libsdl3-dev \
+                build-essential \
+                cmake \
+                ninja-build \
+                pkg-config \
+                libx11-dev \
+                libxext-dev \
+                libxrandr-dev \
+                libxcursor-dev \
+                libxfixes-dev \
+                libxi-dev \
+                libxss-dev \
+                libxinerama-dev \
+                libxkbcommon-dev \
+                libxtst-dev \
                 libgl1-mesa-dev \
+                curl \
                 xvfb
+              SDL_VERSION="3.4.16"
+              curl -fsSL "https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERSION}/SDL3-${SDL_VERSION}.tar.gz" -o /tmp/SDL3.tar.gz
+              tar -xzf /tmp/SDL3.tar.gz -C /tmp
+              cmake -S "/tmp/SDL3-${SDL_VERSION}" -B /tmp/SDL3-build -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=/usr/local \
+                -DSDL_SHARED=ON \
+                -DSDL_STATIC=OFF \
+                -DSDL_INSTALL=ON \
+                -DSDL_TESTS=OFF
+              cmake --build /tmp/SDL3-build
+              sudo cmake --install /tmp/SDL3-build
+              sudo ldconfig
           - os: macos-latest
             name: macos
             install: |
