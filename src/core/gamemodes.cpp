@@ -2,6 +2,7 @@
 
 #include "core/gamemodeClassical.hpp"
 #include "core/gamemodeEndless.hpp"
+#include "core/gamemodePressureLadder.hpp"
 
 // gameplaymodes -------------------------------------------------------------
 // The selectable modes, in menu order. A mode's index (its position in this
@@ -22,6 +23,8 @@ Entry kTable[] = {
     { "Classical", []() -> std::unique_ptr<gameplay_mode> { return std::make_unique<classical_mode>(); } },
     // Faster-pace survival with weapon/shield/laser power-up drops.
     { "Endless", []() -> std::unique_ptr<gameplay_mode> { return std::make_unique<endless_mode>(); } },
+    // Structured progression through escalating pressure tiers and elite waves.
+    { "Pressure Ladder", []() -> std::unique_ptr<gameplay_mode> { return std::make_unique<pressure_ladder_mode>(); } },
 };
 
 } // namespace

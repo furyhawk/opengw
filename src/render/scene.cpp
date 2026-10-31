@@ -1,6 +1,7 @@
 #include "math/defines.hpp"
 #include "render/font.hpp"
 #include "core/game.hpp"
+#include "core/gamemodePressureLadder.hpp"
 #include "core/highscore.hpp"
 #include "ui/menuHighScores.hpp"
 #include "ui/menuMain.hpp"
@@ -13,6 +14,7 @@
 
 #include "render/gl3.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <memory>
 
@@ -378,6 +380,7 @@ void scene::draw(int pass)
             }
         } else // RUNNING
         {
+            drawModeStatus();
             // Number of lives
             drawNumLives();
             drawNumBombs();
@@ -477,6 +480,49 @@ void scene::drawNumBombs()
     } else {
         // No bombs on multiplayer player game
     }
+}
+
+void scene::drawModeStatus()
+{
+    auto* mode = dynamic_cast<pressure_ladder_mode*>(theGame->activeMode());
+    if (!mode)
+        return;
+
+    vector::pen pen = defaultFontPen;
+    const char* label = "PRESSURE";
+    if (mode->tier() >= 4)
+        label = "OVERDRIVE";
+    else if (mode->tier() >= 3)
+        label = "ADAPT";
+    else if (mode->tier() >= 2)
+        label = "PRESSURE";
+    else
+        label = "WARMUP";
+
+    char status[64];
+    snprintf(status, sizeof(status), "TIER %d  %s", mode->tier(), label);
+    font::AlphanumericsPrint(font::ALIGN_CENTER, .015f, 0.0f, 0.82f, &pen, "%s", status);
+
+    pen.a = .1;
+    pen.lineRadius = 8;
+    font::AlphanumericsPrint(font::ALIGN_CENTER, .015f, 0.0f, 0.82f, &pen, "%s", status);
+
+    char bonus[64];
+    snprintf(bonus, sizeof(bonus), "MULTI x%.2f", mode->scoreMultiplier());
+    font::AlphanumericsPrint(font::ALIGN_CENTER, .012f, 0.0f, 0.74f, &pen, "%s", bonus);
+
+    char elite[64];
+    float cadence = 30.0f;
+    if (mode->tier() >= 5)
+        cadence = 14.0f;
+    else if (mode->tier() >= 4)
+        cadence = 18.0f;
+    else if (mode->tier() >= 3)
+        cadence = 22.0f;
+
+    const float remain = std::max(0.0f, cadence - mode->eliteTimer());
+    snprintf(elite, sizeof(elite), "ELITE %.0fs", remain);
+    font::AlphanumericsPrint(font::ALIGN_CENTER, .012f, 0.0f, 0.67f, &pen, "%s", elite);
 }
 
 void scene::drawScores()

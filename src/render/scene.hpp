@@ -39,6 +39,7 @@ class scene
     float mAspect { 0.0f };
 
     void drawCredits();
+    void drawModeStatus();
     void drawNumBombs();
     void drawNumLives();
     void drawScores();

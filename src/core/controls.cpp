@@ -327,7 +327,7 @@ bool controls::readGamepadStart(int player)
     if (!mGamepads[player])
         return false;
 
-    return SDL_GetGamepadButton(mGamepads[player], SDL_GAMEPAD_BUTTON_SOUTH);
+    return SDL_GetGamepadButton(mGamepads[player], SDL_GAMEPAD_BUTTON_START);
 }
 
 bool controls::readGamepadBack(int player)
@@ -335,7 +335,7 @@ bool controls::readGamepadBack(int player)
     if (!mGamepads[player])
         return false;
 
-    return SDL_GetGamepadButton(mGamepads[player], SDL_GAMEPAD_BUTTON_EAST);
+    return SDL_GetGamepadButton(mGamepads[player], SDL_GAMEPAD_BUTTON_BACK);
 }
 
 bool controls::readGamepadPause(int player)
@@ -351,7 +351,7 @@ bool controls::readGamepadOptions(int player)
     if (!mGamepads[player])
         return false;
 
-    // The gamepad Back (east) button also opens/closes the options screen;
-    // handled alongside getBackButton on the title screen.
-    return SDL_GetGamepadButton(mGamepads[player], SDL_GAMEPAD_BUTTON_EAST);
+    // Standard gamepad UI uses the Back button for options/cancel; the Start
+    // button is reserved for launching and pausing.
+    return SDL_GetGamepadButton(mGamepads[player], SDL_GAMEPAD_BUTTON_BACK);
 }
