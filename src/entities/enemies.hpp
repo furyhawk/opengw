@@ -18,8 +18,9 @@ const int numEnemyMayfly = 400;
 const int numEnemyDart = 160;
 const int numEnemyOrbiter = 120;
 const int numEnemyProton = 200;
+const int numEnemyBoss = 8;
 
-#define NUM_ENEMIES (numEnemyWanderer + numEnemyGrunt + numEnemySpinner + numEnemyTinySpinner + numEnemyWeaver + numEnemySnake + numEnemyBlackHole + numEnemyRepulsor + numEnemyMayfly + numEnemyDart + numEnemyOrbiter + numEnemyProton)
+#define NUM_ENEMIES (numEnemyWanderer + numEnemyGrunt + numEnemySpinner + numEnemyTinySpinner + numEnemyWeaver + numEnemySnake + numEnemyBlackHole + numEnemyRepulsor + numEnemyMayfly + numEnemyDart + numEnemyOrbiter + numEnemyProton + numEnemyBoss)
 #define NUM_LINES   250
 
 class enemies

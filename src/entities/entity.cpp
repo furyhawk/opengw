@@ -12,6 +12,7 @@
 #include "entities/entityorbiter.hpp"
 #include "entities/entityplayermissile.hpp"
 #include "entities/entityproton.hpp"
+#include "entities/entityboss.hpp"
 #include "entities/entityrepulsor.hpp"
 #include "entities/entitysnake.hpp"
 #include "entities/entityspinner.hpp"
@@ -73,6 +74,8 @@ entity* entity::createEntity(EntityType _entity, const game& gameRef)
         return new entityRepulsor(gameRef);
     case ENTITY_TYPE_PROTON:
         return new entityProton();
+    case ENTITY_TYPE_BOSS:
+        return new entityBoss(gameRef);
     case ENTITY_TYPE_LINE:
         return new entityLine();
     default:

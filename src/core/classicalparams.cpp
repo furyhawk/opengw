@@ -229,6 +229,8 @@ bool classical_params::load()
             wavePopOrbiter = std::atoi(value.c_str());
         else if (key == "wave.popRepulsor")
             wavePopRepulsor = std::atoi(value.c_str());
+        else if (key == "wave.popBoss")
+            wavePopBoss = std::atoi(value.c_str());
         else if (key == "wave.minGrunt")
             waveMinGrunt = std::atoi(value.c_str());
         else if (key == "wave.minWeaver")
@@ -245,6 +247,8 @@ bool classical_params::load()
             waveMinDart = std::atoi(value.c_str());
         else if (key == "wave.minOrbiter")
             waveMinOrbiter = std::atoi(value.c_str());
+        else if (key == "wave.minBoss")
+            waveMinBoss = std::atoi(value.c_str());
         else if (key == "wave.snakeIndex")
             waveSnakeIndex = std::atoi(value.c_str());
         else if (key == "wave.blackholeIndex")
@@ -257,6 +261,8 @@ bool classical_params::load()
             waveOrbiterIndex = std::atoi(value.c_str());
         else if (key == "wave.repulsorIndex")
             waveRepulsorIndex = std::atoi(value.c_str());
+        else if (key == "wave.bossIndex")
+            waveBossIndex = std::atoi(value.c_str());
         else if (key == "wave.rushDivide")
             waveRushDivide = std::atoi(value.c_str());
 
@@ -297,6 +303,8 @@ bool classical_params::load()
             scoreBlackholeReward = std::atoi(value.c_str());
         else if (key == "score.proton")
             scoreProton = std::atoi(value.c_str());
+        else if (key == "score.boss")
+            scoreBoss = std::atoi(value.c_str());
     }
 
     return true;

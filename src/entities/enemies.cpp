@@ -41,6 +41,9 @@ static int idxOrbiterEnd;
 static int idxProtonStart;
 static int idxProtonEnd;
 
+static int idxBossStart;
+static int idxBossEnd;
+
 enemies::enemies(const game& gameRef) : mGame(gameRef)
 {
     int entity = 0;
@@ -164,6 +167,16 @@ enemies::enemies(const game& gameRef) : mGame(gameRef)
         }
 
         idxProtonEnd = entity - 1;
+    }
+    // Bosses
+    {
+        idxBossStart = entity;
+
+        for (int i = 0; i < numEnemyBoss; i++) {
+            mEnemies[entity++] = entity::createEntity(entity::ENTITY_TYPE_BOSS, gameRef);
+        }
+
+        idxBossEnd = entity - 1;
     }
 
     printf("Num enemies created = %d\n", entity);
@@ -383,6 +396,10 @@ int enemies::getNumActiveEnemiesOfType(const entity::EntityType& type)
         idxStart = idxProtonStart;
         idxEnd = idxProtonEnd;
         break;
+    case entity::ENTITY_TYPE_BOSS:
+        idxStart = idxBossStart;
+        idxEnd = idxBossEnd;
+        break;
     default:
         printf("Unhandled enemy type\n");
         break;
@@ -451,6 +468,10 @@ entity* enemies::getUnusedEnemyOfType(const entity::EntityType& type)
     case entity::ENTITY_TYPE_PROTON:
         idxStart = idxProtonStart;
         idxEnd = idxProtonEnd;
+        break;
+    case entity::ENTITY_TYPE_BOSS:
+        idxStart = idxBossStart;
+        idxEnd = idxBossEnd;
         break;
     default:
         printf("Unhandled enemy type\n");

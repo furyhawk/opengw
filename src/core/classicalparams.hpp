@@ -122,6 +122,7 @@ class classical_params
     int wavePopDart { 160 };
     int wavePopOrbiter { 120 };
     int wavePopRepulsor { 4 };
+    int wavePopBoss { 8 };
     // Wave size floors (min enemies per generated wave).
     int waveMinGrunt { 20 };
     int waveMinWeaver { 20 };
@@ -131,6 +132,7 @@ class classical_params
     int waveMinMayfly { 50 };
     int waveMinDart { 18 };
     int waveMinOrbiter { 12 };
+    int waveMinBoss { 1 };
     // Difficulty index gates for the rarer wave types / rush divide.
     int waveSnakeIndex { 4 };
     int waveBlackholeIndex { 4 };
@@ -138,6 +140,7 @@ class classical_params
     int waveDartIndex { 9 };
     int waveOrbiterIndex { 12 };
     int waveRepulsorIndex { 4 };
+    int waveBossIndex { 18 };
     int waveRushDivide { 2 };           // rush waves spawn half the swarm amount
 
     // ---- Spawner: placement ------------------------------------------------
@@ -172,4 +175,5 @@ class classical_params
     int scoreBlackhole { 50 };          // black hole feed score (not normally killed)
     int scoreBlackholeReward { 150 };   // points paid when a black hole is destroyed
     int scoreProton { 50 };
+    int scoreBoss { 1500 };
 };

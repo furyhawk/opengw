@@ -290,6 +290,10 @@ void spawner::run(void)
                 const int repulsorCount = std::max(1, (int)ceil(mathutils::frandFrom0To1() * p.wavePopRepulsor * mSpawnProgress) / std::max(1, p.waveRushDivide));
                 pool.push_back({ 10, WAVETYPE_RUSH, entity::ENTITY_TYPE_REPULSOR, repulsorCount, 2 });
             }
+            if (index > p.waveBossIndex) {
+                const int bossCount = std::max(p.waveMinBoss, (int)ceil(mathutils::frandFrom0To1() * p.wavePopBoss * mSpawnProgress));
+                pool.push_back({ 15, WAVETYPE_SWARM, entity::ENTITY_TYPE_BOSS, bossCount, 1 });
+            }
 
             std::vector<int> candidateIndices;
             candidateIndices.reserve(pool.size());
