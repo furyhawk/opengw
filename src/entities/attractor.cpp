@@ -34,26 +34,28 @@ Point3d attractor::evaluateParticle(particle::PARTICLE* p)
     Point3d speed(0.0f, 0.0f, 0.0f);
 
     for (const auto& a: mAttractors) {
-        if (a.enabled && a.attractsParticles) {
-            const Point3d& apoint = a.pos;
-            const float dx = apoint.x - p->posStream[0].x;
-            const float dy = apoint.y - p->posStream[0].y;
-            const float distanceSquared = dx * dx + dy * dy;
-            const float radiusSquared = a.radius * a.radius;
+        if (!a.enabled || !a.attractsParticles) {
+            continue;
+        }
 
-            if (distanceSquared < radiusSquared) {
-                const float clampedDistanceSquared = (distanceSquared > 0.0f) ? distanceSquared : radiusSquared;
-                const float r = 1.0f / clampedDistanceSquared;
-                const float angle = std::atan2(dy, dx);
+        const Point3d& apoint = a.pos;
+        const float dx = apoint.x - p->posStream[0].x;
+        const float dy = apoint.y - p->posStream[0].y;
+        const float distanceSquared = dx * dx + dy * dy;
+        const float radiusSquared = a.radius * a.radius;
 
-                // Use the inverse-square law directly to avoid the sqrt/reciprocal
-                // square-root cost for every particle in the attractor field.
-                Point3d gravityVector(-r * a.strength * .5f, 0.0f, 0.0f);
-                Point3d g = mathutils::rotate2dPoint(gravityVector, angle + .25f);
+        if (distanceSquared < radiusSquared) {
+            const float clampedDistanceSquared = (distanceSquared > 0.0f) ? distanceSquared : radiusSquared;
+            const float inverseDistanceSquared = 1.0f / clampedDistanceSquared;
+            const float angle = std::atan2(dy, dx) + .25f;
+            const float force = a.strength * .5f * inverseDistanceSquared;
 
-                speed.x += g.x;
-                speed.y += g.y;
-            }
+            // Keep the force direction identical to the existing attractor math,
+            // but avoid the extra temporary point and rotate2d helper call on the
+            // hot path. The cost of two trig calls is much lower than the extra
+            // object churn and helper overhead across thousands of particles.
+            speed.x -= std::cos(angle) * force;
+            speed.y -= std::sin(angle) * force;
         }
     }
 

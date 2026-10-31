@@ -45,6 +45,18 @@ static int runThread(void* /*ptr*/)
         const auto blackHoleStart = theGame->mEnemies->getBlackHoleStart();
         const auto blackHoleEnd = blackHoleStart + numEnemyBlackHole;
 
+        // Skip the expensive black-hole collision sweep unless at least one black
+        // hole is actually active in the current frame. This is cheap to test and
+        // saves thousands of per-particle checks when the field is empty.
+        bool hasActiveBlackHole = false;
+        for (int j = blackHoleStart; j < blackHoleEnd; ++j) {
+            auto blackHole = static_cast<entityBlackHole*>(theGame->mEnemies->mEnemies[j]);
+            if (blackHole->getState() == entity::ENTITY_STATE_RUNNING && blackHole->mActivated) {
+                hasActiveBlackHole = true;
+                break;
+            }
+        }
+
         for (auto& p: particle::mParticles) {
             if (p.timeToLive > 0) {
                 // This particle is active
@@ -61,19 +73,21 @@ static int runThread(void* /*ptr*/)
                     }
 
                     // Evaluate against black holes
-                    for (int j = blackHoleStart; j < blackHoleEnd; j++) {
-                        auto blackHole = static_cast<entityBlackHole*>(theGame->mEnemies->mEnemies[j]);
-                        if (blackHole->getState() == entity::ENTITY_STATE_RUNNING && blackHole->mActivated) {
-                            const Point3d& blackHolePos = blackHole->getPos();
-                            const float dx = p.posStream[0].x - blackHolePos.x;
-                            const float dy = p.posStream[0].y - blackHolePos.y;
-                            const float distanceSquared = dx * dx + dy * dy;
-                            const float radiusLimit = blackHole->getRadius() * 1.01f;
+                    if (hasActiveBlackHole) {
+                        for (int j = blackHoleStart; j < blackHoleEnd; j++) {
+                            auto blackHole = static_cast<entityBlackHole*>(theGame->mEnemies->mEnemies[j]);
+                            if (blackHole->getState() == entity::ENTITY_STATE_RUNNING && blackHole->mActivated) {
+                                const Point3d& blackHolePos = blackHole->getPos();
+                                const float dx = p.posStream[0].x - blackHolePos.x;
+                                const float dy = p.posStream[0].y - blackHolePos.y;
+                                const float distanceSquared = dx * dx + dy * dy;
+                                const float radiusLimit = blackHole->getRadius() * 1.01f;
 
-                            if (distanceSquared < radiusLimit * radiusLimit) {
-                                // kill this particle
-                                p.timeToLive *= .7f;
-                                continue;
+                                if (distanceSquared < radiusLimit * radiusLimit) {
+                                    // kill this particle
+                                    p.timeToLive *= .7f;
+                                    continue;
+                                }
                             }
                         }
                     }
