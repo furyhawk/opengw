@@ -10,7 +10,7 @@ entityBoss::entityBoss(const game& gameRef)
     : entity(), mGame(gameRef)
 {
     mScale = 2.8f;
-    mRadius = 6.0f;
+    mRadius = 8.5f;
 
     mScoreValue = classical_params::get().scoreBoss;
 
@@ -19,20 +19,26 @@ entityBoss::entityBoss(const game& gameRef)
 
     mPen = vector::pen(.9f, .35f, 1.0f, .9f, 20);
 
-    mModel.mVertexList.resize(12);
+    mModel.mVertexList.resize(24);
     for (int i = 0; i < 12; ++i) {
         const float angle = (2.0f * PI * i) / 12.0f;
-        const float radius = (i % 2 == 0) ? 1.8f : 1.0f;
-        mModel.mVertexList[i] = Point3d(std::cos(angle) * radius, std::sin(angle) * radius, 0.0f);
+        const float outerRadius = 1.9f + 0.35f * std::sin(angle * 3.0f);
+        const float innerRadius = 0.9f + 0.18f * std::cos(angle * 2.0f + (PI / 12.0f));
+
+        mModel.mVertexList[i] = Point3d(std::cos(angle) * outerRadius, std::sin(angle) * outerRadius, 0.0f);
+        mModel.mVertexList[i + 12] = Point3d(std::cos(angle + (PI / 12.0f)) * innerRadius,
+                                            std::sin(angle + (PI / 12.0f)) * innerRadius,
+                                            0.0f);
     }
 
-    mModel.mEdgeList.resize(12);
-    for (int i = 0; i < 11; ++i) {
-        mModel.mEdgeList[i].from = i;
-        mModel.mEdgeList[i].to = i + 1;
+    mModel.mEdgeList.resize(36);
+    int edgeIndex = 0;
+    for (int i = 0; i < 12; ++i) {
+        const int next = (i + 1) % 12;
+        mModel.mEdgeList[edgeIndex++] = { i, next };
+        mModel.mEdgeList[edgeIndex++] = { 12 + i, 12 + next };
+        mModel.mEdgeList[edgeIndex++] = { i, 12 + i };
     }
-    mModel.mEdgeList[11].from = 11;
-    mModel.mEdgeList[11].to = 0;
 }
 
 void entityBoss::run()
@@ -48,9 +54,24 @@ void entityBoss::run()
             mSpeed *= .96f;
 
             mPulse += 0.12f + (mAggression * 0.03f);
-            mScale.x = 3.0f + (std::sin(mPulse) * 0.35f);
-            mScale.y = 3.0f + (std::cos(mPulse * 1.3f) * 0.35f);
+            const float pulseX = 0.85f + (0.25f * std::sin(mPulse));
+            const float pulseY = 0.85f + (0.25f * std::cos(mPulse * 1.3f));
+            mScale.x = 3.0f * pulseX;
+            mScale.y = 3.0f * pulseY;
             mAngle += 0.05f + (mAggression * 0.02f);
+
+            for (int i = 0; i < 12; ++i) {
+                const float baseAngle = (2.0f * PI * i) / 12.0f + (mPulse * 0.9f);
+                const float outerRadius = 1.8f + (0.35f * std::sin(baseAngle * 3.0f + mPulse)) + (0.18f * std::cos(baseAngle * 6.0f));
+                const float innerRadius = 0.92f + (0.18f * std::cos(baseAngle * 2.0f - mPulse));
+
+                mModel.mVertexList[i] = Point3d(std::cos(baseAngle) * outerRadius,
+                                               std::sin(baseAngle) * outerRadius,
+                                               0.0f);
+                mModel.mVertexList[i + 12] = Point3d(std::cos(baseAngle + (PI / 12.0f)) * innerRadius,
+                                                    std::sin(baseAngle + (PI / 12.0f)) * innerRadius,
+                                                    0.0f);
+            }
         }
     }
 
