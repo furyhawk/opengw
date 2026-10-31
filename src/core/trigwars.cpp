@@ -10,6 +10,7 @@
 #include <SDL3/SDL.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <memory>
 
 static SDL_Window* window;
@@ -30,6 +31,16 @@ static void fitWindowToDisplay(int& width, int& height);
 static void run();
 
 static int mWidth, mHeight;
+
+static int smokeFrameLimit()
+{
+    const char* value = getenv("TW_SMOKETEST");
+    if (!value || !*value)
+        return 0;
+
+    const int limit = atoi(value);
+    return limit > 0 ? limit : 1;
+}
 
 static Uint32 lastTime;
 static Uint32 fpsTime;
@@ -442,8 +453,10 @@ static void run()
 
     constexpr Uint32 logicRate = 60;
     constexpr Uint32 logicPeriod = 1000 / logicRate;
+    const int smokeLimit = smokeFrameLimit();
 
     Uint32 lastLogicUpdate = SDL_GetTicks();
+    int smokeFrames = 0;
 
     bool running = true;
 
@@ -505,5 +518,13 @@ static void run()
         ++framesMeasured;          // TEMP
 #endif
         updateFps(now);
+
+        if (smokeLimit > 0) {
+            ++smokeFrames;
+            if (smokeFrames >= smokeLimit) {
+                printf("TW_SMOKETEST: completed %d frames; exiting cleanly\n", smokeFrames);
+                running = false;
+            }
+        }
     }
 }

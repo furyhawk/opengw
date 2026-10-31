@@ -181,6 +181,7 @@ help:
 	@echo "Trigonometry Wars build targets:"
 	@echo "  make          - build the game (./trigwars)"
 	@echo "  make run      - build and run the game"
+	@echo "  make smoke    - build then run a short startup validation"
 	@echo "  make bgfx     - build with the bgfx renderer enabled (./trigwars-bgfx)"
 	@echo "  make run-bgfx - build and run with the bgfx renderer enabled"
 	@echo "  make clean    - remove build objects and the binaries"
@@ -190,6 +191,14 @@ help:
 
 run: $(NAME)
 	./$(NAME)
+
+smoke: $(NAME)
+	@echo "Running startup smoke test..."
+	@if [ "$(UNAME_S)" = "Linux" ] && command -v xvfb-run >/dev/null 2>&1; then \
+		xvfb-run -a env TW_SMOKETEST=1 ./$(NAME); \
+	else \
+		env TW_SMOKETEST=1 ./$(NAME); \
+	fi
 
 bgfx:
 	$(MAKE) USE_BGFX=1 DEBUG=$(DEBUG) all
@@ -235,4 +244,4 @@ ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)
 endif
 
-.PHONY: all help bgfx-env run bgfx run-bgfx clean
+.PHONY: all help bgfx-env run smoke bgfx run-bgfx clean
