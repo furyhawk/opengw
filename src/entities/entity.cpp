@@ -5,9 +5,11 @@
 #include "entities/entityPlayer1.hpp"
 #include "entities/entityPlayer2.hpp"
 #include "entities/entityblackhole.hpp"
+#include "entities/entitydart.hpp"
 #include "entities/entitygrunt.hpp"
 #include "entities/entityline.hpp"
 #include "entities/entitymayfly.hpp"
+#include "entities/entityorbiter.hpp"
 #include "entities/entityplayermissile.hpp"
 #include "entities/entityproton.hpp"
 #include "entities/entityrepulsor.hpp"
@@ -59,6 +61,10 @@ entity* entity::createEntity(EntityType _entity, const game& gameRef)
         return new entityTinySpinner(gameRef);
     case ENTITY_TYPE_MAYFLY:
         return new entityMayfly();
+    case ENTITY_TYPE_DART:
+        return new entityDart();
+    case ENTITY_TYPE_ORBITER:
+        return new entityOrbiter();
     case ENTITY_TYPE_SNAKE:
         return new entitySnake();
     case ENTITY_TYPE_BLACKHOLE:

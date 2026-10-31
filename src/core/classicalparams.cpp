@@ -206,6 +206,10 @@ bool classical_params::load()
             spawnerSwarmJitter = std::atof(value.c_str());
         else if (key == "spawner.swarmWaveCadence")
             spawnerSwarmWaveCadence = std::atoi(value.c_str());
+        else if (key == "spawner.dartChance")
+            spawnerDartChance = std::atoi(value.c_str());
+        else if (key == "spawner.orbiterChance")
+            spawnerOrbiterChance = std::atoi(value.c_str());
 
         else if (key == "wave.popGrunt")
             wavePopGrunt = std::atoi(value.c_str());
@@ -219,6 +223,10 @@ bool classical_params::load()
             wavePopBlackhole = std::atoi(value.c_str());
         else if (key == "wave.popMayfly")
             wavePopMayfly = std::atoi(value.c_str());
+        else if (key == "wave.popDart")
+            wavePopDart = std::atoi(value.c_str());
+        else if (key == "wave.popOrbiter")
+            wavePopOrbiter = std::atoi(value.c_str());
         else if (key == "wave.popRepulsor")
             wavePopRepulsor = std::atoi(value.c_str());
         else if (key == "wave.minGrunt")
@@ -233,12 +241,20 @@ bool classical_params::load()
             waveMinBlackhole = std::atoi(value.c_str());
         else if (key == "wave.minMayfly")
             waveMinMayfly = std::atoi(value.c_str());
+        else if (key == "wave.minDart")
+            waveMinDart = std::atoi(value.c_str());
+        else if (key == "wave.minOrbiter")
+            waveMinOrbiter = std::atoi(value.c_str());
         else if (key == "wave.snakeIndex")
             waveSnakeIndex = std::atoi(value.c_str());
         else if (key == "wave.blackholeIndex")
             waveBlackholeIndex = std::atoi(value.c_str());
         else if (key == "wave.mayflyIndex")
             waveMayflyIndex = std::atoi(value.c_str());
+        else if (key == "wave.dartIndex")
+            waveDartIndex = std::atoi(value.c_str());
+        else if (key == "wave.orbiterIndex")
+            waveOrbiterIndex = std::atoi(value.c_str());
         else if (key == "wave.repulsorIndex")
             waveRepulsorIndex = std::atoi(value.c_str());
         else if (key == "wave.rushDivide")
@@ -269,6 +285,10 @@ bool classical_params::load()
             scoreSnakeSegment = std::atoi(value.c_str());
         else if (key == "score.mayfly")
             scoreMayfly = std::atoi(value.c_str());
+        else if (key == "score.dart")
+            scoreDart = std::atoi(value.c_str());
+        else if (key == "score.orbiter")
+            scoreOrbiter = std::atoi(value.c_str());
         else if (key == "score.repulsor")
             scoreRepulsor = std::atoi(value.c_str());
         else if (key == "score.blackhole")

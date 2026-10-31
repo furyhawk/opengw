@@ -32,6 +32,12 @@ static int idxRepulsorEnd;
 static int idxMayflyStart;
 static int idxMayflyEnd;
 
+static int idxDartStart;
+static int idxDartEnd;
+
+static int idxOrbiterStart;
+static int idxOrbiterEnd;
+
 static int idxProtonStart;
 static int idxProtonEnd;
 
@@ -128,6 +134,26 @@ enemies::enemies(const game& gameRef) : mGame(gameRef)
         }
 
         idxMayflyEnd = entity - 1;
+    }
+    // Darts
+    {
+        idxDartStart = entity;
+
+        for (int i = 0; i < numEnemyDart; i++) {
+            mEnemies[entity++] = entity::createEntity(entity::ENTITY_TYPE_DART, gameRef);
+        }
+
+        idxDartEnd = entity - 1;
+    }
+    // Orbiters
+    {
+        idxOrbiterStart = entity;
+
+        for (int i = 0; i < numEnemyOrbiter; i++) {
+            mEnemies[entity++] = entity::createEntity(entity::ENTITY_TYPE_ORBITER, gameRef);
+        }
+
+        idxOrbiterEnd = entity - 1;
     }
     // Protons
     {
@@ -345,6 +371,14 @@ int enemies::getNumActiveEnemiesOfType(const entity::EntityType& type)
         idxStart = idxMayflyStart;
         idxEnd = idxMayflyEnd;
         break;
+    case entity::ENTITY_TYPE_DART:
+        idxStart = idxDartStart;
+        idxEnd = idxDartEnd;
+        break;
+    case entity::ENTITY_TYPE_ORBITER:
+        idxStart = idxOrbiterStart;
+        idxEnd = idxOrbiterEnd;
+        break;
     case entity::ENTITY_TYPE_PROTON:
         idxStart = idxProtonStart;
         idxEnd = idxProtonEnd;
@@ -405,6 +439,14 @@ entity* enemies::getUnusedEnemyOfType(const entity::EntityType& type)
     case entity::ENTITY_TYPE_MAYFLY:
         idxStart = idxMayflyStart;
         idxEnd = idxMayflyEnd;
+        break;
+    case entity::ENTITY_TYPE_DART:
+        idxStart = idxDartStart;
+        idxEnd = idxDartEnd;
+        break;
+    case entity::ENTITY_TYPE_ORBITER:
+        idxStart = idxOrbiterStart;
+        idxEnd = idxOrbiterEnd;
         break;
     case entity::ENTITY_TYPE_PROTON:
         idxStart = idxProtonStart;

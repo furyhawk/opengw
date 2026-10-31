@@ -195,6 +195,18 @@ void spawner::run(void)
                 spawnEntities(entity::ENTITY_TYPE_WEAVER, p.spawnerWeaverScatter);
             }
 
+            // New fast-track threats
+            if (index >= p.waveDartIndex) {
+                if (mathutils::frandFrom0To1() * 100 < p.spawnerDartChance) {
+                    spawnEntities(entity::ENTITY_TYPE_DART, 1);
+                }
+            }
+            if (index >= p.waveOrbiterIndex) {
+                if (mathutils::frandFrom0To1() * 100 < p.spawnerOrbiterChance) {
+                    spawnEntities(entity::ENTITY_TYPE_ORBITER, 1);
+                }
+            }
+
             // Black holes
             if (index >= p.spawnerBlackholeIndex) {
                 if (mathutils::frandFrom0To1() * 100 < p.spawnerBlackholeChance) {
@@ -254,6 +266,15 @@ void spawner::run(void)
             pool.push_back({ 3, WAVETYPE_RUSH, entity::ENTITY_TYPE_GRUNT, scaledWaveCount(p.waveMinGrunt, p.wavePopGrunt, true), 5 });
             pool.push_back({ 4, WAVETYPE_RUSH, entity::ENTITY_TYPE_WEAVER, scaledWaveCount(p.waveMinWeaver, p.wavePopWeaver, true), 4 });
             pool.push_back({ 5, WAVETYPE_RUSH, entity::ENTITY_TYPE_SPINNER, scaledWaveCount(p.waveMinSpinner, p.wavePopSpinner, true), 3 });
+
+            if (index > p.waveDartIndex) {
+                pool.push_back({ 11, WAVETYPE_SWARM, entity::ENTITY_TYPE_DART, scaledWaveCount(p.waveMinDart, p.wavePopDart, false), 3 });
+                pool.push_back({ 12, WAVETYPE_RUSH, entity::ENTITY_TYPE_DART, scaledWaveCount(p.waveMinDart, p.wavePopDart, true), 2 });
+            }
+            if (index > p.waveOrbiterIndex) {
+                pool.push_back({ 13, WAVETYPE_SWARM, entity::ENTITY_TYPE_ORBITER, scaledWaveCount(p.waveMinOrbiter, p.wavePopOrbiter, false), 2 });
+                pool.push_back({ 14, WAVETYPE_RUSH, entity::ENTITY_TYPE_ORBITER, scaledWaveCount(p.waveMinOrbiter, p.wavePopOrbiter, true), 2 });
+            }
 
             if (index > p.waveSnakeIndex) {
                 pool.push_back({ 6, WAVETYPE_SWARM, entity::ENTITY_TYPE_SNAKE, scaledWaveCount(p.waveMinSnake, p.wavePopSnake, false), 3 });

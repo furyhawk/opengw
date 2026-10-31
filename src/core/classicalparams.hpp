@@ -119,6 +119,8 @@ class classical_params
     int wavePopSpinner { 100 };
     int wavePopBlackhole { 8 };
     int wavePopMayfly { 400 };
+    int wavePopDart { 160 };
+    int wavePopOrbiter { 120 };
     int wavePopRepulsor { 4 };
     // Wave size floors (min enemies per generated wave).
     int waveMinGrunt { 20 };
@@ -127,10 +129,14 @@ class classical_params
     int waveMinSpinner { 20 };
     int waveMinBlackhole { 4 };
     int waveMinMayfly { 50 };
+    int waveMinDart { 18 };
+    int waveMinOrbiter { 12 };
     // Difficulty index gates for the rarer wave types / rush divide.
     int waveSnakeIndex { 4 };
     int waveBlackholeIndex { 4 };
     int waveMayflyIndex { 8 };
+    int waveDartIndex { 9 };
+    int waveOrbiterIndex { 12 };
     int waveRepulsorIndex { 4 };
     int waveRushDivide { 2 };           // rush waves spawn half the swarm amount
 
@@ -142,6 +148,8 @@ class classical_params
     float spawnerRushRadiusBlackhole { 80.0f }; // rush ring radius for black holes
     float spawnerSwarmJitter { 10.0f };     // swarm corner jitter spread (rand*10-5)
     int spawnerSwarmWaveCadence { 10 };     // frames between swarm corner dumps
+    int spawnerDartChance { 18 };           // % chance for a dart scatter spawn
+    int spawnerOrbiterChance { 12 };        // % chance for an orbiter scatter spawn
 
     // ---- Base entity pacing & global difficulty creep ------------------------
     float entityAggressionStep { 0.0002f }; // per-frame global enemy speed creep
@@ -158,6 +166,8 @@ class classical_params
     int scoreSnake { 50 };
     int scoreSnakeSegment { 0 };
     int scoreMayfly { 50 };
+    int scoreDart { 75 };
+    int scoreOrbiter { 125 };
     int scoreRepulsor { 100 };
     int scoreBlackhole { 50 };          // black hole feed score (not normally killed)
     int scoreBlackholeReward { 150 };   // points paid when a black hole is destroyed
