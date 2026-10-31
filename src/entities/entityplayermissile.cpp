@@ -11,6 +11,8 @@
 
 #include "render/gl3.h"
 
+#include <cmath>
+
 entityPlayerMissile::entityPlayerMissile()
     : entity()
 {
@@ -244,16 +246,16 @@ void entityPlayerMissile::destroyTransition()
     setState(ENTITY_STATE_INACTIVE); // kill it off immediately
     mLife = 0;                       // no leftover life when the slot is reused
 
-    // Throw out some particles
+    // Throw out a denser, brighter burst so weapon impacts feel snappy.
     Point3d pos(this->mPos);
     Point3d angle(0, 0, 0);
-    float speed = 2;
+    float speed = 3.0f;
     float spread = 2 * PI;
-    int num = 20;
-    int timeToLive = 200;
+    int num = 26;
+    int timeToLive = 220;
     vector::pen pen = mPen;
-    pen.lineRadius = 5;
-    pen.a = .7;
+    pen.lineRadius = 6;
+    pen.a = .85f;
     theGame->mParticles->emitter(&pos, &angle, speed, spread, num, &pen, timeToLive);
 }
 
@@ -367,8 +369,56 @@ void entityPlayerMissile::draw()
             return;
         }
 
-        mPen.lineRadius = 12;
+        // Standard weapons: big luminous body, a bright exhaust trail, and a
+        // soft glow to read clearly against the starfield and enemy fire.
+        Point3d dir = mSpeed;
+        const float dirLen = mathutils::calculate2dDistance(Point3d(0, 0, 0), dir);
+        if (dirLen > 0.0001f) {
+            dir.x /= dirLen;
+            dir.y /= dirLen;
+        } else {
+            dir = Point3d(1, 0, 0);
+        }
 
+        const float pulse = 0.75f + 0.25f * std::sin((mPos.x + mPos.y) * 0.5f + (mPos.x * mPos.y) * 0.03f);
+        const Point3d trailStart = mPos - (dir * 1.7f);
+        const Point3d trailEnd = mPos - (dir * 7.0f);
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+        glLineWidth(10.0f);
+        glColor4f(mPen.r, mPen.g, mPen.b, 0.18f * pulse);
+        glBegin(GL_LINES);
+        glVertex3f(trailEnd.x, trailEnd.y, 0);
+        glVertex3f(trailStart.x, trailStart.y, 0);
+        glEnd();
+
+        glLineWidth(4.0f);
+        glColor4f(mPen.r * 1.15f, mPen.g * 1.15f, mPen.b * 1.15f, 0.75f);
+        glBegin(GL_LINES);
+        glVertex3f(trailStart.x, trailStart.y, 0);
+        glVertex3f(mPos.x, mPos.y, 0);
+        glEnd();
+
+        glLineWidth(1.5f);
+        glColor4f(1.0f, 1.0f, 1.0f, 0.9f);
+        glBegin(GL_LINES);
+        glVertex3f(mPos.x - dir.x * 1.3f, mPos.y - dir.y * 1.3f, 0);
+        glVertex3f(mPos.x - dir.x * 3.8f, mPos.y - dir.y * 3.8f, 0);
+        glEnd();
+
+        vector::pen glowPen = mPen;
+        glowPen.lineRadius = 18;
+        glowPen.a = 0.25f;
+
+        mModel.Identity();
+        mModel.Scale(mScale * 1.55f);
+        mModel.Rotate(mAngle);
+        mModel.Translate(mPos);
+        mModel.draw(glowPen);
+
+        mPen.lineRadius = 12;
         entity::draw();
     }
 }
