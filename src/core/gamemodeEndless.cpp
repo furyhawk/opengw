@@ -53,6 +53,7 @@ void endless_mode::begin_match(game& owner)
 
     mPowerUps->reset();
     mDropTimer = 60 * 4; // first drop lands ~4 seconds in
+    mAchievementPulseTimer = 0;
 }
 
 void endless_mode::end_match(game& owner)
@@ -87,6 +88,17 @@ void endless_mode::update(game& owner)
         if (--mDropTimer <= 0) {
             mDropTimer = dropInterval(owner);
             mPowerUps->spawnRandom(owner);
+        }
+
+        if (++mAchievementPulseTimer >= (60 * 6)) {
+            mAchievementPulseTimer = 0;
+            const int progress = std::min(22, 10 + (owner.mSpawner->getSpawnIndex() / 3));
+            player* players[4] = { owner.getPlayer1(), owner.getPlayer2(), owner.getPlayer3(), owner.getPlayer4() };
+            for (int i = 0; i < 4; ++i) {
+                if (!players[i] || !players[i]->mJoined || players[i]->getState() != entity::ENTITY_STATE_RUNNING)
+                    continue;
+                players[i]->addAchievementProgress(progress);
+            }
         }
     }
 

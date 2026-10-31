@@ -119,6 +119,7 @@ void pressure_ladder_mode::awardTierBonus(game& owner)
         if (!players[i] || !players[i]->mJoined)
             continue;
         players[i]->addPointsNoMultiplier(bonus);
+        players[i]->addAchievementProgress(26 + (mTier * 2));
 
         char msg[32];
         snprintf(msg, sizeof(msg), "TIER %d", mTier);
@@ -135,6 +136,7 @@ void pressure_ladder_mode::awardEliteBonus(game& owner)
         if (!players[i] || !players[i]->mJoined)
             continue;
         players[i]->addPointsNoMultiplier(bonus);
+        players[i]->addAchievementProgress(32 + (mTier * 3));
 
         char msg[32];
         snprintf(msg, sizeof(msg), "ELITE %d", mTier);
@@ -234,7 +236,7 @@ void pressure_ladder_mode::update(game& owner)
         }
     }
 
-    if (mTierTimer >= 30.0f) {
+    if (mTierTimer >= 30.0f && anyActivePlayer(owner)) {
         advanceTier(owner);
     }
 

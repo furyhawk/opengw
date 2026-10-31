@@ -54,4 +54,6 @@ class classical_mode : public gameplay_mode
     // Match music pacing.
     float mMusicSpeed { 1.0f };
     float mMusicSpeedTarget { 1.0f };
+
+    int mAchievementPulseTimer { 0 };
 };

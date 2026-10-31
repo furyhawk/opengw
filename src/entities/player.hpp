@@ -41,6 +41,14 @@ class player : public entity
     int getNumLives();
     int getNumBombs();
 
+    // --- Achievement progression ------------------------------------------
+    // Match-scoped progression that grows from varied actions (kills,
+    // survival, pickups, mode events) and grants periodic rewards.
+    int achievementLevel() const { return mAchievementLevel; }
+    int achievementProgress() const { return mAchievementProgress; }
+    int achievementTarget() const { return mAchievementTarget; }
+    void addAchievementProgress(int amount);
+
     void addLife();
     void takeLife();
     void addBomb();
@@ -130,6 +138,11 @@ class player : public entity
 
     int mKillCounter;
     int mLevelAdvanceCounter;
+
+    int mAchievementLevel { 0 };
+    int mAchievementProgress { 0 };
+    int mAchievementTarget { 120 };
+    int mAchievementSurvivalCounter { 0 };
 
     int mNumLives;
     int mNumBombs;

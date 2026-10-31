@@ -545,6 +545,17 @@ void scene::drawScores()
                 font::AlphanumericsPrint(font::ALIGN_LEFT, .016, -.94, .9, &pen, "Score x%d", theGame->getPlayer1()->mMultiplier);
             font::AlphanumericsPrint(font::ALIGN_LEFT, .02, -.94, .82, &pen, s);
 
+            char achProg[64];
+            snprintf(
+                achProg,
+                sizeof(achProg),
+                "%d/%d",
+                theGame->getPlayer1()->achievementProgress(),
+                theGame->getPlayer1()->achievementTarget());
+            // Keep achievement HUD on its own rows to avoid crowding score/lives.
+            font::AlphanumericsPrint(font::ALIGN_RIGHT, .013, .94, .75, &pen, "ACH LV %d", theGame->getPlayer1()->achievementLevel());
+            font::AlphanumericsPrint(font::ALIGN_RIGHT, .011, .94, .69, &pen, "NEXT %s", achProg);
+
             pen.a = .1;
             pen.lineRadius = 8;
             if (gameover)
@@ -552,6 +563,8 @@ void scene::drawScores()
             else
                 font::AlphanumericsPrint(font::ALIGN_LEFT, .016, -.94, .9, &pen, "Score x%d", theGame->getPlayer1()->mMultiplier);
             font::AlphanumericsPrint(font::ALIGN_LEFT, .02, -.94, .82, &pen, s);
+            font::AlphanumericsPrint(font::ALIGN_RIGHT, .013, .94, .75, &pen, "ACH LV %d", theGame->getPlayer1()->achievementLevel());
+            font::AlphanumericsPrint(font::ALIGN_RIGHT, .011, .94, .69, &pen, "NEXT %s", achProg);
         }
     } else {
         // Multi player display
@@ -585,16 +598,16 @@ void scene::drawScores()
 
                 vector::pen pen(player->getFontPen(), .75, 3);
                 if (gameover || (player->getState() != entity::ENTITY_STATE_RUNNING))
-                    font::AlphanumericsPrint(font::ALIGN_LEFT, .02, pos.x, pos.y, &pen, "%s", s);
+                    font::AlphanumericsPrint(font::ALIGN_LEFT, .02, pos.x, pos.y, &pen, "%s  A%d", s, player->achievementLevel());
                 else
-                    font::AlphanumericsPrint(font::ALIGN_LEFT, .02, pos.x, pos.y, &pen, "%s x%d", s, player->mMultiplier);
+                    font::AlphanumericsPrint(font::ALIGN_LEFT, .02, pos.x, pos.y, &pen, "%s x%d A%d", s, player->mMultiplier, player->achievementLevel());
 
                 pen.a = .1;
                 pen.lineRadius = 8;
                 if (gameover || (player->getState() != entity::ENTITY_STATE_RUNNING))
-                    font::AlphanumericsPrint(font::ALIGN_LEFT, .02, pos.x, pos.y, &pen, "%s", s);
+                    font::AlphanumericsPrint(font::ALIGN_LEFT, .02, pos.x, pos.y, &pen, "%s  A%d", s, player->achievementLevel());
                 else
-                    font::AlphanumericsPrint(font::ALIGN_LEFT, .02, pos.x, pos.y, &pen, "%s x%d", s, player->mMultiplier);
+                    font::AlphanumericsPrint(font::ALIGN_LEFT, .02, pos.x, pos.y, &pen, "%s x%d A%d", s, player->mMultiplier, player->achievementLevel());
             } else {
                 vector::pen pen(player->getFontPen(), .75, 3);
                 font::AlphanumericsPrint(font::ALIGN_LEFT, .02, pos.x, pos.y, &pen, "Press Start");

@@ -72,6 +72,11 @@ void player::initPlayerForGame()
     mKillCounter = 0;
     mLevelAdvanceCounter = 0;
 
+    mAchievementLevel = 0;
+    mAchievementProgress = 0;
+    mAchievementTarget = 120;
+    mAchievementSurvivalCounter = 0;
+
     mCurrentWeapon = 0;
 
     // Every weapon starts the match at power level 1.
@@ -103,6 +108,14 @@ void player::run()
     const auto& p = classical_params::get();
 
     if (getEnabled()) {
+        if (getState() == ENTITY_STATE_RUNNING) {
+            // Passive progress while actively surviving in a live life.
+            if (++mAchievementSurvivalCounter >= 60) {
+                mAchievementSurvivalCounter = 0;
+                addAchievementProgress(3);
+            }
+        }
+
         // Read the trigger
         if (theGame->mGameType == game::GAMETYPE_SINGLEPLAYER) {
             bool trigger = theGame->mControls->getTriggerButton(mPlayerAssignment);
@@ -980,6 +993,11 @@ void player::addKillAtLocation(int points, Point3d pos)
     mBombCounter += pointsEarned;
     mLifeCounter += pointsEarned;
 
+    // Kills are the primary achievement source; stronger enemies are worth
+    // more progress but are clamped so outliers do not dominate progression.
+    const int killProgress = std::max(4, std::min(30, points / 4));
+    addAchievementProgress(killProgress);
+
     /*
     For every enemy you destroy you receive that enemy's base score times your
     multiplier. Your multiplier begins at x1. After destroying 25 enemies in
@@ -1102,6 +1120,44 @@ void player::addPointsNoMultiplier(int points)
     mScore += pointsEarned;
     mBombCounter += pointsEarned;
     mLifeCounter += pointsEarned;
+}
+
+void player::addAchievementProgress(int amount)
+{
+    if (amount <= 0)
+        return;
+
+    mAchievementProgress += amount;
+    while (mAchievementProgress >= mAchievementTarget) {
+        mAchievementProgress -= mAchievementTarget;
+        ++mAchievementLevel;
+
+        // Escalate difficulty of each next achievement rank.
+        if (mAchievementTarget < 900)
+            mAchievementTarget += 45;
+
+        const int scoreReward = 500 + (mAchievementLevel * 180);
+        addPointsNoMultiplier(scoreReward);
+
+        theGame->mSound->playTrack(SOUNDID_MULTIPLIERADVANCE);
+
+        char msg[64];
+        snprintf(msg, sizeof(msg), "ACH LV %d +%d", mAchievementLevel, scoreReward);
+        game::showMessageAtLocation(msg, getPos(), getFontPen());
+
+        if ((mAchievementLevel % 3) == 0) {
+            addBomb();
+            theGame->mSound->playTrack(SOUNDID_EXTRABOMB);
+            char bombMsg[] = "ACH REWARD +BOMB";
+            game::showMessageAtLocation(bombMsg, getPos(), getFontPen());
+        }
+        if ((mAchievementLevel % 5) == 0) {
+            addLife();
+            theGame->mSound->playTrack(SOUNDID_EXTRALIFE);
+            char lifeMsg[] = "ACH REWARD +LIFE";
+            game::showMessageAtLocation(lifeMsg, getPos(), getFontPen());
+        }
+    }
 }
 
 void player::switchWeapons()

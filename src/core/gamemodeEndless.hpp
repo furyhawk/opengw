@@ -61,4 +61,6 @@ class endless_mode : public gameplay_mode
     // Extra difficulty-clock speed per frame (added on top of the spawner's
     // normal index rate) that gives Endless its faster pace.
     float mDifficultyAccel { 0.008f };
+
+    int mAchievementPulseTimer { 0 };
 };

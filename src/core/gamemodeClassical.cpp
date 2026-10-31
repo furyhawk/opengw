@@ -9,8 +9,10 @@
 #include "entities/blackholes.hpp"
 #include "entities/bomb.hpp"
 #include "entities/enemies.hpp"
+#include "entities/entity.hpp"
 #include "entities/particle.hpp"
 #include "entities/players.hpp"
+#include "entities/player.hpp"
 #include "entities/spawner.hpp"
 #include "entities/attractor.hpp"
 
@@ -19,6 +21,30 @@
 #include "render/stars.hpp"
 
 #include "render/gl3.h"
+
+namespace {
+
+bool anyActivePlayer(const game& owner)
+{
+    const player* players[4] = { owner.getPlayer1(), owner.getPlayer2(), owner.getPlayer3(), owner.getPlayer4() };
+    for (int i = 0; i < 4; ++i) {
+        if (players[i] && players[i]->mJoined && players[i]->getState() == entity::ENTITY_STATE_RUNNING)
+            return true;
+    }
+    return false;
+}
+
+void awardModeAchievementProgress(game& owner, int amount)
+{
+    player* players[4] = { owner.getPlayer1(), owner.getPlayer2(), owner.getPlayer3(), owner.getPlayer4() };
+    for (int i = 0; i < 4; ++i) {
+        if (!players[i] || !players[i]->mJoined || players[i]->getState() != entity::ENTITY_STATE_RUNNING)
+            continue;
+        players[i]->addAchievementProgress(amount);
+    }
+}
+
+} // namespace
 
 // The Classical match rules formerly lived directly in the game shell
 // (game::startGame / the GAMEMODE_PLAYING tick / game::endGame / the world
@@ -80,6 +106,8 @@ void classical_mode::begin_match(game& owner)
     owner.mSound->playTrack(SOUNDID_BACKGROUND_NOISELOOP);
 
     owner.mParticles->killAll();
+
+    mAchievementPulseTimer = 0;
 }
 
 void classical_mode::end_match(game& owner)
@@ -139,6 +167,15 @@ void classical_mode::update(game& owner)
     owner.mPlayers->run();
     owner.mBomb->run();
     owner.mSpawner->run();
+
+    if (anyActivePlayer(owner)) {
+        if (++mAchievementPulseTimer >= (60 * 10)) {
+            mAchievementPulseTimer = 0;
+            const int idx = owner.mSpawner->getSpawnIndex();
+            const int progress = std::max(6, 8 + (idx / 4));
+            awardModeAchievementProgress(owner, progress);
+        }
+    }
 
     // Brightness
     if (owner.mBrightness < 1) {

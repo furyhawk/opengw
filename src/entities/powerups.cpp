@@ -152,6 +152,7 @@ void powerups::collect(game& owner, Pickup& pk, player* p)
     switch (pk.type) {
     case PICKUP_WEAPON: {
         pen = vector::pen(0.3f, 1.0f, 1.0f, 1.0f, 3);
+        p->addAchievementProgress(10);
         if (p->weaponPower() < p->weaponPowerMax()) {
             const bool toMax = (p->weaponPower() == p->weaponPowerMax() - 1);
             p->upgradeWeapon();
@@ -179,6 +180,7 @@ void powerups::collect(game& owner, Pickup& pk, player* p)
     }
     case PICKUP_SHIELD: {
         pen = vector::pen(0.3f, 1.0f, 0.45f, 1.0f, 3);
+        p->addAchievementProgress(10);
         if (p->shieldCharges() < p->maxShieldCharges()) {
             p->addShieldCharges(1);
             theGame->mSound->playTrack(SOUNDID_PLAYERSPAWN);
@@ -204,6 +206,7 @@ void powerups::collect(game& owner, Pickup& pk, player* p)
     }
     case PICKUP_HOMING: {
         pen = vector::pen(0.9f, 0.4f, 1.0f, 1.0f, 3);
+        p->addAchievementProgress(14);
         if (!p->hasHomingMissiles()) {
             p->enableHomingMissiles();
             theGame->mSound->playTrack(SOUNDID_MULTIPLIERADVANCE);
@@ -225,6 +228,7 @@ void powerups::collect(game& owner, Pickup& pk, player* p)
     case PICKUP_LASER:
     default: {
         pen = vector::pen(1.0f, 0.35f, 0.2f, 1.0f, 3);
+        p->addAchievementProgress(12);
         if (p->getWeapon() != player::WEAPON_LASER) {
             // The laser pickup switches the equipped weapon type (the laser
             // keeps its own stored power level, normally 1 when fresh).
