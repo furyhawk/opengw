@@ -1,0 +1,194 @@
+Trigonometry Wars: richer architecture call graph
+================================================
+
+System startup
+--------------
+main() [src/core/trigwars.cpp]
+  -> classical_params::get()
+  -> SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD)
+  -> SDL_CreateWindow("Trigonometry Wars", ...)
+  -> SDL_GL_CreateContext() or bgfx_bridge_init()
+  -> gfx_context_init()
+     -> OpenGL backend init / shader init / render targets
+     -> or bgfx backend init with Metal path on macOS
+  -> std::make_unique<scene>()
+  -> run()
+  -> OGLDestroy() / bgfx_bridge_shutdown()
+  -> settings::edit().save()
+  -> SDL_Quit()
+
+Host loop
+---------
+run() [src/core/trigwars.cpp]
+  -> handleEvents()
+       -> SDL_PollEvent()
+       -> SDL_GetKeyboardState()
+       -> theGame->mControls->handleGamepadAdded/Removed()
+  -> theGame->run()
+  -> render submission
+     -> scene::run()
+     -> scene::draw(pass)
+     -> gfx_* calls / bgfx draw calls
+  -> present frame
+
+Core game shell
+---------------
+game::run() [src/core/game.cpp]
+  -> process credits / menu state
+  -> pause detection
+  -> mCamera->run()
+  -> runPointDisplays()
+  -> mEnemies->run()
+  -> switch (mGameMode)
+       -> GAMEMODE_ATTRACT
+            -> attract logic / fireworks / title screen
+       -> GAMEMODE_CREDITED
+            -> title menu active
+       -> GAMEMODE_CHOOSE_GAMETYPE
+            -> menuSelectGameType::run()
+       -> GAMEMODE_PLAYING
+            -> if (mMode) mMode->update(*this)
+       -> GAMEMODE_HIGHSCORES_CHECK / HIGHSCORES / GAMEOVER
+            -> score menu / fade transitions
+  -> draw() (if world render pass is active)
+
+Game shell ownership
+--------------------
+game owns:
+  -> mSound                -> audio/sound.hpp
+  -> mGrid                 -> render/grid.hpp
+  -> mParticles            -> entities/particle.hpp
+  -> mAttractors           -> entities/attractor.hpp
+  -> mControls             -> core/controls.hpp
+  -> mBlackHoles           -> entities/blackholes.hpp
+  -> mSpawner              -> entities/spawner.hpp
+  -> mBomb                 -> entities/bomb.hpp
+  -> mHighscore            -> core/highscore.hpp
+  -> mCamera               -> core/camera.hpp
+  -> mStars                -> render/stars.hpp
+  -> mPlayers              -> entities/players.hpp
+  -> mEnemies              -> entities/enemies.hpp
+  -> mMode                 -> gameplay_mode implementation
+
+Gameplay mode architecture
+-------------------------
+gameplay_mode [src/core/gamemode.hpp]
+  abstract interface:
+    -> name()
+    -> begin_match(game&)
+    -> end_match(game&)
+    -> update(game&)
+    -> draw(game&, int pass)
+    -> shared_lives()/shared_bombs()/...
+    -> weapon_auto_advances()
+
+gameplaymodes registry [src/core/gamemodes.hpp, src/core/gamemodes.cpp]
+  -> count()
+  -> name(index)
+  -> create(index)
+  -> returns mode instance for menu selection / startGame
+
+game::startGame(GameType)
+  -> mMode = gameplaymodes::create(mModeIndex)
+  -> mMode->begin_match(*this)
+  -> match-specific setup executed
+
+classical_mode (primary gameplay rule set)
+  -> uses shared systems owned by game
+  -> owns or drives:
+       players, spawner, enemies, pickups, projectiles, scoring, life/bomb pool
+  -> controls the round rules and progression
+
+Entity and world subsystem graph
+--------------------------------
+Players
+  -> game::mPlayers
+  -> entities/player.hpp, players.hpp, entityPlayer*.hpp
+  -> controls input moves / aim / fire
+  -> entity state and collisions
+
+Enemies
+  -> game::mEnemies
+  -> entities/enemies.hpp and many entity* classes
+  -> spawner creates wave entries
+  -> enemy AI / movement / collision / death logic
+
+Projectiles and effects
+  -> entityplayermissile, entitydart, bomb, particle, attractor, blackholes
+  -> death effects / explosions / scoring markers
+
+Spawner and wave system
+  -> entities/spawner.hpp/cpp
+  -> chooses spawn timing and enemy mix
+  -> interacts with the active gameplay_mode and score progression
+
+Render subsystem graph
+----------------------
+scene [src/render/scene.hpp, scene.cpp]
+  -> owns draw pass configuration
+  -> owns textures/models used by HUD / logos / badges
+  -> manages RENDERPASS_PRIMARY and RENDERPASS_BLUR
+  -> draws HUD and world
+
+render pipeline
+  -> gl3.h macro aliases
+       glBegin -> gfx_begin
+       glVertex2d -> gfx_vertex2d
+       glColor4f -> gfx_color4f
+       ...
+  -> gfx_* functions [src/render/gl3.cpp]
+       -> software fixed-function emulation
+       -> matrix stack + batching
+       -> line/point expansion
+       -> shader-backed vertex generation
+  -> final framebuffer composition
+  -> Gaussian glow pass / blur
+
+bgfx path (alternate backend)
+  -> src/render/bgfx_backend.cpp
+  -> src/render/bgfx_bridge.*
+  -> same game code, different render backend
+  -> window/device creation and frame submission handled by bgfx bridge
+
+UI and menu flow
+----------------
+ui/menuMain.cpp
+  -> title menu / mode selection / settings / highscores / quit
+ui/menuSelectGameType.cpp
+  -> player count / match type
+ui/menuSettings.cpp
+  -> graphics/audio settings persistence
+ui/menuPause.cpp
+  -> pause menu state while match is running
+ui/menuHighScores.cpp
+  -> score display and persistence
+
+Data and persistence
+--------------------
+settings::get() / settings::edit() [src/core/settings.*]
+  -> display options / gameplay preferences / sound volume
+  -> saved to settings.cfg
+
+highscore [src/core/highscore.*]
+  -> stores / loads score table
+  -> score persistence to scores.sav
+
+classical_params::get() [src/core/classicalparams.*]
+  -> loads classical.cfg and overrides defaults
+
+Architecture summary
+--------------------
+The code is organized around a central game shell that owns subsystems and a pluggable gameplay_mode policy. The shell has the overall lifecycle; each mode implements rules while the shared systems handle physics, rendering, scoring, and world state. That keeps the renderer and UI mostly independent from the rules of a specific match type.
+
+Core dependency chain
+---------------------
+main
+  -> trigwars.cpp host loop
+  -> game
+  -> gameplay_mode
+  -> players / enemies / spawner / projectile systems
+  -> scene
+  -> gl3 or bgfx backend
+  -> OpenGL/Metal render pipeline
+
+This is the richer architecture view of how data and control flow through the project.
