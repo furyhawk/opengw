@@ -32,6 +32,11 @@ class settings
     bool mPlayerSmoothing;
     bool mStarSmoothing;
 
+    // --- Controller options -------------------------------------------
+    // Prompt style: 0 = auto (last used device), 1 = gamepad, 2 = keyboard.
+    int mPromptStyle;
+    bool mVibration; // controller rumble on bomb, hit and death
+
     int mAttractors;
     int mParticles;
     int mGridPasses;

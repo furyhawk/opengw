@@ -19,8 +19,10 @@
 #include "core/settings.hpp"
 #include "entities/spawner.hpp"
 #include "render/stars.hpp"
+#include "ui/gameplayGuide.hpp"
 #include "ui/menuHighScores.hpp"
 #include "ui/menuAchievements.hpp"
+#include "ui/menuControls.hpp"
 #include "ui/menuMain.hpp"
 #include "ui/menuPause.hpp"
 #include "ui/menuSelectGameType.hpp"
@@ -188,6 +190,17 @@ void game::quitThreads()
 
 void game::run()
 {
+    // Controller hot-plug notices queued by the SDL event path.
+    controls::DeviceEvent deviceEvent;
+    while (mControls->pollDeviceEvent(deviceEvent)) {
+        if (deviceEvent.type == controls::DeviceEvent::Type::Added)
+            onControllerAdded(deviceEvent.slot, deviceEvent.name);
+        else
+            onControllerRemoved(deviceEvent.slot, deviceEvent.name);
+    }
+    if (mControllerNoticeTimer > 0)
+        --mControllerNoticeTimer;
+
     // Credits
     static bool creditButtonLast = false;
     bool creditButton = false; // mControls->getCreditButton();
@@ -237,6 +250,9 @@ void game::run()
         switch (mMenuScreen) {
         case MENU_PAUSE:
             menuPause::run();
+            break;
+        case MENU_CONTROLS:
+            menuControls::run();
             break;
         case MENU_SETTINGS:
             menuSettings::run();
@@ -292,6 +308,7 @@ void game::run()
         if (mMode) {
             mMode->update(*this);
         }
+        gameplayGuide::update();
     } break;
     case GAMEMODE_HIGHSCORES:
         mHighscore->run();
@@ -363,6 +380,8 @@ void game::run()
             menuSelectGameType::run();
         } else if (mMenuScreen == MENU_TITLE) {
             menuMain::run();
+        } else if (mMenuScreen == MENU_CONTROLS) {
+            menuControls::run();
         } else if (mMenuScreen == MENU_SETTINGS) {
             menuSettings::run();
         } else if (mMenuScreen == MENU_HIGHSCORES) {
@@ -589,6 +608,7 @@ void game::startGame(GameType gameType)
 
     mSound->playTrack(SOUNDID_MATCHSTART);
     mMode->begin_match(*this);
+    gameplayGuide::onMatchStart();
 
     mGameMode = GAMEMODE_PLAYING;
 }
@@ -641,6 +661,35 @@ void game::showMessageAtLocation(char* message, const Point3d& pos, const vector
             break;
         }
     }
+}
+
+void game::onControllerAdded(int slot, const char* name)
+{
+    snprintf(mControllerNotice, sizeof(mControllerNotice),
+             "CONTROLLER %d CONNECTED  %s", slot + 1,
+             (name && *name) ? name : "CONTROLLER");
+    mControllerNoticeTimer = 180;
+}
+
+void game::onControllerRemoved(int slot, const char* /*name*/)
+{
+    snprintf(mControllerNotice, sizeof(mControllerNotice),
+             "CONTROLLER %d DISCONNECTED", slot + 1);
+    mControllerNoticeTimer = 180;
+}
+
+void game::drawControllerNotice()
+{
+    if (mControllerNoticeTimer <= 0 || !mControllerNotice[0])
+        return;
+
+    float alpha = 1.0f;
+    if (mControllerNoticeTimer < 45)
+        alpha = static_cast<float>(mControllerNoticeTimer) / 45.0f;
+
+    vector::pen pen(0.55f, 0.95f, 1.0f, 0.70f * alpha, 2.0f);
+    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.0095f, 0.0f, 0.90f, &pen, "%s",
+                             mControllerNotice);
 }
 
 void game::startBomb()

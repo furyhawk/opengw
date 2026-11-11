@@ -1,10 +1,12 @@
 #include "ui/menuSettings.hpp"
 
+#include "core/controls.hpp"
 #include "core/game.hpp"
 #include "core/settings.hpp"
 #include "math/vector.hpp"
 #include "render/font.hpp"
 #include "render/gl3.h"
+#include "ui/hints.hpp"
 #include "ui/menuCommon.hpp"
 #include "ui/menuMain.hpp"
 #include "ui/menuPause.hpp"
@@ -16,7 +18,7 @@ namespace menuSettings {
 
 namespace {
 
-constexpr int kNumRows = 10;
+constexpr int kNumRows = 12;
 
 // Rows
 enum Row
@@ -30,15 +32,19 @@ enum Row
     ROW_ENEMY_SMOOTHING,
     ROW_PLAYER_SMOOTHING,
     ROW_STAR_SMOOTHING,
-    ROW_SOUND_VOLUME
+    ROW_SOUND_VOLUME,
+    ROW_VIBRATION,
+    ROW_PROMPTS
 };
 
 const char* const kRowLabels[kNumRows] = {
     "FULLSCREEN",       "WINDOW SIZE",     "BLOOM",
     "VSYNC",            "GRID SMOOTHING",  "PARTICLE SMOOTH",
     "ENEMY SMOOTHING",  "PLAYER SMOOTHING", "STAR SMOOTHING",
-    "SOUND VOLUME"
+    "SOUND VOLUME",     "VIBRATION",       "PROMPTS"
 };
+
+const char* const kPromptStyles[] = { "AUTO", "GAMEPAD", "KEYBOARD" };
 
 struct Res
 {
@@ -69,6 +75,22 @@ int currentResIndex()
 void applyMasterVolume()
 {
     theGame->mSound->setMasterVolume(settings::get().mSoundVolume / 100.0f);
+}
+
+void pulseVibration()
+{
+    for (int p = 0; p < 4; ++p) {
+        if (!theGame->mControls->gamepadConnected(p))
+            continue;
+        theGame->mControls->rumble(p, 0.2f, 0.4f, 120);
+        break;
+    }
+}
+
+void stopVibration()
+{
+    for (int p = 0; p < 4; ++p)
+        theGame->mControls->stopRumble(p);
 }
 
 // Apply a directional change (+1 = on/next, -1 = off/prev) to a row.
@@ -121,6 +143,16 @@ void applyValue(int row, int dir)
         applyMasterVolume();
         break;
     }
+    case ROW_VIBRATION:
+        s.mVibration = on;
+        if (on)
+            pulseVibration();
+        else
+            stopVibration();
+        break;
+    case ROW_PROMPTS:
+        s.mPromptStyle = (s.mPromptStyle + (dir > 0 ? 1 : 2)) % 3;
+        break;
     }
     theGame->mSound->playTrack(SOUNDID_MENU_SELECT);
 }
@@ -154,6 +186,16 @@ void toggleRow(int row)
         break;
     case ROW_STAR_SMOOTHING:
         s.mStarSmoothing = !s.mStarSmoothing;
+        break;
+    case ROW_VIBRATION:
+        s.mVibration = !s.mVibration;
+        if (s.mVibration)
+            pulseVibration();
+        else
+            stopVibration();
+        break;
+    case ROW_PROMPTS:
+        s.mPromptStyle = (s.mPromptStyle + 1) % 3;
         break;
     case ROW_SOUND_VOLUME:
     case ROW_WINDOW:
@@ -197,6 +239,12 @@ void valueText(int row, char* out, std::size_t outSize)
         break;
     case ROW_SOUND_VOLUME:
         snprintf(out, outSize, "%d%%", s.mSoundVolume);
+        break;
+    case ROW_VIBRATION:
+        snprintf(out, outSize, "%s", s.mVibration ? "ON" : "OFF");
+        break;
+    case ROW_PROMPTS:
+        snprintf(out, outSize, "%s", kPromptStyles[s.mPromptStyle]);
         break;
     }
 }
@@ -272,8 +320,8 @@ void draw()
     constexpr float kScale = 0.0135f;
     constexpr float kAdvance = 1.9f; // font cell width in glyph units
     constexpr float kRowX = -0.66f;
-    constexpr float kRowStep = 0.105f;
-    constexpr float kFirstY = 0.5f;
+    constexpr float kRowStep = 0.095f;
+    constexpr float kFirstY = 0.52f;
 
     for (int i = 0; i < kNumRows; ++i) {
         char value[32];
@@ -298,19 +346,42 @@ void draw()
         font::AlphanumericsPrint(font::ALIGN_LEFT, kScale, kRowX + labelWidth + 0.10f, y, &valuePen, "%s", value);
     }
 
-    // --- Group caption for the audio section -----------------------------
+    // --- Group captions --------------------------------------------------
     {
         vector::pen pen(0.45f, 0.6f, 0.8f, 0.5f, 2);
-        const float y = kFirstY - (static_cast<int>(ROW_SOUND_VOLUME) * kRowStep) + 0.045f;
-        font::AlphanumericsPrint(font::ALIGN_LEFT, 0.009f, kRowX, y, &pen, "AUDIO");
+        const float audioY = kFirstY - (static_cast<int>(ROW_SOUND_VOLUME) * kRowStep) + 0.042f;
+        font::AlphanumericsPrint(font::ALIGN_LEFT, 0.009f, kRowX, audioY, &pen, "AUDIO");
+
+        const float controllerY = kFirstY - (static_cast<int>(ROW_VIBRATION) * kRowStep) + 0.042f;
+        font::AlphanumericsPrint(font::ALIGN_LEFT, 0.009f, kRowX, controllerY, &pen, "CONTROLLER");
+    }
+
+    // --- Connected controller status -------------------------------------
+    {
+        vector::pen pen(0.45f, 0.65f, 0.85f, 0.55f, 2);
+        char status[96];
+        if (theGame->mControls->gamepadCount() > 0) {
+            status[0] = '\0';
+            for (int p = 0; p < 4; ++p) {
+                if (!theGame->mControls->gamepadConnected(p))
+                    continue;
+                const char* name = theGame->mControls->gamepadName(p);
+                snprintf(status, sizeof(status), "PAD %d: %s", p + 1,
+                         (name && *name) ? name : "CONTROLLER");
+                break;
+            }
+        } else {
+            snprintf(status, sizeof(status), "NO CONTROLLER CONNECTED");
+        }
+        font::AlphanumericsPrint(font::ALIGN_RIGHT, 0.009f, 0.88f, 0.62f, &pen, "%s", status);
     }
 
     // --- Help footer ------------------------------------------------------
-    {
-        vector::pen pen(0.6f, 0.8f, 1.0f, 0.6f, 2);
-        font::AlphanumericsPrint(font::ALIGN_CENTER, 0.012f, 0.0f, -0.66f, &pen, "Arrows or WASD Move   Left Right or Space Change");
-        font::AlphanumericsPrint(font::ALIGN_CENTER, 0.012f, 0.0f, -0.74f, &pen, "Backspace or Back Button Returns");
-    }
+    hints::bar({
+        { "MOVE", "UP DOWN / WASD", "L STICK / D-PAD" },
+        { "CHANGE", "LEFT RIGHT / SPACE", "L STICK / A" },
+        { "BACK", "BACKSPACE", "B / BACK" },
+    }, -0.70f);
 }
 
 } // namespace menuSettings

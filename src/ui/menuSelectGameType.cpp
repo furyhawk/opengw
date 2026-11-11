@@ -37,27 +37,40 @@ void menuSelectGameType::run()
 {
     int dir = 0;
 
-    if (theGame->mControls->getBackButton(0) || theGame->mControls->getBackButton(1) || theGame->mControls->getBackButton(2) || theGame->mControls->getBackButton(3)) {
+    bool cancel = false;
+    for (int p = 0; p < 4; ++p) {
+        if (theGame->mControls->getBackButton(p) || theGame->mControls->getOptionsButton(p)
+            || theGame->mControls->getCancelButton(p)) {
+            cancel = true;
+            break;
+        }
+    }
+
+    if (cancel) {
         // Exit the menu
         game::mGameMode = game::GAMEMODE_ATTRACT;
         theGame->mSound->playTrack(SOUNDID_MENU_SELECT);
         return;
     }
 
+    auto pressedStart = [](int p) {
+        return theGame->mControls->getStartButton(p) || theGame->mControls->getConfirmButton(p);
+    };
+
     if (!debounceStart) {
         if (selection == 0) {
-            if (theGame->mControls->getStartButton(0) || theGame->mControls->getStartButton(1) || theGame->mControls->getStartButton(2) || theGame->mControls->getStartButton(3)) {
+            if (pressedStart(0) || pressedStart(1) || pressedStart(2) || pressedStart(3)) {
                 theGame->startGame(game::GAMETYPE_SINGLEPLAYER);
                 theGame->mSound->playTrack(SOUNDID_MENU_SELECT);
             }
         } else {
-            if (theGame->mControls->getStartButton(0))
+            if (pressedStart(0))
                 theGame->getPlayer1()->mJoined = true;
-            if (theGame->mControls->getStartButton(1))
+            if (pressedStart(1))
                 theGame->getPlayer2()->mJoined = true;
-            if (theGame->mControls->getStartButton(2))
+            if (pressedStart(2))
                 theGame->getPlayer3()->mJoined = true;
-            if (theGame->mControls->getStartButton(3))
+            if (pressedStart(3))
                 theGame->getPlayer4()->mJoined = true;
 
             if (theGame->mControls->getTriggerButton(0) || theGame->mControls->getTriggerButton(1) || theGame->mControls->getTriggerButton(2) || theGame->mControls->getTriggerButton(3)) {
@@ -98,7 +111,7 @@ void menuSelectGameType::run()
             */
         }
     } else {
-        if (!theGame->mControls->getStartButton(0) && !theGame->mControls->getStartButton(1) && !theGame->mControls->getStartButton(2) && !theGame->mControls->getStartButton(3)) {
+        if (!pressedStart(0) && !pressedStart(1) && !pressedStart(2) && !pressedStart(3)) {
             debounceStart = false;
         }
     }

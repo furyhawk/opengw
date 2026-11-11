@@ -1,14 +1,58 @@
 #include "core/controls.hpp"
 
+#include "core/settings.hpp"
+
 #include <SDL3/SDL_joystick.h>
 
+#include <cmath>
 #include <cstdio>
+#include <cstring>
 
 extern const bool* keyboardState;
 
 // CONTROLLER VALUES
 constexpr float AXIS_MAX = 32768.f;
-constexpr float CLAMPVALUE = .3f;
+constexpr float TRIGGER_THRESHOLD = .25f;
+// Radial deadzone applied to the analog sticks. Rescaling after the deadzone
+// gives a continuous 0..1 magnitude so the ship can move at any speed between
+// the deadzone and full deflection.
+constexpr float STICK_DEADZONE = .20f;
+
+namespace {
+
+Point3d applyRadialDeadzone(float x, float y)
+{
+    const float magnitude = std::sqrt(x * x + y * y);
+    if (magnitude <= STICK_DEADZONE)
+        return Point3d(0, 0, 0);
+
+    float scaled = (magnitude - STICK_DEADZONE) / (1.0f - STICK_DEADZONE);
+    if (scaled > 1.0f)
+        scaled = 1.0f;
+
+    return Point3d((x / magnitude) * scaled, (y / magnitude) * scaled, 0);
+}
+
+Point3d clampStickMagnitude(Point3d v)
+{
+    const float magnitude = std::sqrt(v.x * v.x + v.y * v.y);
+    if (magnitude > 1.0f) {
+        v.x /= magnitude;
+        v.y /= magnitude;
+    }
+    return v;
+}
+
+Uint16 rumbleAmount(float value)
+{
+    if (value <= 0.0f)
+        return 0;
+    if (value >= 1.0f)
+        return 65535;
+    return static_cast<Uint16>(value * 65535.0f);
+}
+
+} // namespace
 
 controls::controls()
 {
@@ -22,6 +66,7 @@ controls::~controls()
 {
     for (auto& pad: mGamepads) {
         if (pad) {
+            SDL_RumbleGamepad(pad, 0, 0, 0);
             SDL_CloseGamepad(pad);
             pad = nullptr;
         }
@@ -97,9 +142,13 @@ void controls::handleGamepadAdded(SDL_JoystickID instanceId)
         if (!mGamepads[i]) {
             mGamepads[i] = SDL_OpenGamepad(instanceId);
             if (mGamepads[i]) {
+                const char* name = SDL_GetGamepadName(mGamepads[i]);
                 printf("Gamepad connected in slot %d: %s\n", i,
-                       SDL_GetGamepadName(mGamepads[i]));
+                       name ? name : "Controller");
                 mNumGamepads++;
+                queueDeviceEvent(DeviceEvent::Type::Added, i,
+                                 name ? name : "Controller");
+                noteGamepad();
             } else {
                 printf("Failed to open gamepad %d: %s\n", instanceId, SDL_GetError());
             }
@@ -115,10 +164,16 @@ void controls::handleGamepadRemoved(SDL_JoystickID instanceId)
         if (mGamepads[i]) {
             SDL_Joystick* joy = SDL_GetGamepadJoystick(mGamepads[i]);
             if (SDL_GetJoystickID(joy) == instanceId) {
+                const char* name = SDL_GetGamepadName(mGamepads[i]);
+                char copiedName[64];
+                snprintf(copiedName, sizeof(copiedName), "%s",
+                         name ? name : "Controller");
                 printf("Gamepad disconnected from slot %d\n", i);
+                SDL_RumbleGamepad(mGamepads[i], 0, 0, 0);
                 SDL_CloseGamepad(mGamepads[i]);
                 mGamepads[i] = nullptr;
                 mNumGamepads--;
+                queueDeviceEvent(DeviceEvent::Type::Removed, i, copiedName);
                 break;
             }
         }
@@ -127,37 +182,191 @@ void controls::handleGamepadRemoved(SDL_JoystickID instanceId)
 
 Point3d controls::getLeftStick(int player)
 {
-    return readKeyboardLeftStick(player) + readGamepadLeftStick(player);
+    const Point3d keyboard = readKeyboardLeftStick(player);
+    const Point3d gamepad = readGamepadLeftStick(player);
+
+    if (keyboard.x != 0 || keyboard.y != 0)
+        noteKeyboard();
+    if (gamepad.x != 0 || gamepad.y != 0)
+        noteGamepad();
+
+    return keyboard + gamepad;
 }
 
 Point3d controls::getRightStick(int player)
 {
-    return readKeyboardRightStick(player) + readGamepadRightStick(player);
+    const Point3d keyboard = readKeyboardRightStick(player);
+    const Point3d gamepad = readGamepadRightStick(player);
+
+    if (keyboard.x != 0 || keyboard.y != 0)
+        noteKeyboard();
+    if (gamepad.x != 0 || gamepad.y != 0)
+        noteGamepad();
+
+    return keyboard + gamepad;
 }
 
 bool controls::getTriggerButton(int player)
 {
-    return readKeyboardTrigger(player) || readGamepadTrigger(player);
+    const bool keyboard = readKeyboardTrigger(player);
+    const bool gamepad = readGamepadTrigger(player);
+
+    if (keyboard)
+        noteKeyboard();
+    if (gamepad)
+        noteGamepad();
+
+    return keyboard || gamepad;
 }
 
 bool controls::getStartButton(int player)
 {
-    return readKeyboardStart(player) || readGamepadStart(player);
+    const bool keyboard = readKeyboardStart(player);
+    const bool gamepad = readGamepadStart(player);
+
+    if (keyboard)
+        noteKeyboard();
+    if (gamepad)
+        noteGamepad();
+
+    return keyboard || gamepad;
 }
 
 bool controls::getBackButton(int player)
 {
-    return readKeyboardBack(player) || readGamepadBack(player);
+    const bool keyboard = readKeyboardBack(player);
+    const bool gamepad = readGamepadBack(player);
+
+    if (keyboard)
+        noteKeyboard();
+    if (gamepad)
+        noteGamepad();
+
+    return keyboard || gamepad;
 }
 
 bool controls::getPauseButton(int player)
 {
-    return readKeyboardPause(player) || readGamepadPause(player);
+    const bool keyboard = readKeyboardPause(player);
+    const bool gamepad = readGamepadPause(player);
+
+    if (keyboard)
+        noteKeyboard();
+    if (gamepad)
+        noteGamepad();
+
+    return keyboard || gamepad;
 }
 
 bool controls::getOptionsButton(int player)
 {
-    return readKeyboardOptions(player) || readGamepadOptions(player);
+    const bool keyboard = readKeyboardOptions(player);
+    const bool gamepad = readGamepadOptions(player);
+
+    if (keyboard)
+        noteKeyboard();
+    if (gamepad)
+        noteGamepad();
+
+    return keyboard || gamepad;
+}
+
+bool controls::getConfirmButton(int player)
+{
+    // The keyboard is a single device: only player 1 should react to it, so
+    // player-select cannot join all four slots from one Space/Enter press.
+    const bool keyboard = (player == 0) && readKeyboardConfirm(player);
+    const bool gamepad = readGamepadButton(player, SDL_GAMEPAD_BUTTON_SOUTH);
+
+    if (keyboard)
+        noteKeyboard();
+    if (gamepad)
+        noteGamepad();
+
+    return keyboard || gamepad;
+}
+
+bool controls::getCancelButton(int player)
+{
+    const bool keyboard = readKeyboardCancel(player);
+    const bool gamepad = readGamepadButton(player, SDL_GAMEPAD_BUTTON_EAST);
+
+    if (keyboard)
+        noteKeyboard();
+    if (gamepad)
+        noteGamepad();
+
+    return keyboard || gamepad;
+}
+
+bool controls::gamepadConnected(int player) const
+{
+    return player >= 0 && player < MAX_GAMEPADS && mGamepads[player] != nullptr;
+}
+
+const char* controls::gamepadName(int player) const
+{
+    if (!gamepadConnected(player))
+        return nullptr;
+
+    return SDL_GetGamepadName(mGamepads[player]);
+}
+
+void controls::rumble(int player, float low, float high, int ms)
+{
+    if (!settings::get().mVibration)
+        return;
+    if (!gamepadConnected(player))
+        return;
+
+    SDL_RumbleGamepad(mGamepads[player], rumbleAmount(low), rumbleAmount(high), static_cast<Uint32>(ms));
+}
+
+void controls::stopRumble(int player)
+{
+    if (!gamepadConnected(player))
+        return;
+
+    SDL_RumbleGamepad(mGamepads[player], 0, 0, 0);
+}
+
+bool controls::pollDeviceEvent(DeviceEvent& event)
+{
+    if (mDeviceEventCount <= 0)
+        return false;
+
+    event = mDeviceEvents[mDeviceEventHead];
+    mDeviceEventHead = (mDeviceEventHead + 1) % MAX_DEVICE_EVENTS;
+    --mDeviceEventCount;
+    return true;
+}
+
+void controls::noteKeyboard()
+{
+    mLastInput = InputDevice::Keyboard;
+    mHasInput = true;
+}
+
+void controls::noteGamepad()
+{
+    mLastInput = InputDevice::Gamepad;
+    mHasInput = true;
+}
+
+void controls::queueDeviceEvent(DeviceEvent::Type type, int slot, const char* name)
+{
+    if (mDeviceEventCount >= MAX_DEVICE_EVENTS) {
+        // Drop the oldest event rather than stalling the SDL event pump.
+        mDeviceEventHead = (mDeviceEventHead + 1) % MAX_DEVICE_EVENTS;
+        --mDeviceEventCount;
+    }
+
+    const int index = (mDeviceEventHead + mDeviceEventCount) % MAX_DEVICE_EVENTS;
+    mDeviceEvents[index].type = type;
+    mDeviceEvents[index].slot = slot;
+    snprintf(mDeviceEvents[index].name, sizeof(mDeviceEvents[index].name), "%s",
+             name ? name : "Controller");
+    ++mDeviceEventCount;
 }
 
 //
@@ -236,6 +445,16 @@ bool controls::readKeyboardOptions(int /*player*/)
     return keyboardState[SDL_SCANCODE_O];
 }
 
+bool controls::readKeyboardConfirm(int /*player*/)
+{
+    return keyboardState[SDL_SCANCODE_RETURN] || keyboardState[SDL_SCANCODE_SPACE];
+}
+
+bool controls::readKeyboardCancel(int /*player*/)
+{
+    return keyboardState[SDL_SCANCODE_ESCAPE] || keyboardState[SDL_SCANCODE_BACKSPACE];
+}
+
 //
 // Modern SDL GameController API
 //
@@ -245,25 +464,13 @@ Point3d controls::readGamepadLeftStick(int player)
     if (!mGamepads[player])
         return Point3d(0, 0, 0);
 
-    Point3d vector;
     // Note: Y axis is inverted for standard game controls
-    vector.x = -(SDL_GetGamepadAxis(mGamepads[player], SDL_GAMEPAD_AXIS_LEFTY)) / AXIS_MAX;
-    vector.y = -(SDL_GetGamepadAxis(mGamepads[player], SDL_GAMEPAD_AXIS_LEFTX)) / AXIS_MAX;
-    vector.z = 0;
-
-    // Apply deadzone
-    if (fabs(vector.x) < CLAMPVALUE) {
-        vector.x = 0;
-    }
-    if (fabs(vector.y) < CLAMPVALUE) {
-        vector.y = 0;
-    }
+    const float x = -(SDL_GetGamepadAxis(mGamepads[player], SDL_GAMEPAD_AXIS_LEFTY)) / AXIS_MAX;
+    const float y = -(SDL_GetGamepadAxis(mGamepads[player], SDL_GAMEPAD_AXIS_LEFTX)) / AXIS_MAX;
 
     // The D-pad shares the left stick's axis layout, so the menus (which poll
     // the sticks for navigation) and in-game movement both react to it.
-    vector += readGamepadDpad(player);
-
-    return vector;
+    return clampStickMagnitude(applyRadialDeadzone(x, y) + readGamepadDpad(player));
 }
 
 Point3d controls::readGamepadRightStick(int player)
@@ -271,20 +478,10 @@ Point3d controls::readGamepadRightStick(int player)
     if (!mGamepads[player])
         return Point3d(0, 0, 0);
 
-    Point3d vector;
-    vector.x = -(SDL_GetGamepadAxis(mGamepads[player], SDL_GAMEPAD_AXIS_RIGHTY)) / AXIS_MAX;
-    vector.y = -(SDL_GetGamepadAxis(mGamepads[player], SDL_GAMEPAD_AXIS_RIGHTX)) / AXIS_MAX;
-    vector.z = 0;
+    const float x = -(SDL_GetGamepadAxis(mGamepads[player], SDL_GAMEPAD_AXIS_RIGHTY)) / AXIS_MAX;
+    const float y = -(SDL_GetGamepadAxis(mGamepads[player], SDL_GAMEPAD_AXIS_RIGHTX)) / AXIS_MAX;
 
-    // Apply deadzone
-    if (fabs(vector.x) < CLAMPVALUE) {
-        vector.x = 0;
-    }
-    if (fabs(vector.y) < CLAMPVALUE) {
-        vector.y = 0;
-    }
-
-    return vector;
+    return applyRadialDeadzone(x, y);
 }
 
 Point3d controls::readGamepadDpad(int player)
@@ -315,11 +512,7 @@ bool controls::readGamepadTrigger(int player)
     // Right trigger
     float triggerVal = (SDL_GetGamepadAxis(mGamepads[player], SDL_GAMEPAD_AXIS_RIGHT_TRIGGER)) / AXIS_MAX;
 
-    if (triggerVal > CLAMPVALUE) {
-        return true;
-    }
-
-    return false;
+    return triggerVal > TRIGGER_THRESHOLD;
 }
 
 bool controls::readGamepadStart(int player)
@@ -354,4 +547,12 @@ bool controls::readGamepadOptions(int player)
     // Standard gamepad UI uses the Back button for options/cancel; the Start
     // button is reserved for launching and pausing.
     return SDL_GetGamepadButton(mGamepads[player], SDL_GAMEPAD_BUTTON_BACK);
+}
+
+bool controls::readGamepadButton(int player, SDL_GamepadButton button)
+{
+    if (!mGamepads[player])
+        return false;
+
+    return SDL_GetGamepadButton(mGamepads[player], button);
 }

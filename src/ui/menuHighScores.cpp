@@ -5,6 +5,7 @@
 #include "math/vector.hpp"
 #include "render/font.hpp"
 #include "render/gl3.h"
+#include "ui/hints.hpp"
 #include "ui/menuCommon.hpp"
 #include "ui/menuMain.hpp"
 
@@ -55,11 +56,9 @@ void draw()
     theGame->mHighscore->drawTable();
 
     // --- Help footer --------------------------------------------------------
-    {
-        vector::pen pen(0.6f, 0.8f, 1.0f, 0.5f, 2);
-        font::AlphanumericsPrint(font::ALIGN_CENTER, 0.011f, 0.0f, -0.92f, &pen,
-                                 "Back or Start Return");
-    }
+    hints::bar({
+        { "RETURN", "ENTER / BACKSPACE", "A / B / BACK" },
+    });
 }
 
 } // namespace menuHighScores

@@ -42,6 +42,9 @@ settings::settings()
     mPlayerSmoothing = true;
     mStarSmoothing = true;
 
+    mPromptStyle = 0; // auto (last used device)
+    mVibration = true;
+
     mAttractors = 50;
     mParticles = 3000;
 
@@ -113,6 +116,10 @@ void settings::load()
             mStarSmoothing = parseBool(value);
         else if (key == "volume")
             mSoundVolume = std::atoi(value.c_str());
+        else if (key == "vibration")
+            mVibration = parseBool(value);
+        else if (key == "promptStyle")
+            mPromptStyle = std::atoi(value.c_str());
         else if (key == "width")
             displayWidth = std::atoi(value.c_str());
         else if (key == "height")
@@ -143,6 +150,10 @@ void settings::load()
     if (mSoundVolume < 0 || mSoundVolume > 100)
         mSoundVolume = 100;
 
+    // Prompt style: 0 auto, 1 gamepad, 2 keyboard.
+    if (mPromptStyle < 0 || mPromptStyle > 2)
+        mPromptStyle = 0;
+
     if (mLifetimeAchievementPoints < 0)
         mLifetimeAchievementPoints = 0;
     if (mLifetimeAchievementLevel < 0)
@@ -168,6 +179,8 @@ void settings::save() const
     out << "playerSmoothing=" << (mPlayerSmoothing ? 1 : 0) << "\n";
     out << "starSmoothing=" << (mStarSmoothing ? 1 : 0) << "\n";
     out << "volume=" << mSoundVolume << "\n";
+    out << "vibration=" << (mVibration ? 1 : 0) << "\n";
+    out << "promptStyle=" << mPromptStyle << "\n";
     out << "width=" << displayWidth << "\n";
     out << "height=" << displayHeight << "\n";
     out << "lifetimeAchievementPoints=" << mLifetimeAchievementPoints << "\n";

@@ -33,13 +33,17 @@ void reset(State& s);
 // --- Raw control polls (any of the four players) -------------------------
 Point3d combinedStick();
 bool anyFire();  // Space / right trigger
-bool anyStart(); // 1..4 / gamepad South
-bool anyBack();  // Backspace / O / gamepad East
+bool anyStart(); // 1..4 / gamepad Start
+bool anyBack();  // Backspace / Escape / O / gamepad East or Back
 bool anyPause(); // P / gamepad Start (menu button)
-bool anyConfirm();
+bool anyConfirm(); // Enter / Space / gamepad South (A) / Start / trigger
 
 // First player (0..3) whose start button is held, or -1 if none.
 int pressedStartPlayer();
+
+// First player whose Start or South/A button is held, or -1 if none. Used by
+// the player-select screen so A and Start both join a local player.
+int pressedJoinPlayer();
 
 // Vertical (+1 down, -1 up, 0) and horizontal (+1 right, -1 left, 0) stick
 // directions for this frame.

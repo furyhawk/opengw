@@ -156,6 +156,7 @@ void player::run()
 
                     theGame->mBomb->startBomb(mPos, p.bombRingRadius, p.bombRingThickness, p.bombRingSpeed, p.bombRingTimeToLive, vector::pen(1, 1, 1, .3, 4));
                     theGame->mSound->playTrack(SOUNDID_BOMB);
+                    theGame->mControls->rumble(mPlayerAssignment, 0.35f, 0.75f, 120);
                     theGame->startBomb();
                 }
             }
@@ -174,10 +175,14 @@ void player::run()
             // The movement stick is being used
             //
 
-            if (distance > p.playerStickFullZone) {
-                distance = 1;
-            } else
-                distance = .5;
+            // Continuous analog speed: deadzone at the inner edge, full speed
+            // at playerStickFullZone, with a proportional ramp between them.
+            // Keyboard input (magnitude >= 1) still reaches full speed.
+            const float range = p.playerStickFullZone - p.playerStickDeadZone;
+            if (range > 0.0f)
+                distance = std::clamp((distance - p.playerStickDeadZone) / range, 0.0f, 1.0f);
+            else
+                distance = 1.0f;
 
             float angle = mathutils::calculate2dAngle(Point3d(0, 0, 0), leftStick) + mathutils::DegreesToRads(90);
 
@@ -1005,6 +1010,8 @@ void player::destroyTransition()
     theGame->mSound->stopTrack(SOUNDID_PLAYERFIRE1);
     theGame->mSound->stopTrack(SOUNDID_PLAYERFIRE2);
     theGame->mSound->stopTrack(SOUNDID_PLAYERFIRE3);
+
+    theGame->mControls->rumble(mPlayerAssignment, 0.75f, 1.0f, 260);
 
     if (getNumLives() <= 1) {
         theGame->endGame();

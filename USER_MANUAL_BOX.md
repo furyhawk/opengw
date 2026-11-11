@@ -78,11 +78,12 @@ make -f makefile.win
 | Function | Controls |
 | --- | --- |
 | Move | Left stick or D-pad |
-| Aim | Right stick |
-| Fire | Trigger |
+| Aim / fire | Right stick |
+| Bomb | Right trigger (`RT`) |
+| Confirm | South / `A` |
+| Back / cancel | East / `B` or Back |
 | Pause / start | Start |
-| Back / cancel | Back |
-| Options | Back |
+| Options / help | Back / View |
 
 ---
 
@@ -187,9 +188,11 @@ These choices are saved to `settings.cfg`.
 ### Gamepad
 
 - Move: Left stick / D-pad
-- Aim and fire: Right stick / trigger
+- Aim and fire: Right stick
+- Bomb: Right trigger
+- Confirm: South/A; cancel/back: East/B or Back
 - Start / pause: Start
-- Back: Back
+- Options / help: Back/View
 
 ---
 

@@ -113,6 +113,7 @@ class game
         MENU_NONE = 0,
         MENU_TITLE,       // main menu on the title screen
         MENU_PAUSE,       // pause menu over a running match
+        MENU_CONTROLS,    // controller/keyboard reference (from title or pause)
         MENU_SETTINGS,    // combined settings screen (from title or pause)
         MENU_HIGHSCORES,  // top-scores screen (from the title main menu)
         MENU_ACHIEVEMENTS // achievement tracks + cosmetics (from the title menu)
@@ -141,6 +142,12 @@ class game
     void abandonMatch();
 
     static void showMessageAtLocation(char* message, const Point3d& pos, const vector::pen& pen);
+
+    // Transient controller hot-plug notice (top centre). Drawn from the 2D HUD
+    // pass after the menus so it is visible on every screen.
+    void onControllerAdded(int slot, const char* name);
+    void onControllerRemoved(int slot, const char* name);
+    void drawControllerNotice();
 
     void startBomb();
 
@@ -220,6 +227,9 @@ class game
     std::unique_ptr<gameplay_mode> mMode;
 
     int mGameOverTimer { 0 };
+
+    char mControllerNotice[128] {};
+    int mControllerNoticeTimer { 0 };
 
     float mBrightness;
 

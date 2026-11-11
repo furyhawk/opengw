@@ -38,12 +38,15 @@ device (window/layer, resize, vsync, frame submission).
   - Single player
   - Multiplayer co-op
   - Multiplayer versus
-- Keyboard **and** gamepad (hot-plug support for up to 4 pads)
+- Keyboard **and** gamepad (hot-plug support for up to 4 pads, standard A/B
+  menu buttons, device-aware prompts, rumble and controller settings)
 - Attract mode and persistent high scores
-- **Top Scores screen** (from the title menu) and a **Graphics options
-  screen** (press `Backspace`/`O` or the gamepad **Back** button on the title
-  screen): fullscreen, window resolution, glow/bloom, per-system smoothing and
-  vsync — saved to `settings.cfg`
+- **Top Scores screen** (from the title menu) and a **Settings screen**
+  (press `Backspace`/`O` or the gamepad **Back** button on the title screen):
+  fullscreen, window resolution, glow/bloom, per-system smoothing, volume,
+  vibration and prompt style — saved to `settings.cfg`
+- **Controls/Help screen** from the title and pause menus, plus a short
+  device-aware guide at the start of a match
 - Cross-platform: macOS, Linux, Windows (MSVC) and AmigaOS 4
 
 ## Screenshots
@@ -228,14 +231,30 @@ that, using `xvfb-run` on headless Linux).
 | Action        | Keyboard              | Gamepad               |
 | ------------- | --------------------- | --------------------- |
 | Move          | `W` `A` `S` `D`       | Left stick / D-pad    |
-| Aim / fire    | Arrow keys + `Space`  | Right stick / trigger |
-| Start player  | `1` `2` `3` `4`       | Start                 |
-| Back / cancel | `Backspace`           | Back                  |
-| Pause         | `P`                   | Pause                 |
-| Options       | `O` / `Backspace` on the title screen | Back on the title screen |
+| Aim / fire    | Arrow keys            | Right stick           |
+| Bomb          | `Space`               | Right trigger (`RT`)  |
+| Start player  | `1` `2` `3` `4`       | Start or South/A      |
+| Confirm       | `Enter` / `Space`     | South/A               |
+| Back / cancel | `Backspace` / `Esc`   | East/B or Back        |
+| Pause         | `P`                   | Start                 |
+| Options/help  | `O` (title/menus)     | Back / View (menus)   |
 
 Menus can be navigated with the analog stick **or** the D-pad (the D-pad also
-drives the ship in-game).
+drives the ship in-game). Prompt style defaults to **Auto**, which follows the
+device you last used and switches to gamepad glyphs as soon as a pad produces
+input.
+
+### Controller settings
+
+Settings contains a **CONTROLLER** group:
+
+- **VIBRATION** — enables rumble on bombs and player hits/deaths.
+- **PROMPTS** — `AUTO`, `GAMEPAD` or `KEYBOARD`. Auto follows the last used
+  device; the other values force one style.
+
+The title and pause menus both have a **CONTROLS** entry with the full control
+reference and the currently connected pads. Old `settings.cfg` files remain
+compatible; the new keys are `vibration` and `promptStyle`.
 
 ## Project layout
 

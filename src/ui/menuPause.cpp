@@ -4,18 +4,21 @@
 #include "math/vector.hpp"
 #include "render/font.hpp"
 #include "render/gl3.h"
+#include "ui/hints.hpp"
 #include "ui/menuCommon.hpp"
+#include "ui/menuControls.hpp"
 #include "ui/menuSettings.hpp"
 
 namespace menuPause {
 
 namespace {
 
-constexpr int kNumItems = 4;
+constexpr int kNumItems = 5;
 
 enum Item
 {
     ITEM_RESUME = 0,
+    ITEM_CONTROLS,
     ITEM_SETTINGS,
     ITEM_QUIT_TO_TITLE,
     ITEM_QUIT_GAME
@@ -23,6 +26,7 @@ enum Item
 
 const char* const kItemLabels[kNumItems] = {
     "RESUME",
+    "CONTROLS",
     "SETTINGS",
     "QUIT TO TITLE",
     "QUIT GAME"
@@ -77,6 +81,10 @@ void run()
         case ITEM_RESUME:
             resumeGame();
             break;
+        case ITEM_CONTROLS:
+            menuControls::init();
+            game::mMenuScreen = game::MENU_CONTROLS;
+            break;
         case ITEM_SETTINGS:
             menuSettings::init();
             game::mMenuScreen = game::MENU_SETTINGS;
@@ -125,10 +133,11 @@ void draw()
     }
 
     // --- Help footer --------------------------------------------------------
-    {
-        vector::pen pen(0.6f, 0.8f, 1.0f, 0.5f, 2);
-        font::AlphanumericsPrint(font::ALIGN_CENTER, 0.011f, 0.0f, -0.6f, &pen, "Up Down Move   Space Select   P / Back Resume");
-    }
+    hints::bar({
+        { "MOVE", "UP DOWN / WASD", "L STICK / D-PAD" },
+        { "SELECT", "ENTER / SPACE", "A / START" },
+        { "RESUME", "P / BACKSPACE", "START / B" },
+    }, -0.6f);
 }
 
 } // namespace menuPause

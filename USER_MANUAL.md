@@ -72,17 +72,24 @@ Important:
 | Action | Control |
 | --- | --- |
 | Move | Left stick or D-pad |
-| Aim / fire | Right stick or trigger |
-| Start player | Start button |
-| Back / cancel | Back button |
-| Pause | Pause / Start |
-| Options | Back button |
+| Aim / fire | Right stick |
+| Bomb | Right trigger (`RT`) |
+| Confirm | South / `A` |
+| Back / cancel | East / `B` or Back |
+| Start player | Start or South / `A` |
+| Pause | Start |
+| Options / help | Back / View |
 
 Notes:
 
 - The D-pad works for both menu navigation and in-game movement.
 - The analog sticks can also be used for menu selection.
+- Prompt style is **Auto** by default and follows the device you last used.
+- Start still confirms and pauses for compatibility; `A` and `B` are the
+  standard confirm/cancel buttons.
 - The game supports up to four connected controllers.
+- **Settings > Controller** controls vibration and prompt style.
+- The title and pause menus both include a **Controls** screen.
 
 ---
 
@@ -95,9 +102,9 @@ Survive enemy attacks, avoid collisions, and clear waves as long as possible. Ev
 ### Core actions
 
 - Move the ship with the left stick or `WASD`
-- Aim with the right stick or arrow keys
-- Fire with the trigger or `Space`
-- Use bomb or special defensive actions when available
+- Aim and fire with the right stick or arrow keys
+- Drop a bomb with the right trigger or `Space`
+- Pause with Start or `P`; open **Controls** from the pause menu for a reminder
 - Keep moving to avoid getting trapped by swarms
 
 ### Enemy types
@@ -189,7 +196,8 @@ The title screen also provides access to:
 
 - Check whether you are using keyboard or gamepad input.
 - Make sure a controller is connected and recognized by SDL.
-- On the title screen, use the correct start/back buttons for menu actions.
+- Use A/Start to confirm and B/Back to cancel; Start also pauses.
+- Check Settings > Controller for vibration and prompt style.
 
 ### Graphics look odd or blurry
 
@@ -214,9 +222,11 @@ The title screen also provides access to:
 ### Gamepad summary
 
 - Left stick / D-pad — move
-- Right stick / trigger — aim and fire
+- Right stick — aim and fire
+- Right trigger — bomb
+- South/A — confirm; East/B — cancel/back
 - Start — start/pause
-- Back — menu back/options
+- Back/View — options/help
 
 ---
 

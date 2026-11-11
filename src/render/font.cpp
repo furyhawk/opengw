@@ -682,6 +682,16 @@ static Point3d charPeriod[] = {
     Point3d(-999, -999, -999), Point3d(-999, -999, -999)
 };
 
+static Point3d charColon[] = {
+    Point3d(0, -.6, 0),
+    Point3d(0, -1, 0),
+
+    Point3d(0, .2, 0),
+    Point3d(0, .6, 0),
+
+    Point3d(-999, -999, -999), Point3d(-999, -999, -999)
+};
+
 static Point3d charExclamation[] = {
     Point3d(0, -.8, 0),
     Point3d(0, -1, 0),
@@ -715,6 +725,13 @@ static Point3d charPlus[] = {
 
     Point3d(0, -.5, 0),
     Point3d(0, .5, 0),
+
+    Point3d(-999, -999, -999), Point3d(-999, -999, -999)
+};
+
+static Point3d charSlash[] = {
+    Point3d(-.75, -1, 0),
+    Point3d(.75, 1, 0),
 
     Point3d(-999, -999, -999), Point3d(-999, -999, -999)
 };
@@ -1033,6 +1050,10 @@ void AlphanumericsPrint(int alignment, float scale, float x, float y, vector::pe
                 drawText(scale, &charPeriod[0], color);
                 break;
 
+            case ':':
+                drawText(scale, &charColon[0], color);
+                break;
+
             case 0xB0: // degree sign
                 drawText(scale, &charDegrees[0], color);
                 break;
@@ -1071,6 +1092,10 @@ void AlphanumericsPrint(int alignment, float scale, float x, float y, vector::pe
 
             case '+':
                 drawText(scale, &charPlus[0], color);
+                break;
+
+            case '/':
+                drawText(scale, &charSlash[0], color);
                 break;
             }
 

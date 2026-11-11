@@ -8,8 +8,10 @@
 #include "render/font.hpp"
 #include "render/gl3.h"
 #include "render/texture.hpp"
+#include "ui/hints.hpp"
 #include "ui/menuAchievements.hpp"
 #include "ui/menuCommon.hpp"
+#include "ui/menuControls.hpp"
 #include "ui/menuHighScores.hpp"
 #include "ui/menuSelectGameType.hpp"
 #include "ui/menuSettings.hpp"
@@ -22,12 +24,13 @@ namespace menuMain {
 
 namespace {
 
-constexpr int kNumItems = 6;
+constexpr int kNumItems = 7;
 
 enum Item
 {
     ITEM_START_GAME = 0,
     ITEM_GAME_MODE, // cycles the gameplay mode (gameplaymodes registry)
+    ITEM_CONTROLS,  // controller/keyboard reference and settings pointer
     ITEM_TOP_SCORES,
     ITEM_ACHIEVEMENTS, // tracks + cosmetic selector
     ITEM_SETTINGS,
@@ -37,6 +40,7 @@ enum Item
 const char* const kItemLabels[kNumItems] = {
     "START GAME",
     "GAME MODE",
+    "CONTROLS",
     "TOP SCORES",
     "ACHIEVEMENTS",
     "SETTINGS",
@@ -287,9 +291,9 @@ void run()
 
         switch (sState.selection) {
         case ITEM_START_GAME: {
-            // If a specific player's start button was pressed (1-4 / South on
-            // a gamepad), carry that through to the player-selection screen.
-            const int startPlayer = menuCommon::pressedStartPlayer();
+            // If a specific player's Start or South/A button was pressed,
+            // carry that through to the player-selection screen.
+            const int startPlayer = menuCommon::pressedJoinPlayer();
             menuSelectGameType::init(startPlayer >= 0 ? startPlayer : 0);
             game::mGameMode = game::GAMEMODE_CHOOSE_GAMETYPE;
             game::mMenuScreen = game::MENU_NONE;
@@ -298,6 +302,10 @@ void run()
         case ITEM_GAME_MODE:
             // Confirm cycles the mode, matching the stepped rows elsewhere.
             advanceGameMode(+1);
+            break;
+        case ITEM_CONTROLS:
+            menuControls::init();
+            game::mMenuScreen = game::MENU_CONTROLS;
             break;
         case ITEM_TOP_SCORES:
             menuHighScores::init();
@@ -392,15 +400,18 @@ void draw()
         font::AlphanumericsPrint(font::ALIGN_LEFT, 0.010f, -0.94f, -0.925f, &freePlayPen, "FREE PLAY");
     }
 
-    {
-        vector::pen pen(0.6f, 0.8f, 1.0f, 0.65f * intro, 2);
-        if (sState.selection == ITEM_GAME_MODE) {
-            font::AlphanumericsPrint(font::ALIGN_CENTER, 0.0092f, 0.0f, -0.925f, &pen,
-                                     "LEFT RIGHT CHANGE MODE      ENTER OR START  SELECT      BACK OR O  OPTIONS");
-        } else {
-            font::AlphanumericsPrint(font::ALIGN_CENTER, 0.0092f, 0.0f, -0.925f, &pen,
-                                     "ARROWS OR STICK  MOVE      ENTER OR START  SELECT      BACK OR O  OPTIONS");
-        }
+    if (sState.selection == ITEM_GAME_MODE) {
+        hints::bar({
+            { "CHANGE MODE", "LEFT RIGHT", "L STICK / D-PAD" },
+            { "SELECT", "ENTER / SPACE", "A / START" },
+            { "OPTIONS", "BACKSPACE / O", "B / BACK" },
+        });
+    } else {
+        hints::bar({
+            { "MOVE", "UP DOWN / WASD", "L STICK / D-PAD" },
+            { "SELECT", "ENTER / SPACE", "A / START" },
+            { "OPTIONS", "BACKSPACE / O", "B / BACK" },
+        });
     }
 }
 

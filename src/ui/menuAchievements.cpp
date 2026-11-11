@@ -7,6 +7,7 @@
 #include "render/font.hpp"
 #include "render/gl3.h"
 #include "render/texture.hpp"
+#include "ui/hints.hpp"
 #include "ui/menuCommon.hpp"
 #include "ui/menuMain.hpp"
 
@@ -177,9 +178,10 @@ void draw()
         font::AlphanumericsPrint(font::ALIGN_CENTER, 0.011f, 0.0f, -0.34f, &donePen, "ALL COSMETICS UNLOCKED");
     }
 
-    vector::pen footPen(0.6f, 0.8f, 1.0f, 0.5f, 2);
-    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.011f, 0.0f, -0.92f, &footPen,
-                             "Left Right Equip Cosmetic   Back or Start Return");
+    hints::bar({
+        { "EQUIP", "LEFT RIGHT", "L STICK / D-PAD" },
+        { "RETURN", "ENTER / BACKSPACE", "A / B / BACK" },
+    });
 }
 
 } // namespace menuAchievements

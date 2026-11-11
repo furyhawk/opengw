@@ -41,7 +41,8 @@ bool anyStart()
 bool anyBack()
 {
     for (int p = 0; p < 4; ++p) {
-        if (theGame->mControls->getBackButton(p) || theGame->mControls->getOptionsButton(p))
+        if (theGame->mControls->getBackButton(p) || theGame->mControls->getOptionsButton(p)
+            || theGame->mControls->getCancelButton(p))
             return true;
     }
     return false;
@@ -58,6 +59,10 @@ bool anyPause()
 
 bool anyConfirm()
 {
+    for (int p = 0; p < 4; ++p) {
+        if (theGame->mControls->getConfirmButton(p))
+            return true;
+    }
     return anyFire() || anyStart();
 }
 
@@ -65,6 +70,15 @@ int pressedStartPlayer()
 {
     for (int p = 0; p < 4; ++p) {
         if (theGame->mControls->getStartButton(p))
+            return p;
+    }
+    return -1;
+}
+
+int pressedJoinPlayer()
+{
+    for (int p = 0; p < 4; ++p) {
+        if (theGame->mControls->getStartButton(p) || theGame->mControls->getConfirmButton(p))
             return p;
     }
     return -1;

@@ -64,16 +64,20 @@ make -f makefile.win
 | Action | Control |
 | --- | --- |
 | Move | Left stick or D-pad |
-| Aim | Right stick |
-| Fire | Trigger |
+| Aim / fire | Right stick |
+| Bomb | Right trigger (`RT`) |
+| Confirm | South / `A` |
+| Back / cancel | East / `B` or Back |
 | Start / pause | Start |
-| Back / cancel | Back |
-| Options | Back |
+| Options / help | Back / View |
 
 ### Control notes
 
 - The D-pad works for both menu navigation and in-game movement.
 - The analog sticks can be used in menus as well as in combat.
+- Prompt style is **Auto** by default and follows the last used device.
+- **Settings > Controller** controls vibration and prompt style.
+- The title and pause menus include a **Controls** screen.
 - The game supports up to four players and several connected controllers.
 
 ---
@@ -196,7 +200,8 @@ These settings are saved to `settings.cfg`.
 
 - Check whether you are using keyboard or controller input.
 - Verify the controller is connected and detected.
-- Use the menu controls consistently with Start and Back buttons.
+- Use A/Start to confirm and B/Back to cancel; Start also pauses.
+- Check Settings > Controller for vibration and prompt style.
 
 ### Graphics look blurry or off
 
@@ -221,9 +226,11 @@ These settings are saved to `settings.cfg`.
 ### Gamepad summary
 
 - Left stick / D-pad — move
-- Right stick / trigger — aim and fire
-- Start — start / pause
-- Back — menu back / options
+- Right stick — aim and fire
+- Right trigger — bomb
+- South/A — confirm; East/B — cancel/back
+- Start — start/pause
+- Back/View — options/help
 
 ---
 

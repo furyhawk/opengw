@@ -4,7 +4,10 @@
 #include "core/game.hpp"
 #include "core/gamemodePressureLadder.hpp"
 #include "core/highscore.hpp"
+#include "ui/gameplayGuide.hpp"
+#include "ui/hints.hpp"
 #include "ui/menuAchievements.hpp"
+#include "ui/menuControls.hpp"
 #include "ui/menuHighScores.hpp"
 #include "ui/menuMain.hpp"
 #include "ui/menuPause.hpp"
@@ -270,6 +273,8 @@ void scene::draw(int pass)
         // Front-end overlay menus replace the normal HUD/text.
         if (theGame->mMenuScreen == game::MENU_PAUSE) {
             menuPause::draw();
+        } else if (theGame->mMenuScreen == game::MENU_CONTROLS) {
+            menuControls::draw();
         } else if (theGame->mMenuScreen == game::MENU_SETTINGS) {
             menuSettings::draw();
         } else if (theGame->mMenuScreen == game::MENU_HIGHSCORES) {
@@ -380,13 +385,31 @@ void scene::draw(int pass)
             } else {
                 font::AlphanumericsPrint(font::ALIGN_CENTER, .025, 0, -.9, &pen, "Multiplayer Co-op");
             }
+
+            if (menuSelectGameType::selection == 0) {
+                hints::bar({
+                    { "MOVE", "W A S D", "L STICK / D-PAD" },
+                    { "START", "ENTER / SPACE", "START / A" },
+                    { "BACK", "BACKSPACE", "B / BACK" },
+                }, -0.80f);
+            } else {
+                hints::bar({
+                    { "JOIN", "1 2 3 4", "START / A" },
+                    { "START MATCH", "SPACE", "RT" },
+                    { "CHANGE", "A / D", "L STICK" },
+                    { "BACK", "BACKSPACE", "B / BACK" },
+                }, -0.80f);
+            }
         } else // RUNNING
         {
             drawModeStatus();
             // Number of lives
             drawNumLives();
             drawNumBombs();
+            gameplayGuide::draw();
         }
+
+        theGame->drawControllerNotice();
 
         glDisable(GL_MULTISAMPLE);
         glDisable(GL_LINE_SMOOTH);

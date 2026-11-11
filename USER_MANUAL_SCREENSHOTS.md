@@ -168,10 +168,11 @@
 ### Gamepad
 
 - Left stick / D-pad — move
-- Right stick — aim
-- Trigger — fire
-- Start — start / pause
-- Back — menu action
+- Right stick — aim and fire
+- Right trigger — bomb
+- South/A — confirm; East/B — cancel/back
+- Start — start/pause
+- Back/View — options/help
 
 ---
 

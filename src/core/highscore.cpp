@@ -4,6 +4,7 @@
 #include "core/highscore.hpp"
 #include "entities/players.hpp"
 #include "render/scene.hpp"
+#include "ui/hints.hpp"
 
 #include <cstdio>
 
@@ -102,7 +103,8 @@ void highscore::run()
     if (--mDebounceTimer <= 0) {
         mDebounceTimer = 20;
 
-        bool trigger = theGame->mControls->getTriggerButton(0);
+        bool trigger = theGame->mControls->getTriggerButton(0)
+            || theGame->mControls->getConfirmButton(0);
         if (!trigger) {
             mEditReady = true;
         }
@@ -250,11 +252,11 @@ void highscore::drawEnterScore()
         font::AlphanumericsPrint(font::ALIGN_CENTER, .06, .1, -.22, &pen, "%c", '_');
     }
 
-    pen = defaultFontPen;
-    font::AlphanumericsPrint(font::ALIGN_CENTER, .015, 0, -.6, &pen, "Use Left Stick to Select Letter\nUse Right Stick to Change Position\nPress Bomb Button When Done");
-    pen.a = .1;
-    pen.lineRadius = 8;
-    font::AlphanumericsPrint(font::ALIGN_CENTER, .015, 0, -.6, &pen, "Use Left Stick to Select Letter\nUse Right Stick to Change Position\nPress Bomb Button When Done");
+    hints::bar({
+        { "LETTER", "W A S D", "L STICK" },
+        { "POSITION", "ARROW KEYS", "R STICK" },
+        { "DONE", "SPACE", "A / RT" },
+    }, -0.62f);
 }
 
 void highscore::drawTable()
