@@ -8,6 +8,8 @@ This repository began as an **SDL3** (previously SDL2) port of the original
 [OpenGW project](https://sourceforge.net/projects/opengw/), modernised to
 C++20, and is now developed as **Trigonometry Wars**.
 
+![Trigonometry Wars title screen](assets/images/screenshots/title.png)
+
 The renderer has been modernised to **OpenGL 3.3 core profile**: the legacy
 fixed-function pipeline (`glBegin`/`glEnd`, GLU, CPU blur read-back) has been
 replaced by a small shader/VAO/VBO backend (`src/render/gl3.{h,cpp}`) and the
@@ -43,6 +45,17 @@ device (window/layer, resize, vsync, frame submission).
   screen): fullscreen, window resolution, glow/bloom, per-system smoothing and
   vsync — saved to `settings.cfg`
 - Cross-platform: macOS, Linux, Windows (MSVC) and AmigaOS 4
+
+## Screenshots
+
+| Weapons | Enemies & gravity |
+| --- | --- |
+| ![Laser fire and particle explosions filling the arena](assets/images/screenshots/gameplay-laser.png) | ![Homing missiles arcing toward enemies through a curved grid](assets/images/screenshots/gameplay-homing.png) |
+| ![A piercing beam weapon cutting across the arena](assets/images/screenshots/gameplay-beam.png) | ![Gravity wells and black holes bending the play-field grid](assets/images/screenshots/gameplay-gravity-well.png) |
+
+*Captured in-game: laser volleys and impact bursts, a homing-missile swarm
+closing on a target, the piercing beam weapon, and gravity wells warping the
+whole grid.*
 
 ## Dependencies
 
@@ -187,7 +200,8 @@ src/
   math/      vectors/matrices, math helpers, shared constants
   vendor/    lodepng (third-party PNG codec)
 assets/
-  images/    runtime images (marquee, icon)
+  images/    runtime images (marquee, icon); screenshots/ holds the in-game
+             captures used by README.md
   sounds/    runtime sounds (.wav)
 tools/
   classicalcfg_check.cpp      standalone classical.cfg loader check
