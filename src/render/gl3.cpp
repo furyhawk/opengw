@@ -94,6 +94,7 @@ struct GLProcs
     PFNGLCLEAR pClear { nullptr };
     PFNGLVIEWPORT pViewport { nullptr };
     PFNGLGETINTEGERV pGetIntegerv { nullptr };
+    PFNGLREADPIXELS pReadPixels { nullptr };
     PFNGLGENVERTEXARRAYS pGenVertexArrays { nullptr };
     PFNGLDELETEVERTEXARRAYS pDeleteVertexArrays { nullptr };
     PFNGLBINDVERTEXARRAY pBindVertexArray { nullptr };
@@ -841,6 +842,16 @@ void gfx_blendfunc(GLenum src, GLenum dst)
         P.pBlendFunc(src, dst);
 }
 
+#ifdef TW_DEBUG
+void gfx_read_pixels(int x, int y, int width, int height, unsigned char* rgba)
+{
+    if (!g_loaded || !rgba || width <= 0 || height <= 0)
+        return;
+    P.pBindFramebuffer(GL_FRAMEBUFFER, 0);
+    P.pReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+}
+#endif
+
 void gfx_clearcolor(GLclampf r, GLclampf g, GLclampf b, GLclampf a)
 {
     if (g_loaded)
@@ -1227,6 +1238,9 @@ void gfx_context_init()
     loadProc(P.pClear, "glClear");
     loadProc(P.pViewport, "glViewport");
     loadProc(P.pGetIntegerv, "glGetIntegerv");
+#ifdef TW_DEBUG
+    loadProc(P.pReadPixels, "glReadPixels");
+#endif
     loadProc(P.pGenVertexArrays, "glGenVertexArrays");
     loadProc(P.pDeleteVertexArrays, "glDeleteVertexArrays");
     loadProc(P.pBindVertexArray, "glBindVertexArray");

@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 
 #include "render/gl3.h"
 
@@ -125,6 +126,25 @@ void player::run()
             }
         }
 
+#ifdef TW_DEBUG
+        // Debug: hands-free fire for frame captures and repro runs.
+        //   TW_AUTOFIRE=<0..3>        hold fire with that weapon equipped
+        //   TW_AUTOFIRE_POWER=<1..5>  pin the equipped weapon's power level
+        static const char* autofireValue = getenv("TW_AUTOFIRE");
+        static const bool autofire = autofireValue != nullptr;
+        static const int autofireWeapon = (autofire && *autofireValue) ? atoi(autofireValue) : 0;
+        static const int autofirePower = getenv("TW_AUTOFIRE_POWER") ? atoi(getenv("TW_AUTOFIRE_POWER")) : 0;
+        static int autofireTick = 0;
+
+        const bool autofireActive = autofire && (mPlayerAssignment == 0);
+        if (autofireActive) {
+            mCurrentWeapon = (autofireWeapon >= 0 && autofireWeapon < WEAPON_COUNT) ? autofireWeapon : 0;
+            if (autofirePower > 0)
+                mWeaponPower[mCurrentWeapon] = std::min(autofirePower, static_cast<int>(WEAPON_POWER_MAX));
+            ++autofireTick;
+        }
+#endif
+
         // Read the trigger
         if (theGame->mGameType == game::GAMETYPE_SINGLEPLAYER) {
             bool trigger = theGame->mControls->getTriggerButton(mPlayerAssignment);
@@ -219,6 +239,13 @@ void player::run()
 
         // Firing
         Point3d rightStick = theGame->mControls->getRightStick(mPlayerAssignment);
+#ifdef TW_DEBUG
+        if (autofireActive) {
+            // Sweep the aim so captures show off the whole weapon pattern.
+            const float aim = autofireTick * 0.012f;
+            rightStick = Point3d(get_cos(aim), get_sin(aim), 0);
+        }
+#endif
         distance = mathutils::calculate2dDistance(Point3d(0, 0, 0), rightStick);
         if (distance > p.playerStickDeadZone) {
             //

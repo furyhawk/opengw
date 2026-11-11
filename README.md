@@ -79,6 +79,7 @@ This repository is currently validated against SDL3 3.4.16.
 ```sh
 make            # build the game (produces ./trigwars)
 make run        # build and run
+make capture    # debug build + save one rendered frame as capture.png
 make clean      # remove build objects and the binary
 make help       # show available targets
 
@@ -166,6 +167,61 @@ include/library path).
 ### AmigaOS 4
 
 Use `makefile.os4`.
+
+### Debug builds and frame capture
+
+`make DEBUG=1` builds `./trigwars-debug` (in its own `obj-debug/` tree) with
+the `TW_DEBUG` diagnostics compiled in: per-second timing logs on stderr,
+renderer counters, and the `TW_*` environment variables below for reproducing
+and capturing what you see. Release builds carry none of it.
+
+```sh
+make DEBUG=1
+./trigwars-debug                         # timing logs on stderr
+
+# Jump straight into a match / kill the player for repro:
+TW_FORCE_MATCH=1 TW_MODE_INDEX=1 ./trigwars-debug
+TW_SEED=12345 TW_FORCE_DEATH=1 ./trigwars-debug
+
+# Hands-free firing for gameplay captures (weapon 3 = laser, power 5):
+TW_FORCE_MATCH=1 TW_AUTOFIRE=3 TW_AUTOFIRE_POWER=5 ./trigwars-debug
+```
+
+`TW_CAPTURE=<file.png>` renders a frame to a PNG and exits (OpenGL backend
+only). The README screenshots are produced with it:
+
+```sh
+# title screen
+TW_CAPTURE=/tmp/title.png TW_CAPTURE_START=150 ./trigwars-debug
+
+# a burst of gameplay frames (shot_0300.png, shot_0360.png, ...)
+TW_FORCE_MATCH=1 TW_AUTOFIRE=2 \
+  TW_CAPTURE=/tmp/shot.png TW_CAPTURE_START=300 \
+  TW_CAPTURE_EVERY=60 TW_CAPTURE_COUNT=5 ./trigwars-debug
+```
+
+`make capture` is a shortcut for the first case:
+`make capture CAPTURE_START=150 CAPTURE_PATH=/tmp/title.png`.
+
+| Variable | Meaning |
+| --- | --- |
+| `TW_SEED=<n>` | fixed RNG seed, for repeatable runs |
+| `TW_FORCE_MATCH=1` | leave attract mode and start a match after ~2 s |
+| `TW_MODE_INDEX=<n>` | gameplay mode index used with `TW_FORCE_MATCH` |
+| `TW_FORCE_DEATH=1` | destroy player 1 after ~3 s of play |
+| `TW_AUTOFIRE=<0..3>` | player 1 holds the trigger with that weapon equipped |
+| `TW_AUTOFIRE_POWER=<1..5>` | pins that weapon's power level |
+| `TW_CAPTURE=<file.png>` | capture a frame to PNG, then exit |
+| `TW_CAPTURE_START=<n>` | frame number of the first capture (default 60) |
+| `TW_CAPTURE_EVERY=<n>` | capture again every n frames (default: one shot) |
+| `TW_CAPTURE_COUNT=<n>` | number of shots to write (default 1, 0 = until quit) |
+| `TW_SKIP_GLOW=1` | bgfx backend: skip the whole bloom pass (isolate its cost) |
+| `TW_SKIP_BLUR=1` | bgfx backend: skip the Gaussian blur stage |
+| `TW_SKIP_COMPOSITE=1` | bgfx backend: skip compositing the glow back in |
+
+The startup smoke test is also available in release builds:
+`TW_SMOKETEST=1 ./trigwars` renders a few frames and exits (`make smoke` wraps
+that, using `xvfb-run` on headless Linux).
 
 ## Controls
 

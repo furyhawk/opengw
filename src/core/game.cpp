@@ -200,6 +200,24 @@ void game::run()
         mCredits = 4;
     }
 
+#ifdef TW_DEBUG
+    // Debug: TW_FORCE_MATCH=1 starts a single-player match after ~2 s from
+    // attract or the title menu; TW_MODE_INDEX picks the gameplay mode.
+    {
+        static const bool force = getenv("TW_FORCE_MATCH") != nullptr;
+        static int frames = 0;
+        if (force && (mGameMode == GAMEMODE_ATTRACT || mGameMode == GAMEMODE_CREDITED)) {
+            if (++frames == 120) {
+                if (getenv("TW_MODE_INDEX"))
+                    mModeIndex = atoi(getenv("TW_MODE_INDEX"));
+                getPlayer1()->mJoined = true;
+                mMenuScreen = MENU_NONE;
+                startGame(GAMETYPE_SINGLEPLAYER);
+            }
+        }
+    }
+#endif
+
     // ---- Pause: opening the pause menu during a match ---------------------
     if ((mGameMode == GAMEMODE_PLAYING) && (mMenuScreen == MENU_NONE)) {
         static bool pauseLast = false;
@@ -241,18 +259,6 @@ void game::run()
     switch (mGameMode) {
     case GAMEMODE_ATTRACT:
     {
-#ifdef TW_DEBUG
-        // TEMP: TW_FORCE_MATCH=1 starts a match after ~2s for reproduction.
-        {
-            static const bool force = getenv("TW_FORCE_MATCH") != nullptr;
-            static int frames = 0;
-            if (force && ++frames == 120) {
-                if (getenv("TW_MODE_INDEX")) mModeIndex = atoi(getenv("TW_MODE_INDEX"));
-                startGame(GAMETYPE_SINGLEPLAYER);
-                break;
-            }
-        }
-#endif
         if (mCredits > 0) {
             mGameMode = GAMEMODE_CREDITED;
             mDebounce = true;
@@ -273,7 +279,7 @@ void game::run()
     case GAMEMODE_PLAYING:
     {
 #ifdef TW_DEBUG
-        // TEMP: TW_FORCE_DEATH=1 kills the player after ~3s of play.
+        // Debug: TW_FORCE_DEATH=1 kills the player after ~3s of play.
         {
             static const bool forceDeath = getenv("TW_FORCE_DEATH") != nullptr;
             static int playingFrames = 0;

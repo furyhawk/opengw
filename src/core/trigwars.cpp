@@ -6,12 +6,15 @@
 #include "render/gl3.h"
 #include "render/bgfx_bridge.hpp"
 #include "math/sincos.hpp"
+#include "vendor/lodepng.h"
 
 #include <SDL3/SDL.h>
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <memory>
+#include <vector>
 
 static SDL_Window* window;
 static SDL_GLContext context;
@@ -122,7 +125,11 @@ int main(int /*argc*/, char** /*argv*/)
 
     if (window) {
 #ifdef TW_DEBUG
-        // TEMP: TW_SEED=<n> reproduces a run with a fixed RNG seed.
+#if defined(USE_BGFX_RENDERER)
+        if (getenv("TW_CAPTURE"))
+            printf("TW_CAPTURE: frame capture needs the OpenGL backend; ignored in bgfx builds\n");
+#endif
+        // Debug: TW_SEED=<n> reproduces a run with a fixed RNG seed.
         srand(getenv("TW_SEED") ? atoi(getenv("TW_SEED")) : SDL_GetTicks());
 #else
         srand(SDL_GetTicks());
@@ -367,6 +374,99 @@ static void applySettingsToWindow()
     }
 }
 
+#if defined(TW_DEBUG) && !defined(USE_BGFX_RENDERER)
+// ---- Debug frame capture --------------------------------------------------
+// TW_CAPTURE=<file.png>     write rendered frames to a PNG and quit
+// TW_CAPTURE_START=<frame>  frame number of the first capture (default 60)
+// TW_CAPTURE_EVERY=<n>      capture every n frames after the first
+//                           (0 = a single shot)
+// TW_CAPTURE_COUNT=<n>      shots to write (default 1, 0 = until you quit)
+//
+// Used to produce the README screenshots and to check visual changes; see
+// "Debug builds and frame capture" in README.md. OpenGL backend only, because
+// it reads the frame back with glReadPixels.
+static int captureEnvInt(const char* name, int fallback)
+{
+    const char* value = getenv(name);
+    return (value && *value) ? atoi(value) : fallback;
+}
+
+static void writeCapturePng(const char* path, int frame, bool numbered)
+{
+    const int w = mWidth;
+    const int h = mHeight;
+    if (w <= 0 || h <= 0)
+        return;
+
+    std::vector<unsigned char> pixels(static_cast<size_t>(w) * h * 4);
+    gfx_read_pixels(0, 0, w, h, pixels.data());
+
+    // GL reads bottom-up; flip to PNG's top-down order and force opaque alpha.
+    std::vector<unsigned char> rgba(pixels.size());
+    for (int y = 0; y < h; ++y) {
+        memcpy(&rgba[static_cast<size_t>(y) * w * 4],
+               &pixels[static_cast<size_t>(h - 1 - y) * w * 4],
+               static_cast<size_t>(w) * 4);
+        for (int x = 0; x < w; ++x)
+            rgba[(static_cast<size_t>(y) * w + x) * 4 + 3] = 255;
+    }
+
+    // A sequence of shots gets the frame number before the extension.
+    char file[512];
+    const char* dot = strrchr(path, '.');
+    if (numbered && dot && !strchr(dot, '/'))
+        snprintf(file, sizeof(file), "%.*s_%04d%s", static_cast<int>(dot - path), path, frame, dot);
+    else if (numbered)
+        snprintf(file, sizeof(file), "%s_%04d", path, frame);
+    else
+        snprintf(file, sizeof(file), "%s", path);
+
+    const unsigned error = lodepng::encode(file, rgba, w, h);
+    if (error != 0) {
+        printf("TW_CAPTURE: could not write %s: %s\n", file, lodepng_error_text(error));
+        return;
+    }
+    printf("TW_CAPTURE: wrote %s (%dx%d)\n", file, w, h);
+}
+
+static void captureFrameIfRequested()
+{
+    static const char* path = getenv("TW_CAPTURE");
+    if (!path || !*path)
+        return;
+
+    const int requestedStart = captureEnvInt("TW_CAPTURE_START", 60);
+    static const int start = requestedStart > 0 ? requestedStart : 60;
+    static const int every = captureEnvInt("TW_CAPTURE_EVERY", 0);
+    static const int count = captureEnvInt("TW_CAPTURE_COUNT", 1);
+    static int frame = 0;
+
+    ++frame;
+
+    if (every <= 0) {
+        if (frame != start)
+            return;
+        writeCapturePng(path, frame, false);
+        fflush(stdout);
+        std::_Exit(0);
+    }
+
+    if (frame < start || (frame - start) % every != 0)
+        return;
+
+    const int shot = (frame - start) / every;
+    if (count > 0 && shot >= count)
+        return;
+
+    writeCapturePng(path, frame, true);
+
+    if (count > 0 && shot + 1 >= count) {
+        fflush(stdout);
+        std::_Exit(0);
+    }
+}
+#endif
+
 static void drawOffscreens()
 {
     // Ensure we're drawing to the default framebuffer, the viewport covers
@@ -406,7 +506,7 @@ static void drawOffscreens()
 }
 
 #ifdef TW_DEBUG
-// TEMP diagnostic accumulators.
+// Debug diagnostic accumulators (see README.md).
 static double drawMs = 0.0;
 static double logicMs = 0.0;
 static double presentMs = 0.0;
@@ -431,8 +531,8 @@ static void updateFps(Uint32 now)
         frameCount = 0;
 
 #ifdef TW_DEBUG
-        // TEMP diagnostic: frame rate and where the time goes.
-        fprintf(stderr, "temp: fps=%d  draw=%.2fms  logic=%.2fms  present=%.2fms  (%d frames)\n",
+        // debug diagnostic: frame rate and where the time goes.
+        fprintf(stderr, "debug: fps=%d  draw=%.2fms  logic=%.2fms  present=%.2fms  (%d frames)\n",
                 fps, drawMs / (framesMeasured ? framesMeasured : 1),
                 logicMs / (framesMeasured ? framesMeasured : 1),
                 presentMs / (framesMeasured ? framesMeasured : 1), framesMeasured);
@@ -474,11 +574,11 @@ static void run()
             }
 
 #ifdef TW_DEBUG
-            const double t0 = nowMs(); // TEMP
+            const double t0 = nowMs();
 #endif
             oglScene->run();
 #ifdef TW_DEBUG
-            logicMs += nowMs() - t0; // TEMP
+            logicMs += nowMs() - t0;
 #endif
 
             // The front-end menus (pause menu / title menu) can request a
@@ -495,16 +595,19 @@ static void run()
 
         {
 #ifdef TW_DEBUG
-            const double t0 = nowMs(); // TEMP
+            const double t0 = nowMs();
 #endif
             drawOffscreens();
 #ifdef TW_DEBUG
-            drawMs += nowMs() - t0; // TEMP
+#if !defined(USE_BGFX_RENDERER)
+            captureFrameIfRequested();
+#endif
+            drawMs += nowMs() - t0;
 #endif
         }
 
 #ifdef TW_DEBUG
-        const double t1 = nowMs(); // TEMP
+        const double t1 = nowMs();
 #endif
 #if defined(USE_BGFX_RENDERER)
         // bgfx owns presentation: submit the frame it built above.
@@ -514,8 +617,8 @@ static void run()
         SDL_GL_SwapWindow(window);
 #endif
 #ifdef TW_DEBUG
-        presentMs += nowMs() - t1; // TEMP
-        ++framesMeasured;          // TEMP
+        presentMs += nowMs() - t1;
+        ++framesMeasured;         
 #endif
         updateFps(now);
 

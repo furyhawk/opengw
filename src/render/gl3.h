@@ -282,6 +282,12 @@ void gfx_glow_size(int* width, int* height);
 // True once the backend is fully initialised (GL entry points + shaders).
 bool gfx_healthy();
 
+#ifdef TW_DEBUG
+// Read back the default framebuffer as bottom-up RGBA (debug frame capture).
+// Only implemented by the OpenGL backend; see TW_CAPTURE in README.md.
+void gfx_read_pixels(int x, int y, int width, int height, unsigned char* rgba);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

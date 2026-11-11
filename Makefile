@@ -33,9 +33,10 @@ PKG_CONFIG ?= pkg-config
 CXXFLAGS := -std=c++20 -Wall -Wextra -O3 -ggdb
 CPPFLAGS := -Isrc
 
-# Debug builds compile in the TEMP diagnostics (the TW_DEBUG guards in
-# src/render/bgfx_backend.cpp, src/core/trigwars.cpp and src/core/game.cpp:
-# frame timing, draw/submission counters, the TW_* reproduction env vars).
+# Debug builds compile in the diagnostics (the TW_DEBUG guards in
+# src/render/bgfx_backend.cpp, src/core/trigwars.cpp, src/core/game.cpp and
+# src/entities/player.cpp: frame timing, draw/submission counters, frame
+# capture and the TW_* reproduction env vars -- see README.md).
 # Release builds carry none of them.  Like USE_BGFX the define changes the
 # compiled result, so a debug build gets its own object tree *and* binary --
 # otherwise `make` after `make DEBUG=1` would keep the instrumentation (or the
@@ -186,7 +187,8 @@ help:
 	@echo "  make run-bgfx - build and run with the bgfx renderer enabled"
 	@echo "  make clean    - remove build objects and the binaries"
 	@echo "  make bgfx-env - show the detected bgfx paths/flags"
-	@echo "  make DEBUG=1  - build (also USE_BGFX=1) with the TEMP diagnostics compiled in"
+	@echo "  make DEBUG=1  - build (also USE_BGFX=1) with the debug diagnostics compiled in"
+	@echo "  make capture  - debug build: save one rendered frame to CAPTURE_PATH"
 	@echo "  make help     - show this help text"
 
 run: $(NAME)
@@ -198,6 +200,19 @@ smoke: $(NAME)
 		xvfb-run -a env TW_SMOKETEST=1 ./$(NAME); \
 	else \
 		env TW_SMOKETEST=1 ./$(NAME); \
+	fi
+
+# Capture one rendered frame from a debug build (title screen by default).
+#   make capture CAPTURE_START=150 CAPTURE_PATH=/tmp/title.png
+CAPTURE_PATH  ?= capture.png
+CAPTURE_START ?= 120
+capture:
+	$(MAKE) DEBUG=1 all
+	@echo "Capturing frame $(CAPTURE_START) to $(CAPTURE_PATH)"
+	@if [ "$(UNAME_S)" = "Linux" ] && command -v xvfb-run >/dev/null 2>&1; then \
+		xvfb-run -a env TW_CAPTURE=$(CAPTURE_PATH) TW_CAPTURE_START=$(CAPTURE_START) ./trigwars-debug; \
+	else \
+		env TW_CAPTURE=$(CAPTURE_PATH) TW_CAPTURE_START=$(CAPTURE_START) ./trigwars-debug; \
 	fi
 
 bgfx:
@@ -244,4 +259,4 @@ ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)
 endif
 
-.PHONY: all help bgfx-env run smoke bgfx run-bgfx clean
+.PHONY: all help bgfx-env run smoke capture bgfx run-bgfx clean

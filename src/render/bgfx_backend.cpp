@@ -1809,7 +1809,7 @@ void gfx_resize(int width, int height)
 void gfx_glow_bind()
 {
 #ifdef TW_DEBUG
-    if (getenv("TW_SKIP_GLOW")) return; // TEMP
+    if (getenv("TW_SKIP_GLOW")) return; // debug
 #endif
     if (!g_loaded)
         return;
@@ -1822,7 +1822,7 @@ void gfx_glow_bind()
 void gfx_glow_unbind()
 {
 #ifdef TW_DEBUG
-    if (getenv("TW_SKIP_GLOW")) return; // TEMP
+    if (getenv("TW_SKIP_GLOW")) return; // debug
 #endif
     if (!g_loaded)
         return;
@@ -1835,7 +1835,7 @@ void gfx_glow_unbind()
 void gfx_blur_glow()
 {
 #ifdef TW_DEBUG
-    if (getenv("TW_SKIP_BLUR")) return; // TEMP
+    if (getenv("TW_SKIP_BLUR")) return; // debug
 #endif
     if (!g_loaded || !bgfx::isValid(g_fbGlow) || !bgfx::isValid(g_fbPing))
         return;
@@ -1861,7 +1861,7 @@ void gfx_blur_glow()
 void gfx_draw_blurred_glow(float alpha)
 {
 #ifdef TW_DEBUG
-    if (getenv("TW_SKIP_COMPOSITE")) return; // TEMP
+    if (getenv("TW_SKIP_COMPOSITE")) return; // debug
 #endif
     if (!g_loaded || !bgfx::isValid(g_fbGlow))
         return;
