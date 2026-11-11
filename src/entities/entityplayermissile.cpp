@@ -6,12 +6,84 @@
 #include "entities/entityrepulsor.hpp"
 #include "core/game.hpp"
 #include "render/grid.hpp"
+#include "render/scene.hpp"
 #include "entities/particle.hpp"
 #include "entities/players.hpp"
 
 #include "render/gl3.h"
 
 #include <cmath>
+
+namespace
+{
+constexpr float kTwoPi = 2.0f * PI;
+constexpr int kLaunchFlashFrames = 9;
+
+float clamp01(float value)
+{
+    if (value < 0.0f)
+        return 0.0f;
+    if (value > 1.0f)
+        return 1.0f;
+    return value;
+}
+
+Point3d normalize2d(const Point3d& v, const Point3d& fallback)
+{
+    const float len = mathutils::calculate2dDistance(Point3d(0, 0, 0), v);
+    if (len < 0.0001f)
+        return fallback;
+    return Point3d(v.x / len, v.y / len, 0.0f);
+}
+
+// Additive radial glow: hot centre fading to a transparent rim. Cheap enough
+// to use for muzzle flashes and beam heads (one triangle fan each).
+void drawGlowOrb(float x, float y, float radius, float r, float g, float b, float alpha)
+{
+    if ((alpha <= 0.002f) || (radius <= 0.0f))
+        return;
+
+    constexpr int kSegments = 16;
+    glBegin(GL_TRIANGLE_FAN);
+    glColor4f(r, g, b, clamp01(alpha));
+    glVertex3f(x, y, 0.0f);
+    glColor4f(r, g, b, 0.0f);
+    for (int i = 0; i <= kSegments; ++i) {
+        const float a = (kTwoPi * i) / kSegments;
+        glVertex3f(x + (std::cos(a) * radius), y + (std::sin(a) * radius), 0.0f);
+    }
+    glEnd();
+}
+
+// One tapered streak segment. The per-vertex alpha makes a beam or exhaust
+// plume fade smoothly instead of ending in a hard edge.
+void drawTaperedSegment(const Point3d& from, const Point3d& to, float width, const vector::pen& pen, float aFrom, float aTo)
+{
+    glLineWidth(width);
+    glBegin(GL_LINES);
+    glColor4f(pen.r, pen.g, pen.b, clamp01(aFrom));
+    glVertex3f(from.x, from.y, 0.0f);
+    glColor4f(pen.r, pen.g, pen.b, clamp01(aTo));
+    glVertex3f(to.x, to.y, 0.0f);
+    glEnd();
+}
+
+void drawRing(float x, float y, float radius, const vector::pen& pen, float alpha)
+{
+    if (alpha <= 0.002f)
+        return;
+
+    constexpr int kSegments = 20;
+    glLineWidth(2.0f);
+    glBegin(GL_LINE_LOOP);
+    glColor4f(pen.r, pen.g, pen.b, clamp01(alpha));
+    for (int i = 0; i < kSegments; ++i) {
+        const float a = (kTwoPi * i) / kSegments;
+        glVertex3f(x + (std::cos(a) * radius), y + (std::sin(a) * radius), 0.0f);
+    }
+    glEnd();
+}
+} // namespace
 
 entityPlayerMissile::entityPlayerMissile()
     : entity()
@@ -172,6 +244,20 @@ void entityPlayerMissile::run()
 
     mDrift *= .95;
 
+    ++mAnimTick;
+    if (mFlashTimer > 0)
+        --mFlashTimer;
+
+    if ((mState == ENTITY_STATE_RUNNING) && (mType != 3)) {
+        // A short, throttled particle trail on top of the procedural plume.
+        // Beams are drawn as a single continuous streak instead: particles
+        // left behind by a fast-moving bolt read as beads, not as light.
+        const int trailInterval = (mType == 4) ? 5 : 6;
+        if ((mAnimTick % trailInterval) == 0) {
+            emitExhaustParticle();
+        }
+    }
+
     if (this->getEnabled()) {
         // Hit test 10 interpolated positions against enemies
         bool hit = false;
@@ -189,6 +275,9 @@ void entityPlayerMissile::run()
                     setState(ENTITY_STATE_DESTROY_TRANSITION);
                 }
                 enemy->hit(this);
+
+                // Sparks at the impact point give the hit immediate feedback.
+                emitImpactSparks(pos, (mType == 3) ? 3 : 5);
             }
         }
 
@@ -239,6 +328,12 @@ void entityPlayerMissile::spawnTransition()
     spawn();
     setState(ENTITY_STATE_RUNNING);
     mRotationRate = 0;
+
+    // Reset the per-shot visual state and kick off the launch flash.
+    mAnimTick = 0;
+    mFlashTimer = kLaunchFlashFrames;
+    syncPenFromPlayer();
+
     run();
 }
 
@@ -249,180 +344,317 @@ void entityPlayerMissile::destroyTransition()
 
     setState(ENTITY_STATE_INACTIVE); // kill it off immediately
     mLife = 0;                       // no leftover life when the slot is reused
+    mFlashTimer = 0;
 
     // Throw out a denser, brighter burst so weapon impacts feel snappy.
     Point3d pos(this->mPos);
     Point3d angle(0, 0, 0);
+    float spread = kTwoPi;
+
     float speed = 3.0f;
-    float spread = 2 * PI;
     int num = 26;
     int timeToLive = 220;
+
+    // Beams are pure energy: a fast, short-lived flash. Homing missiles carry
+    // more fuel, so they get a slightly bigger and longer-lived fireball.
+    if (mType == 3) {
+        speed = 4.6f;
+        num = 18;
+        timeToLive = 130;
+    } else if (mType == 4) {
+        speed = 3.4f;
+        num = 30;
+        timeToLive = 240;
+    }
+
     vector::pen pen = mPen;
     pen.lineRadius = 6;
     pen.a = .85f;
     theGame->mParticles->emitter(&pos, &angle, speed, spread, num, &pen, timeToLive);
+
+    // White-hot core flash on top of the coloured debris.
+    vector::pen core(1.0f, 0.94f, 0.78f, 9.0f, 5.0f);
+    theGame->mParticles->emitter(&pos, &angle, speed * 1.8f, spread, 8, &core, timeToLive / 2, false, false, .90f, true);
+}
+
+void entityPlayerMissile::syncPenFromPlayer()
+{
+    switch (mPlayerSource) {
+    case 0:
+        mPen = theGame->getPlayer1()->getMissilesPen();
+        break;
+    case 1:
+        mPen = theGame->getPlayer2()->getMissilesPen();
+        break;
+    case 2:
+        mPen = theGame->getPlayer3()->getMissilesPen();
+        break;
+    case 3:
+        mPen = theGame->getPlayer4()->getMissilesPen();
+        break;
+    default:
+        break;
+    }
+}
+
+void entityPlayerMissile::emitExhaustParticle()
+{
+    if (!theGame->mParticles)
+        return;
+
+    const Point3d dir = normalize2d(mSpeed, Point3d(1, 0, 0));
+    Point3d pos = mPos - (dir * 1.6f);
+
+    vector::pen pen = mPen;
+    float spread = 0.3f;
+    float speed = 0.35f;
+
+    int timeToLive = 24;
+    float drag = .84f;
+
+    if (mType == 4) {
+        pen = vector::pen(1.0f, 0.62f, 0.22f, 2.0f, 4.0f);
+        spread = 0.25f;
+        timeToLive = 32;
+        drag = .86f;
+    } else {
+        pen.a = 1.6f;
+        pen.lineRadius = 3.0f;
+    }
+
+    Point3d angle(mathutils::calculate2dAngle(Point3d(0, 0, 0), mSpeed) + PI);
+    theGame->mParticles->emitter(&pos, &angle, speed, spread, 1, &pen, timeToLive, false, false, drag, true);
+}
+
+void entityPlayerMissile::emitImpactSparks(const Point3d& pos, int count)
+{
+    if (!theGame->mParticles)
+        return;
+
+    Point3d center(pos);
+    Point3d angle(0, 0, 0);
+
+    // White-hot sparks thrown straight out of the hit point.
+    vector::pen spark(1.0f, 0.95f, 0.78f, 7.0f, 4.0f);
+    theGame->mParticles->emitter(&center, &angle, 3.4f, kTwoPi, count, &spark, 70, false, false, .88f, true);
+
+    // A couple of the weapon's own colour for team identity.
+    vector::pen tint = mPen;
+    tint.a = 4.5f;
+    tint.lineRadius = 3.0f;
+    theGame->mParticles->emitter(&center, &angle, 2.4f, kTwoPi, 2, &tint, 55, false, false, .90f, true);
+}
+
+void entityPlayerMissile::drawLaunchFlash()
+{
+    if (mFlashTimer <= 0)
+        return;
+
+    const float progress = clamp01(1.0f - (static_cast<float>(mFlashTimer) / kLaunchFlashFrames));
+    const float fade = 1.0f - progress;
+    const float radius = 0.8f + (3.2f * progress);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+    drawGlowOrb(mPos.x, mPos.y, radius * 0.6f, 1.0f, 1.0f, 1.0f, 0.40f * fade);
+    drawGlowOrb(mPos.x, mPos.y, radius, mPen.r, mPen.g, mPen.b, 0.20f * fade);
+    drawRing(mPos.x, mPos.y, radius * 1.25f, mPen, 0.35f * fade);
 }
 
 void entityPlayerMissile::draw()
 {
-    if (getState() == entity::ENTITY_STATE_RUNNING) {
-        // Set the proper color for the player
-        switch (mPlayerSource) {
-        case 0:
-            mPen = theGame->getPlayer1()->getMissilesPen();
-            break;
-        case 1:
-            mPen = theGame->getPlayer2()->getMissilesPen();
-            break;
-        case 2:
-            mPen = theGame->getPlayer3()->getMissilesPen();
-            break;
-        case 3:
-            mPen = theGame->getPlayer4()->getMissilesPen();
-            break;
-        }
+    if (getState() != entity::ENTITY_STATE_RUNNING)
+        return;
 
-        if (mType == 3) {
-            // Laser: a bright glowing streak aimed along our velocity, with a
-            // hot white core and a wide coloured glow (additive blending).
-            Point3d dir = mSpeed;
-            float len = mathutils::calculate2dDistance(Point3d(0, 0, 0), dir);
-            if (len > 0.0001f) {
-                dir.x /= len;
-                dir.y /= len;
-            } else {
-                dir = Point3d(1, 0, 0);
-            }
+    syncPenFromPlayer();
 
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    switch (mType) {
+    case 3:
+        drawLaser();
+        break;
+    case 4:
+        drawHomingMissile();
+        break;
+    default:
+        drawStandardMissile();
+        break;
+    }
 
-            Point3d tip = mPos;
-            Point3d tail = Point3d(tip.x - (dir.x * 24), tip.y - (dir.y * 24), 0);
-            Point3d mid = Point3d(tip.x - (dir.x * 15), tip.y - (dir.y * 15), 0);
-            Point3d core = Point3d(tip.x - (dir.x * 7), tip.y - (dir.y * 7), 0);
+    drawLaunchFlash();
+}
 
-            // Outer glow
-            glLineWidth(11);
-            glColor4f(mPen.r, mPen.g, mPen.b, 0.20f);
-            glBegin(GL_LINES);
-            glVertex3f(tail.x, tail.y, 0);
-            glVertex3f(tip.x, tip.y, 0);
-            glEnd();
+void entityPlayerMissile::drawLaser()
+{
+    const Point3d dir = normalize2d(mSpeed, Point3d(1, 0, 0));
+    const Point3d perp(-dir.y, dir.x, 0.0f);
 
-            // Mid glow
-            glLineWidth(6);
-            glColor4f(mPen.r, mPen.g, mPen.b, 0.55f);
-            glBegin(GL_LINES);
-            glVertex3f(mid.x, mid.y, 0);
-            glVertex3f(tip.x, tip.y, 0);
-            glEnd();
+    // Energy pulse/flicker driven by the logic frame counter so both render
+    // passes stay in sync.
+    const float pulse = 0.92f + (0.08f * std::sin(mAnimTick * 0.55f));
+    const float flicker = 0.85f + (0.15f * std::sin((mAnimTick * 1.7f) + 0.9f));
+    const float passBoost = (scene::mPass == scene::RENDERPASS_BLUR) ? 2.0f : 1.0f;
 
-            // Hot white core
-            glLineWidth(2);
-            glColor4f(1.0f, 1.0f, 1.0f, 0.95f);
-            glBegin(GL_LINES);
-            glVertex3f(core.x, core.y, 0);
-            glVertex3f(tip.x, tip.y, 0);
-            glEnd();
+    constexpr float kLength = 30.0f;
+    const Point3d tip = mPos;
+    const Point3d tail = tip - (dir * kLength);
+    const Point3d mid = tip - (dir * (kLength * 0.55f));
+    const Point3d coreStart = tip - (dir * (kLength * 0.78f));
 
-            // Bright tip
-            glPointSize(6);
-            glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-            glBegin(GL_POINTS);
-            glVertex3f(tip.x, tip.y, 0);
-            glEnd();
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
-            return;
-        }
+    // Wide colour halo: invisible at the tail, brightest at the bolt head.
+    drawTaperedSegment(tail, mid, 14.0f * pulse * passBoost, mPen, 0.0f, 0.09f);
+    drawTaperedSegment(mid, tip, 14.0f * pulse * passBoost, mPen, 0.09f, 0.18f);
 
-        if (mType == 4) {
-            // Homing missile: a little rocket with a flickering amber flame
-            // behind it, then the usual missile body on top.
-            Point3d fwd = mSpeed;
-            const float fwdLen = mathutils::calculate2dDistance(Point3d(0, 0, 0), fwd);
-            if (fwdLen > 0.001f) {
-                fwd.x /= fwdLen;
-                fwd.y /= fwdLen;
+    // Inner glow.
+    drawTaperedSegment(tail, mid, 6.0f * passBoost, mPen, 0.0f, 0.26f);
+    drawTaperedSegment(mid, tip, 6.0f * passBoost, mPen, 0.26f, 0.55f);
 
-                glEnable(GL_BLEND);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    // White-hot core, only over the forward part of the beam.
+    const vector::pen white(1.0f, 1.0f, 1.0f, 1.0f, 0.0f);
+    drawTaperedSegment(coreStart, mid, 2.4f, white, 0.0f, 0.70f);
+    drawTaperedSegment(mid, tip, 2.4f, white, 0.70f, 1.0f);
 
-                const float x = mPos.x;
-                const float y = mPos.y;
+    // Scrolling energy ticks running down the beam sell its speed.
+    glLineWidth(1.6f);
+    glBegin(GL_LINES);
+    const float scroll = std::fmod(mAnimTick * 2.2f, 7.0f);
+    for (int i = 0; i < 4; ++i) {
+        const float behind = scroll + (i * 7.0f);
+        if (behind > kLength)
+            continue;
 
-                // Amber exhaust flame
-                glLineWidth(3);
-                glColor4f(1.0f, 0.55f, 0.15f, 0.8f);
-                glBegin(GL_LINES);
-                glVertex3f(x - fwd.x * 1.2f, y - fwd.y * 1.2f, 0);
-                glVertex3f(x - fwd.x * 5.5f, y - fwd.y * 5.5f, 0);
-                glEnd();
+        const float fade = 1.0f - (behind / kLength);
+        const Point3d p = tip - (dir * behind);
+        const float half = 0.9f + (0.5f * fade);
 
-                // Hot white core
-                glLineWidth(1.5f);
-                glColor4f(1.0f, 1.0f, 1.0f, 0.9f);
-                glBegin(GL_LINES);
-                glVertex3f(x - fwd.x * 1.0f, y - fwd.y * 1.0f, 0);
-                glVertex3f(x - fwd.x * 3.2f, y - fwd.y * 3.2f, 0);
-                glEnd();
-            }
+        glColor4f(1.0f, 1.0f, 1.0f, 0.55f * fade);
+        glVertex3f(p.x + (perp.x * half), p.y + (perp.y * half), 0.0f);
+        glColor4f(mPen.r, mPen.g, mPen.b, 0.35f * fade);
+        glVertex3f(p.x - (perp.x * half), p.y - (perp.y * half), 0.0f);
+    }
+    glEnd();
 
-            mPen.lineRadius = 12;
-            entity::draw();
-            return;
-        }
+    // Bright bolt head with a soft coloured bloom around it.
+    drawGlowOrb(tip.x, tip.y, 3.4f * flicker * passBoost, mPen.r, mPen.g, mPen.b, 0.45f);
+    drawGlowOrb(tip.x, tip.y, 1.5f * flicker, 1.0f, 1.0f, 1.0f, 0.95f);
 
-        // Standard weapons: big luminous body, a bright exhaust trail, and a
-        // soft glow to read clearly against the starfield and enemy fire.
-        Point3d dir = mSpeed;
-        const float dirLen = mathutils::calculate2dDistance(Point3d(0, 0, 0), dir);
-        if (dirLen > 0.0001f) {
-            dir.x /= dirLen;
-            dir.y /= dirLen;
-        } else {
-            dir = Point3d(1, 0, 0);
-        }
+    // Little leading-edge star.
+    const Point3d lead = tip + (dir * 0.7f);
+    glLineWidth(1.4f);
+    glBegin(GL_LINES);
+    glColor4f(1.0f, 1.0f, 1.0f, 0.85f);
+    glVertex3f(lead.x + (perp.x * 1.6f), lead.y + (perp.y * 1.6f), 0.0f);
+    glVertex3f(lead.x - (perp.x * 1.6f), lead.y - (perp.y * 1.6f), 0.0f);
+    glVertex3f(lead.x - (dir.x * 1.1f), lead.y - (dir.y * 1.1f), 0.0f);
+    glVertex3f(lead.x + (dir.x * 1.4f), lead.y + (dir.y * 1.4f), 0.0f);
+    glEnd();
+}
 
-        const float pulse = 0.75f + 0.25f * std::sin((mPos.x + mPos.y) * 0.5f + (mPos.x * mPos.y) * 0.03f);
-        const Point3d trailStart = mPos - (dir * 1.7f);
-        const Point3d trailEnd = mPos - (dir * 7.0f);
+void entityPlayerMissile::drawStandardMissile()
+{
+    const Point3d dir = normalize2d(mSpeed, Point3d(1, 0, 0));
+    const Point3d perp(-dir.y, dir.x, 0.0f);
+    const float passBoost = (scene::mPass == scene::RENDERPASS_BLUR) ? 2.0f : 1.0f;
 
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    const float flicker = 0.70f + (0.30f * std::sin(mAnimTick * 1.9f));
+    const float pulse = 0.80f + (0.20f * std::sin((mAnimTick * 0.7f) + 2.0f));
 
-        glLineWidth(10.0f);
-        glColor4f(mPen.r, mPen.g, mPen.b, 0.18f * pulse);
-        glBegin(GL_LINES);
-        glVertex3f(trailEnd.x, trailEnd.y, 0);
-        glVertex3f(trailStart.x, trailStart.y, 0);
-        glEnd();
+    const Point3d nozzle = mPos - (dir * 1.35f);
+    const Point3d plumeTip = nozzle - (dir * (4.5f + (2.5f * flicker))) + (perp * (0.45f * std::sin(mAnimTick * 2.7f)));
 
-        glLineWidth(4.0f);
-        glColor4f(mPen.r * 1.15f, mPen.g * 1.15f, mPen.b * 1.15f, 0.75f);
-        glBegin(GL_LINES);
-        glVertex3f(trailStart.x, trailStart.y, 0);
-        glVertex3f(mPos.x, mPos.y, 0);
-        glEnd();
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
-        glLineWidth(1.5f);
-        glColor4f(1.0f, 1.0f, 1.0f, 0.9f);
-        glBegin(GL_LINES);
-        glVertex3f(mPos.x - dir.x * 1.3f, mPos.y - dir.y * 1.3f, 0);
-        glVertex3f(mPos.x - dir.x * 3.8f, mPos.y - dir.y * 3.8f, 0);
-        glEnd();
+    // Exhaust: a soft colour halo, a tapered outer flame and a hot inner core.
+    drawGlowOrb(nozzle.x, nozzle.y, (1.1f + (0.3f * flicker)) * passBoost, mPen.r, mPen.g, mPen.b, 0.11f * flicker);
+    drawTaperedSegment(nozzle, plumeTip, 7.0f * pulse * passBoost, mPen, 0.40f * flicker, 0.0f);
+    drawTaperedSegment(nozzle, nozzle - (dir * (2.0f + (1.4f * flicker))), 3.0f, vector::pen(1.0f, 0.95f, 0.80f, 1.0f, 0.0f), 0.90f, 0.0f);
 
-        vector::pen glowPen = mPen;
-        glowPen.lineRadius = 18;
-        glowPen.a = 0.25f;
+    // Soft glow silhouette, then the solid body with a white-hot centre line.
+    vector::pen glowPen = mPen;
+    glowPen.lineRadius = 18.0f;
+    glowPen.a = 0.20f * pulse;
 
-        mModel.Identity();
-        mModel.Scale(mScale * 1.55f);
-        mModel.Rotate(mAngle);
-        mModel.Translate(mPos);
-        mModel.draw(glowPen);
+    mModel.Identity();
+    mModel.Scale(mScale * 1.55f);
+    mModel.Rotate(mAngle);
+    mModel.Translate(mPos);
+    mModel.draw(glowPen);
 
-        mPen.lineRadius = 12;
-        entity::draw();
+    vector::pen bodyPen = mPen;
+    bodyPen.r = (mPen.r * 0.7f) + 0.3f;
+    bodyPen.g = (mPen.g * 0.7f) + 0.3f;
+    bodyPen.b = (mPen.b * 0.7f) + 0.3f;
+    bodyPen.a = 1.0f;
+    bodyPen.lineRadius = 8.0f;
+    mPen = bodyPen;
+    entity::draw();
+
+    const Point3d tail = mPos - (dir * 0.9f);
+    const Point3d nose = mPos + (dir * 1.2f);
+    drawTaperedSegment(tail, nose, 1.3f, vector::pen(1.0f, 1.0f, 1.0f, 1.0f, 0.0f), 0.35f, 0.90f);
+
+    // Exhaust sparks tumbling off the plume.
+    glPointSize(2.0f + (1.5f * flicker));
+    glBegin(GL_POINTS);
+    glColor4f(1.0f, 0.85f, 0.55f, 0.70f * flicker);
+    glVertex3f(nozzle.x + (perp.x * 0.5f), nozzle.y + (perp.y * 0.5f), 0.0f);
+    glColor4f(1.0f, 1.0f, 1.0f, 0.50f * flicker);
+    glVertex3f(plumeTip.x - (perp.x * 0.4f), plumeTip.y - (perp.y * 0.4f), 0.0f);
+    glEnd();
+}
+
+void entityPlayerMissile::drawHomingMissile()
+{
+    const Point3d dir = normalize2d(mSpeed, Point3d(1, 0, 0));
+    const Point3d perp(-dir.y, dir.x, 0.0f);
+    const float passBoost = (scene::mPass == scene::RENDERPASS_BLUR) ? 2.0f : 1.0f;
+
+    const float flicker = 0.70f + (0.30f * std::sin(mAnimTick * 2.3f));
+    const Point3d nozzle = mPos - (dir * 1.2f);
+    const Point3d plumeTip = nozzle - (dir * (5.0f + (2.2f * flicker))) + (perp * (0.55f * std::sin(mAnimTick * 3.1f)));
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+    // Smoke haze trailing behind the flame.
+    drawGlowOrb(plumeTip.x, plumeTip.y, (3.0f + (0.8f * flicker)) * passBoost, 0.55f, 0.55f, 0.55f, 0.10f);
+    drawGlowOrb((nozzle.x + plumeTip.x) * 0.5f, (nozzle.y + plumeTip.y) * 0.5f, 2.2f * passBoost, 0.68f, 0.68f, 0.68f, 0.07f);
+
+    // Amber flame with a white-hot core.
+    drawTaperedSegment(nozzle, plumeTip, 4.5f * passBoost, vector::pen(1.0f, 0.55f, 0.15f, 1.0f, 0.0f), 0.80f, 0.0f);
+    drawTaperedSegment(nozzle, nozzle - (dir * (2.6f + (1.2f * flicker))), 1.8f, vector::pen(1.0f, 0.92f, 0.75f, 1.0f, 0.0f), 0.95f, 0.0f);
+    drawGlowOrb(nozzle.x, nozzle.y, 1.0f * flicker * passBoost, 1.0f, 0.60f, 0.20f, 0.30f);
+
+    // Body glow and solid body.
+    vector::pen glowPen = mPen;
+    glowPen.lineRadius = 18.0f;
+    glowPen.a = 0.20f;
+
+    mModel.Identity();
+    mModel.Scale(mScale * 1.55f);
+    mModel.Rotate(mAngle);
+    mModel.Translate(mPos);
+    mModel.draw(glowPen);
+
+    vector::pen bodyPen = mPen;
+    bodyPen.r = (mPen.r * 0.65f) + 0.35f;
+    bodyPen.g = (mPen.g * 0.65f) + 0.35f;
+    bodyPen.b = (mPen.b * 0.65f) + 0.35f;
+    bodyPen.a = 1.0f;
+    bodyPen.lineRadius = 10.0f;
+    mPen = bodyPen;
+    entity::draw();
+
+    // Blinking seeker beacon on the nose.
+    const Point3d nose = mPos + (dir * 1.4f);
+    if ((mAnimTick / 8) & 1) {
+        drawGlowOrb(nose.x, nose.y, 1.4f * passBoost, 1.0f, 0.20f, 0.15f, 0.70f);
+        drawGlowOrb(nose.x, nose.y, 0.55f, 1.0f, 1.0f, 1.0f, 0.95f);
+    } else {
+        drawGlowOrb(nose.x, nose.y, 0.7f, 1.0f, 0.20f, 0.15f, 0.25f);
     }
 }
