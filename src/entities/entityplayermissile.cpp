@@ -54,24 +54,28 @@ void entityPlayerMissile::run()
     // warping so they read as a clean beam.
     if (mType != 3) {
 
-    // Check for repulsors that may effect us
+    // Check for repulsors that may effect us.
     for (int i = 0; i < NUM_ENEMIES; i++) {
-        if ((theGame->mEnemies->mEnemies[i]->getType() == entity::ENTITY_TYPE_REPULSOR) && (theGame->mEnemies->mEnemies[i]->getState() == entity::ENTITY_STATE_RUNNING)) {
-            entityRepulsor* repulsor = static_cast<entityRepulsor*>(theGame->mEnemies->mEnemies[i]);
+        entity* enemy = theGame->mEnemies->mEnemies[i];
+        if ((enemy->getType() == entity::ENTITY_TYPE_REPULSOR) && (enemy->getState() == entity::ENTITY_STATE_RUNNING)) {
+            entityRepulsor* repulsor = static_cast<entityRepulsor*>(enemy);
             if (repulsor) {
                 repulsor->repelEntity(this);
             }
         }
     }
 
-    // Check for black holes that may effect us
+    // Check for black holes that may effect us. Use a squared-distance check to
+    // avoid the expensive sqrt while the missile is still far away.
     bool warped = false;
     for (int i = 0; i < NUM_ENEMIES; i++) {
-        if ((theGame->mEnemies->mEnemies[i]->getType() == entity::ENTITY_TYPE_BLACKHOLE) && (theGame->mEnemies->mEnemies[i]->getState() == entity::ENTITY_STATE_RUNNING)) {
-            entityBlackHole* blackHole = static_cast<entityBlackHole*>(theGame->mEnemies->mEnemies[i]);
+        entity* enemy = theGame->mEnemies->mEnemies[i];
+        if ((enemy->getType() == entity::ENTITY_TYPE_BLACKHOLE) && (enemy->getState() == entity::ENTITY_STATE_RUNNING)) {
+            entityBlackHole* blackHole = static_cast<entityBlackHole*>(enemy);
             if (blackHole->mActivated) {
-                float distance = mathutils::calculate2dDistance(mPos, blackHole->getPos());
-                if (distance < 20) {
+                const Point3d delta = mPos - blackHole->getPos();
+                const float distanceSquared = (delta.x * delta.x) + (delta.y * delta.y);
+                if (distanceSquared < (20.0f * 20.0f)) {
                     Point3d v2 = blackHole->getPos();
                     Point3d v1 = mPos;
 

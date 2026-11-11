@@ -3,7 +3,9 @@
 #include "entities/entityline.hpp"
 #include "core/game.hpp"
 
+#include <cmath>
 #include <cstdio>
+#include <vector>
 
 static int idxWandererStart;
 static int idxWandererEnd;
@@ -279,32 +281,86 @@ void enemies::run()
         }
     }
 
-    // Keep the entities separated
-    for (int i = 0; i < NUM_ENEMIES; i++) {
-        if (mEnemies[i]->getState() == entity::ENTITY_STATE_RUNNING) {
-            for (int j = 0; j < NUM_ENEMIES; j++) {
-                if (mEnemies[j]->getState() == entity::ENTITY_STATE_RUNNING) {
-                    if (j != i) {
-                        entity* e1 = mEnemies[i];
-                        entity* e2 = mEnemies[j];
-                        float distance = mathutils::calculate2dDistance(e1->getPos(), e2->getPos());
-                        float totalRadius = e1->getRadius() + e2->getRadius();
-                        if (distance < totalRadius) {
-                            // Nudge each away from each other
-                            float angle = mathutils::calculate2dAngle(e2->getPos(), e1->getPos());
-                            Point3d vector(1, 0, 0);
-                            vector = mathutils::rotate2dPoint(vector, angle);
-                            if (e1->getType() == entity::ENTITY_TYPE_BLACKHOLE) {
-                                entityBlackHole* blackHole = dynamic_cast<entityBlackHole*>(e1);
-                                if (blackHole) {
-                                    if (blackHole->mActivated) {
-                                        e1->setSpeed(e1->getSpeed() + vector * .2);
-                                    }
-                                }
-                            } else {
-                                e1->setPos(e1->getPos() + vector * .02);
-                            }
+    // Keep the entities separated using a coarse spatial hash so that we only
+    // compare enemies that are near one another instead of scanning the full
+    // NUM_ENEMIES array for every active enemy.
+    constexpr float separationCellSize = 32.0f;
+    constexpr int gridWidth = 64;
+    constexpr int gridHeight = 64;
+    constexpr int gridCellCount = gridWidth * gridHeight;
+
+    std::vector<int> cellHead(gridCellCount, -1);
+    std::vector<int> nextIndex(NUM_ENEMIES, -1);
+    std::vector<int> activeEnemies;
+    activeEnemies.reserve(NUM_ENEMIES);
+
+    for (int i = 0; i < NUM_ENEMIES; ++i) {
+        entity* e = mEnemies[i];
+        if (e->getState() != entity::ENTITY_STATE_RUNNING) {
+            continue;
+        }
+
+        Point3d pos = e->getPos();
+        const int cellX = static_cast<int>(std::floor(pos.x / separationCellSize)) + (gridWidth / 2);
+        const int cellY = static_cast<int>(std::floor(pos.y / separationCellSize)) + (gridHeight / 2);
+
+        if ((cellX < 0) || (cellX >= gridWidth) || (cellY < 0) || (cellY >= gridHeight)) {
+            continue;
+        }
+
+        const int cell = (cellY * gridWidth) + cellX;
+        nextIndex[i] = cellHead[cell];
+        cellHead[cell] = i;
+        activeEnemies.push_back(i);
+    }
+
+    for (int i : activeEnemies) {
+        entity* e1 = mEnemies[i];
+        const Point3d pos1 = e1->getPos();
+        const int baseCellX = static_cast<int>(std::floor(pos1.x / separationCellSize)) + (gridWidth / 2);
+        const int baseCellY = static_cast<int>(std::floor(pos1.y / separationCellSize)) + (gridHeight / 2);
+
+        for (int cellY = baseCellY - 1; cellY <= baseCellY + 1; ++cellY) {
+            if ((cellY < 0) || (cellY >= gridHeight)) {
+                continue;
+            }
+
+            for (int cellX = baseCellX - 1; cellX <= baseCellX + 1; ++cellX) {
+                if ((cellX < 0) || (cellX >= gridWidth)) {
+                    continue;
+                }
+
+                const int cell = (cellY * gridWidth) + cellX;
+                for (int j = cellHead[cell]; j != -1; j = nextIndex[j]) {
+                    if (j == i) {
+                        continue;
+                    }
+
+                    entity* e2 = mEnemies[j];
+                    if (e2->getState() != entity::ENTITY_STATE_RUNNING) {
+                        continue;
+                    }
+
+                    const Point3d delta = e2->getPos() - e1->getPos();
+                    const float distanceSquared = (delta.x * delta.x) + (delta.y * delta.y);
+                    const float totalRadius = e1->getRadius() + e2->getRadius();
+                    const float totalRadiusSquared = totalRadius * totalRadius;
+
+                    if (distanceSquared >= totalRadiusSquared) {
+                        continue;
+                    }
+
+                    // Nudge each away from each other.
+                    const float angle = mathutils::calculate2dAngle(e2->getPos(), e1->getPos());
+                    Point3d vector(1, 0, 0);
+                    vector = mathutils::rotate2dPoint(vector, angle);
+                    if (e1->getType() == entity::ENTITY_TYPE_BLACKHOLE) {
+                        entityBlackHole* blackHole = dynamic_cast<entityBlackHole*>(e1);
+                        if (blackHole && blackHole->mActivated) {
+                            e1->setSpeed(e1->getSpeed() + vector * .2);
                         }
+                    } else {
+                        e1->setPos(e1->getPos() + vector * .02);
                     }
                 }
             }

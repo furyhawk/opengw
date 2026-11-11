@@ -52,8 +52,6 @@ void players::run()
             break;
         }
 
-        currentPlayer->runMissiles();
-
         switch (currentPlayer->getState()) {
         case entity::ENTITY_STATE_INACTIVE:
             continue;

@@ -6,6 +6,7 @@
 #include "entities/players.hpp"
 
 #include <algorithm>
+#include <vector>
 
 blackholes::blackholes()
 {
@@ -13,135 +14,130 @@ blackholes::blackholes()
 
 void blackholes::run()
 {
-    // Suck enemies and particles into the black holes
+    std::vector<entity*> activeEnemies;
+    activeEnemies.reserve(NUM_ENEMIES);
+    for (int i = 0; i < NUM_ENEMIES; ++i) {
+        entity* enemy = theGame->mEnemies->mEnemies[i];
+        if ((enemy->getState() == entity::ENTITY_STATE_RUNNING) && (enemy->getType() != entity::ENTITY_TYPE_UNDEF)) {
+            activeEnemies.push_back(enemy);
+        }
+    }
+
+    // Suck enemies and particles into the black holes.
     for (int i = 0; i < NUM_ENEMIES; i++) {
-        if ((theGame->mEnemies->mEnemies[i]->getType() == entity::ENTITY_TYPE_BLACKHOLE) && (theGame->mEnemies->mEnemies[i]->getState() == entity::ENTITY_STATE_RUNNING)) {
-            entityBlackHole* blackHole = static_cast<entityBlackHole*>(theGame->mEnemies->mEnemies[i]);
-            if (blackHole->mActivated) {
-                //
-                // Players
-                for (int p = 0; p < 2; p++) {
-                    entity* player = (p == 0) ? theGame->getPlayer1() : theGame->getPlayer2();
-                    if (player->getEnabled()) {
-                        float angle = mathutils::calculate2dAngle(player->getPos(), blackHole->getPos());
-                        float distance = mathutils::calculate2dDistance(player->getPos(), blackHole->getPos());
+        entity* blackHoleEntity = theGame->mEnemies->mEnemies[i];
+        if ((blackHoleEntity->getType() != entity::ENTITY_TYPE_BLACKHOLE) || (blackHoleEntity->getState() != entity::ENTITY_STATE_RUNNING)) {
+            continue;
+        }
 
-                        if (distance < blackHole->getRadius()) {
-                            // Destroy the player
-                        } else {
-                            float strength = 2.4;
-                            if (distance < blackHole->getRadius()) {
-                                distance = blackHole->getRadius();
-                            }
+        entityBlackHole* blackHole = static_cast<entityBlackHole*>(blackHoleEntity);
+        if (!blackHole->mActivated) {
+            continue;
+        }
 
-                            float r = 1.0 / (distance * distance);
+        const Point3d blackHolePos = blackHole->getPos();
+        const float blackHoleRadius = blackHole->getRadius();
+        const float blackHoleRadiusSq = blackHoleRadius * blackHoleRadius;
 
-                            Point3d gravityVector(r * strength, 0, 0);
-                            Point3d g = mathutils::rotate2dPoint(gravityVector, angle);
-
-                            Point3d speed = player->getDrift();
-                            speed.x += g.x;
-                            speed.y += g.y;
-                            player->setDrift(speed);
-                        }
+        // Players
+        for (int p = 0; p < 2; p++) {
+            entity* player = (p == 0) ? theGame->getPlayer1() : theGame->getPlayer2();
+            if (player->getEnabled()) {
+                const Point3d delta = player->getPos() - blackHolePos;
+                const float distanceSquared = (delta.x * delta.x) + (delta.y * delta.y);
+                if (distanceSquared < blackHoleRadiusSq) {
+                    // Destroy the player
+                } else {
+                    float distance = std::sqrt(distanceSquared);
+                    const float strength = 2.4f;
+                    if (distance < blackHoleRadius) {
+                        distance = blackHoleRadius;
                     }
+
+                    float r = 1.0f / (distance * distance);
+
+                    Point3d gravityVector(r * strength, 0, 0);
+                    float angle = mathutils::calculate2dAngle(player->getPos(), blackHolePos);
+                    Point3d g = mathutils::rotate2dPoint(gravityVector, angle);
+
+                    Point3d speed = player->getDrift();
+                    speed.x += g.x;
+                    speed.y += g.y;
+                    player->setDrift(speed);
                 }
+            }
+        }
 
-                for (int j = 0; j < NUM_ENEMIES; j++) {
-                    if ((theGame->mEnemies->mEnemies[j]->getState() == entity::ENTITY_STATE_RUNNING)) {
-                        if (j != i) {
-                            entity* enemy = theGame->mEnemies->mEnemies[j];
+        for (entity* enemy : activeEnemies) {
+            if (enemy == blackHoleEntity) {
+                continue;
+            }
 
-                            float angle = mathutils::calculate2dAngle(enemy->getPos(), blackHole->getPos());
-                            float distance = mathutils::calculate2dDistance(enemy->getPos(), blackHole->getPos());
+            const Point3d delta = enemy->getPos() - blackHolePos;
+            const float distanceSquared = (delta.x * delta.x) + (delta.y * delta.y);
+            const float angle = mathutils::calculate2dAngle(enemy->getPos(), blackHolePos);
+            const float distance = std::sqrt(distanceSquared);
 
-                            if (theGame->mEnemies->mEnemies[j]->getType() == entity::ENTITY_TYPE_BLACKHOLE) {
-                                // It's another black hole. Keep it at the proper distance or combine it
+            if (enemy->getType() == entity::ENTITY_TYPE_BLACKHOLE) {
+                // It's another black hole. Keep it at the proper distance or combine it.
+                entityBlackHole* blackHole2 = static_cast<entityBlackHole*>(enemy);
+                const float totalRadius = blackHoleRadius + blackHole2->getRadius();
+                if (distance < 6.0f) {
+                    Point3d avgPos = (blackHolePos + blackHole2->getPos()) * .5f;
+                    float strength = std::max(blackHole->mStrength, blackHole2->mStrength);
+                    int feedCount = blackHole->mFeedCount + blackHole2->mFeedCount;
 
-                                entityBlackHole* blackHole2 = static_cast<entityBlackHole*>(enemy);
-                                //                                if (blackHole2->mActivated)
-                                {
-                                    float totalRadius = blackHole->getRadius() + blackHole2->getRadius();
-                                    if (distance < 6) {
-                                        // Combine both black holes
+                    blackHole->setPos(avgPos);
+                    blackHole->mStrength = strength;
+                    blackHole->mFeedCount = feedCount;
+                    blackHole->feed(blackHole2->mPoints);
+                    blackHole->feed(0);
 
-                                        Point3d avgPos = (blackHole->getPos() + blackHole2->getPos()) * .5;
-                                        float strength = std::max(blackHole->mStrength, blackHole2->mStrength);
-                                        int feedCount = blackHole->mFeedCount + blackHole2->mFeedCount;
+                    blackHole2->setState(entity::ENTITY_STATE_DESTROY_TRANSITION);
+                    theGame->mSound->playTrack(SOUNDID_GRAVITYWELLHIT);
+                } else if (distance < totalRadius) {
+                    float strength = 6;
+                    float safeDistance = std::max(distance, blackHoleRadius);
+                    float r = 1.0f / (safeDistance * safeDistance);
 
-                                        // Upgrade the first one
-                                        blackHole->setPos(avgPos);
-                                        blackHole->mStrength = strength;
-                                        blackHole->mFeedCount = feedCount;
-                                        blackHole->feed(blackHole2->mPoints);
-                                        blackHole->feed(0);
+                    Point3d gravityVector(r * -strength, 0, 0);
+                    Point3d g = mathutils::rotate2dPoint(gravityVector, angle);
 
-                                        // Kill the second one
-                                        blackHole2->setState(entity::ENTITY_STATE_DESTROY_TRANSITION);
-
-                                        theGame->mSound->playTrack(SOUNDID_GRAVITYWELLHIT);
-                                    } else if (distance < totalRadius) {
-                                        // Push them away from each other if they get too close
-
-                                        float strength = 6;
-                                        if (distance < blackHole->getRadius()) {
-                                            distance = blackHole->getRadius();
-                                        }
-
-                                        float r = 1.0 / (distance * distance);
-
-                                        Point3d gravityVector(r * -strength, 0, 0);
-                                        Point3d g = mathutils::rotate2dPoint(gravityVector, angle);
-
-                                        Point3d speed = enemy->getDrift();
-                                        speed.x += g.x;
-                                        speed.y += g.y;
-                                        enemy->setDrift(speed);
-                                    }
-                                }
-                            }
-
-                            if (distance < blackHole->getRadius()) {
-                                // Add its drift to ours
-                                Point3d drift = enemy->getDrift();
-                                drift *= .25;
-                                blackHole->setDrift(blackHole->getDrift() + drift);
-
-                                // Destroy the enemy
-                                enemy->hit(blackHole);
-
-                                // Feed the black hole
-                                blackHole->feed(enemy->getScoreValue());
-
-                                // Distrupt the grid at the destruction point
-                                attractor::Attractor* att = theGame->mAttractors->getAttractor();
-                                if (att) {
-                                    att->strength = 1.5;
-                                    att->radius = 30;
-                                    att->pos = blackHole->getPos();
-                                    att->enabled = true;
-                                    att->attractsParticles = false;
-                                }
-                            } else {
-                                float strength = 16;
-                                if (distance < blackHole->getRadius()) {
-                                    distance = blackHole->getRadius();
-                                }
-
-                                float r = 1.0 / (distance * distance);
-
-                                // Add a slight curving vector to the gravity
-                                Point3d gravityVector(r * strength, 0, 0);
-                                Point3d g = mathutils::rotate2dPoint(gravityVector, angle + .4);
-
-                                Point3d speed = enemy->getDrift();
-                                speed.x += g.x;
-                                speed.y += g.y;
-                                enemy->setDrift(speed);
-                            }
-                        }
-                    }
+                    Point3d speed = enemy->getDrift();
+                    speed.x += g.x;
+                    speed.y += g.y;
+                    enemy->setDrift(speed);
                 }
+            }
+
+            if (distance < blackHoleRadius) {
+                Point3d drift = enemy->getDrift();
+                drift *= .25f;
+                blackHole->setDrift(blackHole->getDrift() + drift);
+
+                enemy->hit(blackHole);
+                blackHole->feed(enemy->getScoreValue());
+
+                attractor::Attractor* att = theGame->mAttractors->getAttractor();
+                if (att) {
+                    att->strength = 1.5f;
+                    att->radius = 30;
+                    att->pos = blackHolePos;
+                    att->enabled = true;
+                    att->attractsParticles = false;
+                }
+            } else {
+                float strength = 16;
+                float safeDistance = std::max(distance, blackHoleRadius);
+                float r = 1.0f / (safeDistance * safeDistance);
+
+                Point3d gravityVector(r * strength, 0, 0);
+                Point3d g = mathutils::rotate2dPoint(gravityVector, angle + .4f);
+
+                Point3d speed = enemy->getDrift();
+                speed.x += g.x;
+                speed.y += g.y;
+                enemy->setDrift(speed);
             }
         }
     }

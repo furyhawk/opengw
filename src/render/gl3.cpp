@@ -502,6 +502,24 @@ void pushSolidClipPx(const ClipV& a, float px, float py)
     pushSolid(ndc[0], ndc[1], ndc[2], ndc[3], a.r, a.g, a.b, a.a);
 }
 
+static bool segmentInViewport(float ax, float ay, float bx, float by, float pad)
+{
+    const float viewW = static_cast<float>(g_viewport[2]);
+    const float viewH = static_cast<float>(g_viewport[3]);
+    const float minX = std::min(ax, bx) - pad;
+    const float maxX = std::max(ax, bx) + pad;
+    const float minY = std::min(ay, by) - pad;
+    const float maxY = std::max(ay, by) + pad;
+    return !(maxX < 0.0f || minX > viewW || maxY < 0.0f || minY > viewH);
+}
+
+static bool pointInViewport(float cx, float cy, float pad)
+{
+    const float viewW = static_cast<float>(g_viewport[2]);
+    const float viewH = static_cast<float>(g_viewport[3]);
+    return !(cx + pad < 0.0f || cx - pad > viewW || cy + pad < 0.0f || cy - pad > viewH);
+}
+
 // Emit a thick screen-space quad for one line segment (a->b), width in px.
 void emitLineQuad(const ClipV& a, const ClipV& b)
 {
@@ -511,13 +529,17 @@ void emitLineQuad(const ClipV& a, const ClipV& b)
     ndcToPx(a, ax, ay);
     ndcToPx(b, bx, by);
 
-    float dx = bx - ax;
-    float dy = by - ay;
-    const float len = std::sqrt(dx * dx + dy * dy);
     float width = g_lineWidth;
     if (width < 1.0f)
         width = 1.0f;
     const float half = width * 0.5f;
+
+    if (!segmentInViewport(ax, ay, bx, by, half))
+        return;
+
+    float dx = bx - ax;
+    float dy = by - ay;
+    const float len = std::sqrt(dx * dx + dy * dy);
     if (len < 1e-4f) {
         // Degenerate: draw a small pixel square
         pushSolidClipPx(a, ax - half, ay - half);
@@ -553,6 +575,10 @@ void emitPointQuad(const ClipV& c)
     if (size < 1.0f)
         size = 1.0f;
     const float half = size * 0.5f;
+
+    if (!pointInViewport(cx, cy, half))
+        return;
+
     pushSolidClipPx(c, cx - half, cy - half);
     pushSolidClipPx(c, cx + half, cy - half);
     pushSolidClipPx(c, cx + half, cy + half);
