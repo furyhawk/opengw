@@ -14,6 +14,7 @@
 #include "ui/menuSelectGameType.hpp"
 #include "ui/menuSettings.hpp"
 
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -44,6 +45,133 @@ const char* const kItemLabels[kNumItems] = {
 
 menuCommon::State sState;
 
+// --- Title layout ----------------------------------------------------------
+// The marquee logo is drawn by the scene in the left column; everything here
+// lives in the right-hand menu column.
+constexpr float kMenuCenterX = 0.50f;
+constexpr float kRowFirstY = 0.40f;
+constexpr float kRowStep = 0.115f;
+constexpr float kRowScale = 0.0185f;
+constexpr float kSelectedScale = 0.0215f;
+constexpr float kBadgeY = -0.58f;
+
+int sAnimTick = 0;
+
+float textWidth(const char* text, float scale)
+{
+    float width = 0.0f;
+    font::AlphanumericsMeasureString(text, scale, &width, nullptr);
+    return width;
+}
+
+// Soft gradient shading behind the menu column and along the bottom edge so
+// the attract fireworks never compete with the text. Leaves blending in the
+// additive state the font renderer expects.
+void drawMenuBackdrop()
+{
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
+
+    // Gentle global veil: the attract fireworks stay lively but never blow
+    // out the logo or the menu text.
+    glBegin(GL_QUADS);
+    glColor4f(0, 0, 0, 0.30f);
+    glVertex2d(-1.0f, -1.0f);
+    glVertex2d(1.0f, -1.0f);
+    glVertex2d(1.0f, 1.0f);
+    glVertex2d(-1.0f, 1.0f);
+    glEnd();
+
+    // Right column: ramps quickly, then holds.
+    glBegin(GL_QUADS);
+    glColor4f(0, 0, 0, 0.0f);
+    glVertex2d(0.02f, -1.0f);
+    glColor4f(0, 0, 0, 0.66f);
+    glVertex2d(0.34f, -1.0f);
+    glVertex2d(0.34f, 1.0f);
+    glColor4f(0, 0, 0, 0.0f);
+    glVertex2d(0.02f, 1.0f);
+    glEnd();
+
+    glBegin(GL_QUADS);
+    glColor4f(0, 0, 0, 0.66f);
+    glVertex2d(0.34f, -1.0f);
+    glColor4f(0, 0, 0, 0.76f);
+    glVertex2d(1.0f, -1.0f);
+    glVertex2d(1.0f, 1.0f);
+    glColor4f(0, 0, 0, 0.66f);
+    glVertex2d(0.34f, 1.0f);
+    glEnd();
+
+    // Bottom strip for the hint line.
+    glBegin(GL_QUADS);
+    glColor4f(0, 0, 0, 0.0f);
+    glVertex2d(-1.0f, -0.62f);
+    glVertex2d(1.0f, -0.62f);
+    glColor4f(0, 0, 0, 0.55f);
+    glVertex2d(1.0f, -1.0f);
+    glVertex2d(-1.0f, -1.0f);
+    glEnd();
+
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+}
+
+// Thin neon rule separating the logo column from the menu column, fading out
+// at both ends so it reads as light rather than a hard border.
+void drawColumnDivider()
+{
+    constexpr float kX = 0.035f;
+    constexpr float kTop = 0.80f;
+    constexpr float kBottom = -0.62f;
+
+    glLineWidth(2);
+
+    glBegin(GL_LINES);
+    glColor4f(0.20f, 0.70f, 1.0f, 0.0f);
+    glVertex2d(kX, kTop);
+    glColor4f(0.20f, 0.70f, 1.0f, 0.30f);
+    glVertex2d(kX, 0.10f);
+    glVertex2d(kX, 0.10f);
+    glColor4f(0.20f, 0.70f, 1.0f, 0.0f);
+    glVertex2d(kX, kBottom);
+    glEnd();
+}
+
+// Soft light bar behind the highlighted row, plus an underline that anchors
+// it. `intensity` lets the bar breathe with the menu animation.
+void drawSelectionBar(float y, float halfWidth, float intensity)
+{
+    constexpr float kHalfHeight = 0.045f;
+    const float a = 0.22f * intensity;
+
+    // A single fan: bright centre fading to nothing at all four corners reads
+    // as a pool of light rather than a UI box.
+    const float x0 = kMenuCenterX - halfWidth;
+    const float x1 = kMenuCenterX + halfWidth;
+    const float y0 = y - kHalfHeight;
+    const float y1 = y + kHalfHeight;
+
+    glBegin(GL_TRIANGLE_FAN);
+    glColor4f(0.12f, 0.55f, 1.0f, a);
+    glVertex2d(kMenuCenterX, y);
+    glColor4f(0.12f, 0.55f, 1.0f, 0.0f);
+    glVertex2d(x0, y0);
+    glVertex2d(x1, y0);
+    glVertex2d(x1, y1);
+    glVertex2d(x0, y1);
+    glVertex2d(x0, y0);
+    glEnd();
+
+    glLineWidth(2);
+    glBegin(GL_LINES);
+    glColor4f(1.0f, 0.82f, 0.35f, 0.0f);
+    glVertex2d(kMenuCenterX - halfWidth * 0.85f, y - kHalfHeight);
+    glColor4f(1.0f, 0.82f, 0.35f, 0.70f * intensity);
+    glVertex2d(kMenuCenterX + halfWidth * 0.85f, y - kHalfHeight);
+    glEnd();
+}
+
 // Neon hex badge textures, loaded lazily from the achievements catalog.
 texture sBadgeTextures[achievements::BADGE_COUNT];
 bool sBadgeTexturesAttempted = false;
@@ -69,30 +197,29 @@ void drawAchievementBadges()
 {
     ensureBadgeTexturesLoaded();
 
-    constexpr float kSize = 0.062f;
-    constexpr float kStep = 0.15f;
-    constexpr float kY = -0.80f;
+    constexpr float kSize = 0.052f;
+    constexpr float kStep = 0.118f;
     const int count = achievements::badgeCount();
 
     for (int i = 0; i < count; ++i) {
-        const float x = ((i - (count - 1) * 0.5f) * kStep);
+        const float x = kMenuCenterX + ((i - (count - 1) * 0.5f) * kStep);
         const bool unlocked = achievements::badgeUnlocked(i);
 
         vector::pen pen = unlocked ? vector::pen(0.85f, 1.0f, 0.95f, 0.9f, 2)
                                    : vector::pen(0.4f, 0.45f, 0.55f, 0.28f, 2);
 
         if (sBadgeLoaded[i]) {
-            sBadgeTextures[i].draw(x, kY, kSize, kSize);
+            sBadgeTextures[i].draw(x, kBadgeY, kSize, kSize);
             if (!unlocked)
-                font::AlphanumericsPrint(font::ALIGN_CENTER, 0.014f, x, kY, &pen, "-");
+                font::AlphanumericsPrint(font::ALIGN_CENTER, 0.014f, x, kBadgeY, &pen, "-");
         } else {
-            font::AlphanumericsPrint(font::ALIGN_CENTER, 0.012f, x, kY, &pen, "%s", unlocked ? "O" : "-");
+            font::AlphanumericsPrint(font::ALIGN_CENTER, 0.012f, x, kBadgeY, &pen, "%s", unlocked ? "O" : "-");
         }
     }
 
     vector::pen summaryPen(0.62f, 0.82f, 1.0f, 0.6f, 2);
-    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.011f, 0.0f, -0.885f, &summaryPen,
-                             "RANK %d    BADGES %d/%d    COSMETIC: %s",
+    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.0092f, kMenuCenterX, kBadgeY - 0.085f, &summaryPen,
+                             "RANK %d    BADGES %d/%d    COSMETIC %s",
                              achievements::lifetimeRank(),
                              achievements::badgesUnlocked(),
                              achievements::badgeCount(),
@@ -115,6 +242,7 @@ void advanceGameMode(int dir)
 
 void init()
 {
+    sAnimTick = 0;
     menuCommon::reset(sState);
 }
 
@@ -194,42 +322,85 @@ void run()
 
 void draw()
 {
-    // A translucent band behind the menu keeps the text readable over the
-    // attract marquee while leaving the logo itself visible above it.
-    menuCommon::drawScrim(-0.20f, -0.95f);
+    ++sAnimTick;
 
-    constexpr float kScale = 0.02f;
-    constexpr float kRowStep = 0.10f;
-    constexpr float kFirstY = -0.18f;
+    drawMenuBackdrop();
+    drawColumnDivider();
+
+    const float pulse = 0.5f + 0.5f * sinf(sAnimTick * 0.09f);
+    // Short entrance: rows fade in and settle upward over the first frames.
+    const float intro = (sAnimTick < 20) ? (static_cast<float>(sAnimTick) / 20.0f) : 1.0f;
 
     for (int i = 0; i < kNumItems; ++i) {
-        const float y = kFirstY - (i * kRowStep);
-
         const bool selected = (i == sState.selection);
-        vector::pen pen = selected ? vector::pen(1.0f, 1.0f, 1.0f, 1.0f, 3)
-                                   : vector::pen(0.55f, 0.75f, 0.9f, 0.45f, 3);
-        vector::pen markerPen = selected ? vector::pen(1.0f, 0.9f, 0.5f, 1.0f, 3)
-                                         : vector::pen(0.5f, 0.5f, 0.5f, 0.3f, 3);
+        const float y = kRowFirstY - (i * kRowStep) + (1.0f - intro) * 0.035f;
+        const float scale = selected ? kSelectedScale : kRowScale;
 
-        font::AlphanumericsPrint(font::ALIGN_CENTER, kScale, -0.06f, y, &markerPen, ">");
-
-        // The GAME MODE row shows the currently selected mode so changing it
-        // with Left/Right (or confirm) has visible feedback.
+        // The GAME MODE row shows the current mode; the footer swaps in a
+        // Left/Right hint while this row is selected.
+        char label[64];
+        char modeName[32] = "";
         if (i == ITEM_GAME_MODE) {
-            char label[64];
-            snprintf(label, sizeof(label), "%s  %s", kItemLabels[i], gameplaymodes::name(theGame->mModeIndex));
-            font::AlphanumericsPrint(font::ALIGN_CENTER, kScale, 0.0f, y, &pen, "%s", label);
+            snprintf(modeName, sizeof(modeName), "%s", gameplaymodes::name(theGame->mModeIndex));
+            snprintf(label, sizeof(label), "GAME MODE   %s", modeName);
         } else {
-            font::AlphanumericsPrint(font::ALIGN_CENTER, kScale, 0.0f, y, &pen, "%s", kItemLabels[i]);
+            snprintf(label, sizeof(label), "%s", kItemLabels[i]);
+        }
+
+        const float width = textWidth(label, scale);
+
+        if (selected) {
+            drawSelectionBar(y, width * 0.5f + 0.06f, (0.85f + 0.15f * pulse) * intro);
+
+            vector::pen bracketPen(1.0f, 0.82f, 0.35f, (0.75f + 0.25f * pulse) * intro, 3);
+            font::AlphanumericsPrint(font::ALIGN_CENTER, kRowScale,
+                                     kMenuCenterX - width * 0.5f - 0.045f, y, &bracketPen, "[");
+            font::AlphanumericsPrint(font::ALIGN_CENTER, kRowScale,
+                                     kMenuCenterX + width * 0.5f + 0.045f, y, &bracketPen, "]");
+
+            // Faint halo behind the highlighted label.
+            vector::pen haloPen(0.30f, 0.80f, 1.0f, (0.10f + 0.05f * pulse) * intro, 7);
+            font::AlphanumericsPrint(font::ALIGN_CENTER, scale, kMenuCenterX, y, &haloPen, "%s", label);
+        }
+
+        vector::pen pen = selected ? vector::pen(1.0f, 1.0f, 1.0f, intro, 4)
+                                   : vector::pen(0.55f, 0.75f, 0.9f, 0.62f * intro, 3);
+        font::AlphanumericsPrint(font::ALIGN_CENTER, scale, kMenuCenterX, y, &pen, "%s", label);
+
+        // Accent the mode name so the row reads as a selector. The value is
+        // redrawn over its copy in the label, so it must land on the same
+        // glyph cells (the font lays text out from each cell's centre).
+        if (i == ITEM_GAME_MODE) {
+            const char* value = strstr(label, modeName);
+            const size_t prefixLen = value ? static_cast<size_t>(value - label) : 0;
+            char prefix[64];
+            memcpy(prefix, label, prefixLen);
+            prefix[prefixLen] = '\0';
+            const float valueX = kMenuCenterX - width * 0.5f
+                + textWidth(prefix, scale) + textWidth(modeName, scale) * 0.5f;
+            vector::pen valuePen = selected ? vector::pen(1.0f, 0.72f, 0.25f, intro, 3)
+                                            : vector::pen(0.40f, 0.85f, 0.70f, 0.70f * intro, 3);
+            font::AlphanumericsPrint(font::ALIGN_CENTER, scale, valueX, y, &valuePen, "%s", modeName);
         }
     }
 
     drawAchievementBadges();
 
-    // --- Help footer --------------------------------------------------------
+    // --- Bottom row ---------------------------------------------------------
+    if (settings::get().mCreditsPerGame == 0) {
+        vector::pen freePlayPen(0.35f, 0.85f, 0.75f, 0.55f * intro, 2);
+        font::AlphanumericsPrint(font::ALIGN_LEFT, 0.010f, -0.94f, -0.925f, &freePlayPen, "FREE PLAY");
+    }
+
     {
-        vector::pen pen(0.6f, 0.8f, 1.0f, 0.5f, 2);
-        font::AlphanumericsPrint(font::ALIGN_CENTER, 0.010f, 0.0f, -0.96f, &pen, "Up Down Move   Space or Start Select   Back / O Settings");
+        vector::pen pen(0.6f, 0.8f, 1.0f, 0.65f * intro, 2);
+        if (sState.selection == ITEM_GAME_MODE) {
+            font::AlphanumericsPrint(font::ALIGN_CENTER, 0.0092f, 0.0f, -0.925f, &pen,
+                                     "LEFT RIGHT CHANGE MODE      ENTER OR START  SELECT      BACK OR O  OPTIONS");
+        } else {
+            font::AlphanumericsPrint(font::ALIGN_CENTER, 0.0092f, 0.0f, -0.925f, &pen,
+                                     "ARROWS OR STICK  MOVE      ENTER OR START  SELECT      BACK OR O  OPTIONS");
+        }
     }
 }
 

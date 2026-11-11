@@ -33,6 +33,35 @@ void glDisable2D();
 
 vector::pen defaultFontPen(0, 1, 0, .6, 3);
 
+// Draw the square marquee artwork centred at (x, y), `width` wide in NDC and
+// stretched vertically to match the screen aspect. Blending must already be
+// additive: the artwork's black background then contributes nothing.
+static void drawMarqueeQuad(texture& tex, float x, float y, float width, float aspect, float alpha)
+{
+    const float halfWidth = width * 0.5f;
+    const float halfHeight = halfWidth * aspect;
+
+    glEnable(GL_TEXTURE_2D);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    tex.bind();
+
+    glColor4f(1, 1, 1, alpha);
+
+    glBegin(GL_QUADS);
+    glTexCoord2d(0, 1);
+    glVertex2d(x - halfWidth, y - halfHeight);
+    glTexCoord2d(1, 1);
+    glVertex2d(x + halfWidth, y - halfHeight);
+    glTexCoord2d(1, 0);
+    glVertex2d(x + halfWidth, y + halfHeight);
+    glTexCoord2d(0, 0);
+    glVertex2d(x - halfWidth, y + halfHeight);
+    glEnd();
+
+    tex.unbind();
+    glDisable(GL_TEXTURE_2D);
+}
+
 scene::scene()
 {
     theGame = std::make_unique<game>();
@@ -183,73 +212,42 @@ void scene::draw(int pass)
                && (theGame->mMenuScreen != game::MENU_SETTINGS)
                && (theGame->mMenuScreen != game::MENU_HIGHSCORES)
                /*|| (game::mGameMode == game::GAMEMODE_HIGHSCORES)*/) {
-        float top = .65;
-        float bottom = -.4;
-        //        float top = 1;
-        //        float bottom = -1;
-
-        glEnable(GL_BLEND);
-
-        glColor4f(0, .1, 0, .9);
-        glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA);
-
-        glBegin(GL_QUADS);
-        glVertex2d(-1.0, bottom);
-        glVertex2d(1.0, bottom);
-        glVertex2d(1.0, top);
-        glVertex2d(-1.0, top);
-        glEnd();
-
-        glColor4f(0, 1, 0, .1);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-
-        if (pass == RENDERPASS_PRIMARY) {
-
-            glLineWidth(6);
-
-            glColor4f(.1, 1, .1, .4);
-
+        if (pass == RENDERPASS_PRIMARY && !mShowHighScores) {
             if (!mTextureMarquee.mLoaded)
                 mTextureMarquee.load("assets/images/marquee.png");
 
-            // Draw the marquee
-            if (!mShowHighScores) {
-                // Glowy blending effect
-                glDisable(GL_DEPTH_TEST);
-                glEnable(GL_BLEND);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+            static float titleTime = 0.0f;
+            titleTime += 0.016f;
 
-                // Enable the texture for OpenGL.
-                glEnable(GL_TEXTURE_2D);
-                glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
+            const float aspect = (mAspect > 0.1f) ? mAspect : (16.0f / 9.0f);
+            const bool menuUp = (theGame->mMenuScreen == game::MENU_TITLE);
 
-                mTextureMarquee.bind();
-
-                glColor4f(1, 1, 1, 1);
-
-                float x = 0;
-                float y = 0;
-                float width = 2;
-                float height = 2 / 0.5625;
-
-                glBegin(GL_QUADS);
-                glTexCoord2d(0, 1);
-                glVertex2d(x - (width / 2), y - (height / 2));
-                glTexCoord2d(1, 1);
-                glVertex2d(x + (width / 2), y - (height / 2));
-                glTexCoord2d(1, 0);
-                glVertex2d(x + (width / 2), y + (height / 2));
-                glTexCoord2d(0, 0);
-                glVertex2d(x - (width / 2), y + (height / 2));
-                glEnd();
-
-                mTextureMarquee.unbind();
-
-                glDisable(GL_TEXTURE_2D);
-
-                glEnable(GL_BLEND);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+            // On the title menu the logo moves to the left column so the menu
+            // gets a clean column of its own. Attract mode keeps it centred.
+            float x = 0.0f;
+            float y = 0.0f;
+            float width = 1.04f;
+            if (menuUp) {
+                x = -0.47f;
+                y = 0.08f + 0.012f * get_sin(titleTime * 0.6f);
+                width = 0.98f;
+                // Never let the square artwork overflow a very wide screen.
+                const float maxWidth = 1.72f / aspect;
+                if (width > maxWidth)
+                    width = maxWidth;
             }
+
+            // A slow breath plus a faintly pulsing halo keep the artwork
+            // alive without competing with the menu.
+            width *= 1.0f + 0.006f * get_sin(titleTime * 0.7f);
+            const float halo = 0.10f + 0.05f * get_sin(titleTime * 1.1f);
+
+            glDisable(GL_DEPTH_TEST);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+            drawMarqueeQuad(mTextureMarquee, x, y, width * 1.035f, aspect, halo);
+            drawMarqueeQuad(mTextureMarquee, x, y, width, aspect, 1.0f);
         }
     }
 
