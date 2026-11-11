@@ -1,66 +1,56 @@
 {
   "iconStyle": {
-    "format": "svg",
+    "format": "svg+png",
     "size": 128,
-    "background": "#111827",
-    "foreground": "#F9FAFB",
-    "shape": "rounded-square",
-    "goal": "bold-readable-silhouette"
+    "background": "transparent",
+    "frame": "hexagonal",
+    "goal": "sleek futuristic neon vector icon, minimalist high-tech HUD element",
+    "stroke": "neon gradient with gaussian glow filter"
   },
-  "achievements": [
-    {
-      "id": "classical_champion",
-      "name": "Classical Champion",
-      "icon": "icon_trophy.svg",
-      "iconPng": "icon_trophy.png",
-      "category": "mode_completion",
-      "description": "Complete a full run in Classical mode.",
-      "reward": "bonus_score"
-    },
-    {
-      "id": "endless_starlight",
-      "name": "Endless Starlight",
-      "icon": "icon_star.svg",
-      "iconPng": "icon_star.png",
-      "category": "mode_completion",
-      "description": "Reach a high threshold in Endless mode.",
-      "reward": "achievement_progress_boost"
-    },
-    {
-      "id": "pressure_breaker",
-      "name": "Pressure Breaker",
-      "icon": "icon_lightning.svg",
-      "iconPng": "icon_lightning.png",
-      "category": "mode_completion",
-      "description": "Survive high tiers in Pressure Ladder mode.",
-      "reward": "mode_multiplier_bonus"
-    },
-    {
-      "id": "mode_conqueror",
-      "name": "Mode Conqueror",
-      "icon": "icon_crown.svg",
-      "iconPng": "icon_crown.png",
-      "category": "mode_completion",
-      "description": "Earn completion marks in all major game modes.",
-      "reward": "all_mode_completion_bonus"
-    },
-    {
-      "id": "elite_decorated",
-      "name": "Elite Decorated",
-      "icon": "icon_medal.svg",
-      "iconPng": "icon_medal.png",
-      "category": "performance",
-      "description": "Complete elite challenges with high consistency.",
-      "reward": "rare_reward_drop"
-    },
-    {
-      "id": "lifelong_legend",
-      "name": "Lifelong Legend",
-      "icon": "icon_gem.svg",
-      "iconPng": "icon_gem.png",
-      "category": "lifelong",
-      "description": "Accumulate lifetime achievement points across all sessions.",
-      "reward": "lifetime_profile_badge"
-    }
-  ]
+  "tracks": [
+    { "id": "mode", "name": "Mode Mastery", "goal": 3, "intent": "Short/medium goals: finish each gameplay mode.", "rewards": "ship cosmetics" },
+    { "id": "performance", "name": "Performance", "goal": 5, "intent": "Medium goals: in-match achievement ranks and elite waves.", "rewards": "ship cosmetics" },
+    { "id": "lifelong", "name": "Lifelong", "goal": 10, "intent": "Very long-term: cumulative points across every session.", "rewards": "prestige cosmetics" }
+  ],
+  "badges": [
+    { "id": "classical_champion", "name": "Classical Champion", "track": "mode", "icon": "badge_trophy.svg", "iconPng": "badge_trophy.png", "unlock": "complete a run in Classical mode" },
+    { "id": "endless_starlight", "name": "Endless Starlight", "track": "mode", "icon": "badge_star.svg", "iconPng": "badge_star.png", "unlock": "complete a run in Endless mode" },
+    { "id": "pressure_breaker", "name": "Pressure Breaker", "track": "mode", "icon": "badge_lightning.svg", "iconPng": "badge_lightning.png", "unlock": "complete a run in Pressure Ladder mode" },
+    { "id": "mode_conqueror", "name": "Mode Conqueror", "track": "mode", "icon": "badge_crown.svg", "iconPng": "badge_crown.png", "unlock": "complete every gameplay mode" },
+    { "id": "elite_decorated", "name": "Elite Decorated", "track": "performance", "icon": "badge_medal.svg", "iconPng": "badge_medal.png", "unlock": "earn a performance milestone" },
+    { "id": "lifelong_legend", "name": "Lifelong Legend", "track": "lifelong", "icon": "badge_gem.svg", "iconPng": "badge_gem.png", "unlock": "reach lifetime rank 3" }
+  ],
+  "cosmetics": [
+    { "id": "classic", "name": "Classic White", "unlock": "default" },
+    { "id": "neon_cyan", "name": "Neon Cyan", "unlock": "finish Classical" },
+    { "id": "solar_flare", "name": "Solar Flare", "unlock": "finish Endless" },
+    { "id": "ion_violet", "name": "Ion Violet", "unlock": "finish Pressure Ladder" },
+    { "id": "crown_gold", "name": "Crown Gold", "unlock": "finish all modes" },
+    { "id": "radar_green", "name": "Radar Green", "unlock": "1 performance milestone" },
+    { "id": "crimson_ace", "name": "Crimson Ace", "unlock": "3 performance milestones" },
+    { "id": "prism_legend", "name": "Prism Legend", "unlock": "lifetime rank 5" }
+  ],
+  "persistence": {
+    "file": "settings.cfg",
+    "keys": [
+      "lifetimeAchievementPoints",
+      "lifetimeAchievementLevel",
+      "modeCompleteClassical",
+      "modeCompleteEndless",
+      "modeCompletePressureLadder",
+      "performanceMilestones",
+      "equippedCosmetic"
+    ]
+  },
+  "legacyIcons": {
+    "note": "Previous rounded-square icons are kept for compatibility.",
+    "files": [
+      "icon_trophy.png",
+      "icon_star.png",
+      "icon_lightning.png",
+      "icon_crown.png",
+      "icon_medal.png",
+      "icon_gem.png"
+    ]
+  }
 }

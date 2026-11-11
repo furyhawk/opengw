@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>Achievement Badge - Medal</title>
+  <defs>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#C2FFD9"/>
+      <stop offset="1" stop-color="#00E676"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#edge)" stroke-width="3" stroke-linejoin="round" filter="url(#glow)">
+    <polygon points="64,6 111,33 111,95 64,122 17,95 17,33"/>
+    <polygon points="64,17 102,39 102,89 64,111 26,89 26,39" stroke-opacity="0.45" stroke-width="1.6"/>
+  </g>
+  <g fill="#4CFF9E" filter="url(#glow)">
+    <path d="M50 26h12l4 16 4-16h12L74 55H54L50 26z"/>
+    <circle cx="64" cy="80" r="24"/>
+  </g>
+  <g fill="#0B1A12">
+    <path d="M64 66l5 10 11 2-8 8 2 11-10-6-10 6 2-11-8-8 11-2 5-10z"/>
+  </g>
+</svg>

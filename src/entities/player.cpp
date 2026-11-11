@@ -1,5 +1,6 @@
 #include "entities/attractor.hpp"
 #include "entities/bomb.hpp"
+#include "core/achievements.hpp"
 #include "core/classicalparams.hpp"
 #include "core/controls.hpp"
 #include "math/defines.hpp"
@@ -110,6 +111,12 @@ void player::run()
     const auto& p = classical_params::get();
 
     if (getEnabled()) {
+        // Equipped cosmetic palette: single player only, so co-op keeps the
+        // per-player identity colours that the entityPlayerN classes assign.
+        if (theGame->numPlayers() == 1 && mJoined) {
+            achievements::applyCosmetic(mPen, mExhaustPen, mMissilesPen, mFontPen);
+        }
+
         if (getState() == ENTITY_STATE_RUNNING) {
             // Passive progress while actively surviving in a live life.
             if (++mAchievementSurvivalCounter >= 60) {
@@ -1129,7 +1136,7 @@ void player::addAchievementProgress(int amount)
     if (amount <= 0)
         return;
 
-    settings::edit().mLifetimeAchievementPoints += amount;
+    achievements::addLifetimePoints(amount);
 
     mAchievementProgress += amount;
     while (mAchievementProgress >= mAchievementTarget) {
@@ -1165,7 +1172,7 @@ void player::addAchievementProgress(int amount)
 
         if (!mPerformanceMilestoneAwarded && (mAchievementLevel >= 10)) {
             mPerformanceMilestoneAwarded = true;
-            ++settings::edit().mPerformanceMilestones;
+            achievements::recordInMatchRank(mAchievementLevel);
             char perfMsg[] = "PERFORMANCE MILESTONE";
             game::showMessageAtLocation(perfMsg, getPos(), getFontPen());
         }

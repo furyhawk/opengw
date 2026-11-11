@@ -1,8 +1,10 @@
 #include "math/defines.hpp"
 #include "render/font.hpp"
+#include "core/achievements.hpp"
 #include "core/game.hpp"
 #include "core/gamemodePressureLadder.hpp"
 #include "core/highscore.hpp"
+#include "ui/menuAchievements.hpp"
 #include "ui/menuHighScores.hpp"
 #include "ui/menuMain.hpp"
 #include "ui/menuPause.hpp"
@@ -274,6 +276,8 @@ void scene::draw(int pass)
             menuSettings::draw();
         } else if (theGame->mMenuScreen == game::MENU_HIGHSCORES) {
             menuHighScores::draw();
+        } else if (theGame->mMenuScreen == game::MENU_ACHIEVEMENTS) {
+            menuAchievements::draw();
         } else if (game::mGameMode == game::GAMEMODE_HIGHSCORES) {
             drawCredits();
             theGame->mHighscore->drawEnterScore();
@@ -545,40 +549,25 @@ void scene::drawScores()
                 font::AlphanumericsPrint(font::ALIGN_LEFT, .016, -.94, .9, &pen, "Score x%d", theGame->getPlayer1()->mMultiplier);
             font::AlphanumericsPrint(font::ALIGN_LEFT, .02, -.94, .82, &pen, s);
 
-            char achProg[64];
-            snprintf(
-                achProg,
-                sizeof(achProg),
-                "%d/%d",
-                theGame->getPlayer1()->achievementProgress(),
-                theGame->getPlayer1()->achievementTarget());
-
             if (!mAchievementGemTextureAttempted) {
-                mTextureAchievementGem.load("assets/images/achievements/icon_gem.png");
+                mTextureAchievementGem.load("assets/images/achievements/badge_gem.png");
                 if (!mTextureAchievementGem.mLoaded)
-                    mTextureAchievementGem.load("assets/images/achievements/gem.png");
+                    mTextureAchievementGem.load("assets/images/achievements/icon_gem.png");
                 mAchievementGemTextureAttempted = true;
             }
 
-            const int modeCompletions =
-                (settings::get().mModeCompleteClassical ? 1 : 0)
-                + (settings::get().mModeCompleteEndless ? 1 : 0)
-                + (settings::get().mModeCompletePressureLadder ? 1 : 0);
-            const int lifetimePoints = settings::get().mLifetimeAchievementPoints;
-            const int lifetimeRank = std::min(99, 1 + (lifetimePoints / 5000));
+            const int lifetimeRank = achievements::lifetimeRank();
 
-            // Compact achievement block in the top-right so it does not span
-            // into the playfield.
-            font::AlphanumericsPrint(font::ALIGN_LEFT, .009, .70, .76, &pen, "A %d", theGame->getPlayer1()->achievementLevel());
-            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .71, &pen, "N %s", achProg);
-            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .66, &pen, "L %d", lifetimeRank);
-            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .61, &pen, "M %d/3", modeCompletions);
-            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .56, &pen, "P %d", settings::get().mPerformanceMilestones);
+            // Minimal top-right readout: three short lines only, so it never
+            // stretches across the playfield or overlaps other HUD elements.
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .010f, .70f, .76f, &pen, "RANK %d", lifetimeRank);
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .009f, .70f, .71f, &pen, "BADGE %d/%d", achievements::badgesUnlocked(), achievements::badgeCount());
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .009f, .70f, .66f, &pen, "ACH %d", theGame->getPlayer1()->achievementLevel());
 
             if (mTextureAchievementGem.mLoaded) {
-                mTextureAchievementGem.draw(0.64f, 0.66f, 0.06f, 0.06f * mAspect);
+                mTextureAchievementGem.draw(0.64f, 0.73f, 0.05f, 0.05f * mAspect);
             } else {
-                font::AlphanumericsPrint(font::ALIGN_CENTER, .008, .64f, .66f, &pen, "G");
+                font::AlphanumericsPrint(font::ALIGN_CENTER, .008f, .64f, .73f, &pen, "G");
             }
 
             pen.a = .1;
@@ -588,11 +577,9 @@ void scene::drawScores()
             else
                 font::AlphanumericsPrint(font::ALIGN_LEFT, .016, -.94, .9, &pen, "Score x%d", theGame->getPlayer1()->mMultiplier);
             font::AlphanumericsPrint(font::ALIGN_LEFT, .02, -.94, .82, &pen, s);
-            font::AlphanumericsPrint(font::ALIGN_LEFT, .009, .70, .76, &pen, "A %d", theGame->getPlayer1()->achievementLevel());
-            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .71, &pen, "N %s", achProg);
-            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .66, &pen, "L %d", lifetimeRank);
-            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .61, &pen, "M %d/3", modeCompletions);
-            font::AlphanumericsPrint(font::ALIGN_LEFT, .008, .70, .56, &pen, "P %d", settings::get().mPerformanceMilestones);
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .010f, .70f, .76f, &pen, "RANK %d", lifetimeRank);
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .009f, .70f, .71f, &pen, "BADGE %d/%d", achievements::badgesUnlocked(), achievements::badgeCount());
+            font::AlphanumericsPrint(font::ALIGN_LEFT, .009f, .70f, .66f, &pen, "ACH %d", theGame->getPlayer1()->achievementLevel());
             if (!mTextureAchievementGem.mLoaded)
                 font::AlphanumericsPrint(font::ALIGN_CENTER, .008, .64f, .66f, &pen, "G");
         }

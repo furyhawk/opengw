@@ -53,6 +53,7 @@ settings::settings()
     mModeCompleteEndless = false;
     mModeCompletePressureLadder = false;
     mPerformanceMilestones = 0;
+    mEquippedCosmetic = 0;
 
     displayWidth = 800;
     displayHeight = 600;
@@ -128,6 +129,8 @@ void settings::load()
             mModeCompletePressureLadder = parseBool(value);
         else if (key == "performanceMilestones")
             mPerformanceMilestones = std::atoi(value.c_str());
+        else if (key == "equippedCosmetic")
+            mEquippedCosmetic = std::atoi(value.c_str());
     }
 
     // Sanity check the resolution.
@@ -173,4 +176,5 @@ void settings::save() const
     out << "modeCompleteEndless=" << (mModeCompleteEndless ? 1 : 0) << "\n";
     out << "modeCompletePressureLadder=" << (mModeCompletePressureLadder ? 1 : 0) << "\n";
     out << "performanceMilestones=" << mPerformanceMilestones << "\n";
+    out << "equippedCosmetic=" << mEquippedCosmetic << "\n";
 }

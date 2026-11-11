@@ -1,6 +1,7 @@
 #include "entities/attractor.hpp"
 #include "entities/blackholes.hpp"
 #include "entities/bomb.hpp"
+#include "core/achievements.hpp"
 #include "core/camera.hpp"
 #include "core/controls.hpp"
 #include "math/defines.hpp"
@@ -19,6 +20,7 @@
 #include "entities/spawner.hpp"
 #include "render/stars.hpp"
 #include "ui/menuHighScores.hpp"
+#include "ui/menuAchievements.hpp"
 #include "ui/menuMain.hpp"
 #include "ui/menuPause.hpp"
 #include "ui/menuSelectGameType.hpp"
@@ -359,6 +361,8 @@ void game::run()
             menuSettings::run();
         } else if (mMenuScreen == MENU_HIGHSCORES) {
             menuHighScores::run();
+        } else if (mMenuScreen == MENU_ACHIEVEMENTS) {
+            menuAchievements::run();
         }
 
         // Attractors to wander around the fireworks display
@@ -590,11 +594,11 @@ void game::endGame()
         const char* modeName = mMode->name();
         if (modeName) {
             if (std::strcmp(modeName, "Classical") == 0)
-                settings::edit().mModeCompleteClassical = true;
+                achievements::recordModeCompletion(0);
             else if (std::strcmp(modeName, "Endless") == 0)
-                settings::edit().mModeCompleteEndless = true;
+                achievements::recordModeCompletion(1);
             else if (std::strcmp(modeName, "Pressure Ladder") == 0)
-                settings::edit().mModeCompletePressureLadder = true;
+                achievements::recordModeCompletion(2);
         }
 
         mMode->end_match(*this);

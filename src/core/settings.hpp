@@ -49,6 +49,9 @@ class settings
     // Performance milestones unlocked (e.g. high in-match rank reached).
     int mPerformanceMilestones;
 
+    // Index into achievements::cosmetic() currently equipped.
+    int mEquippedCosmetic;
+
     int displayWidth;
     int displayHeight;
 };

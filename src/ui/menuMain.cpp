@@ -1,5 +1,6 @@
 #include "ui/menuMain.hpp"
 
+#include "core/achievements.hpp"
 #include "core/game.hpp"
 #include "core/gamemodes.hpp"
 #include "core/settings.hpp"
@@ -7,6 +8,7 @@
 #include "render/font.hpp"
 #include "render/gl3.h"
 #include "render/texture.hpp"
+#include "ui/menuAchievements.hpp"
 #include "ui/menuCommon.hpp"
 #include "ui/menuHighScores.hpp"
 #include "ui/menuSelectGameType.hpp"
@@ -19,13 +21,14 @@ namespace menuMain {
 
 namespace {
 
-constexpr int kNumItems = 5;
+constexpr int kNumItems = 6;
 
 enum Item
 {
     ITEM_START_GAME = 0,
     ITEM_GAME_MODE, // cycles the gameplay mode (gameplaymodes registry)
     ITEM_TOP_SCORES,
+    ITEM_ACHIEVEMENTS, // tracks + cosmetic selector
     ITEM_SETTINGS,
     ITEM_QUIT_GAME
 };
@@ -34,80 +37,66 @@ const char* const kItemLabels[kNumItems] = {
     "START GAME",
     "GAME MODE",
     "TOP SCORES",
+    "ACHIEVEMENTS",
     "SETTINGS",
     "QUIT GAME"
 };
 
 menuCommon::State sState;
 
-texture sIconTrophy;
-texture sIconStar;
-texture sIconLightning;
-texture sIconCrown;
-texture sIconMedal;
-texture sIconGem;
+// Neon hex badge textures, loaded lazily from the achievements catalog.
+texture sBadgeTextures[achievements::BADGE_COUNT];
 bool sBadgeTexturesAttempted = false;
+bool sBadgeLoaded[achievements::BADGE_COUNT] = { false };
 
 void ensureBadgeTexturesLoaded()
 {
     if (sBadgeTexturesAttempted)
         return;
 
-    sIconTrophy.load("assets/images/achievements/icon_trophy.png");
-    sIconStar.load("assets/images/achievements/icon_star.png");
-    sIconLightning.load("assets/images/achievements/icon_lightning.png");
-    sIconCrown.load("assets/images/achievements/icon_crown.png");
-    sIconMedal.load("assets/images/achievements/icon_medal.png");
-    sIconGem.load("assets/images/achievements/icon_gem.png");
+    for (int i = 0; i < achievements::BADGE_COUNT; ++i) {
+        sBadgeTextures[i].load(achievements::badge(i).icon);
+        sBadgeLoaded[i] = sBadgeTextures[i].mLoaded;
+    }
 
     sBadgeTexturesAttempted = true;
 }
 
-void drawBadgeIcon(texture& icon, float x, float y, float size, const char* fallback, vector::pen pen)
-{
-    if (icon.mLoaded) {
-        icon.draw(x, y, size, size);
-        return;
-    }
-
-    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.01f, x, y, &pen, "%s", fallback);
-}
-
+// A single row of all six neon hex badges with locked ones dimmed, followed by
+// a compact lifetime summary. Kept deliberately short so it never spans the
+// playfield the way the old text block did.
 void drawAchievementBadges()
 {
     ensureBadgeTexturesLoaded();
 
-    const settings& s = settings::get();
-    const int modeCompletions =
-        (s.mModeCompleteClassical ? 1 : 0)
-        + (s.mModeCompleteEndless ? 1 : 0)
-        + (s.mModeCompletePressureLadder ? 1 : 0);
-    const bool allModes = modeCompletions >= 3;
-    const int lifetimeRank = std::min(99, 1 + (s.mLifetimeAchievementPoints / 5000));
+    constexpr float kSize = 0.062f;
+    constexpr float kStep = 0.15f;
+    constexpr float kY = -0.80f;
+    const int count = achievements::badgeCount();
 
-    vector::pen labelPen(0.78f, 0.9f, 1.0f, 0.62f, 2);
-    vector::pen valuePen(1.0f, 1.0f, 1.0f, 0.9f, 2);
+    for (int i = 0; i < count; ++i) {
+        const float x = ((i - (count - 1) * 0.5f) * kStep);
+        const bool unlocked = achievements::badgeUnlocked(i);
 
-    // MODE completion track: trophy + star + lightning + crown (all-modes).
-    const float modeY = -0.84f;
-    drawBadgeIcon(sIconTrophy, -0.60f, modeY, 0.06f, "TR", valuePen);
-    drawBadgeIcon(sIconStar, -0.53f, modeY, 0.06f, "ST", valuePen);
-    drawBadgeIcon(sIconLightning, -0.46f, modeY, 0.06f, "LT", valuePen);
-    drawBadgeIcon(sIconCrown, -0.39f, modeY, 0.06f, "CR", valuePen);
-    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.01f, -0.50f, -0.77f, &labelPen, "MODE TRACK");
-    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.01f, -0.50f, -0.91f, &valuePen, "%d/3  CROWN %s", modeCompletions, allModes ? "ON" : "OFF");
+        vector::pen pen = unlocked ? vector::pen(0.85f, 1.0f, 0.95f, 0.9f, 2)
+                                   : vector::pen(0.4f, 0.45f, 0.55f, 0.28f, 2);
 
-    // PERFORMANCE track: medal + running milestone count.
-    const float perfY = -0.84f;
-    drawBadgeIcon(sIconMedal, 0.04f, perfY, 0.06f, "MD", valuePen);
-    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.01f, 0.04f, -0.77f, &labelPen, "PERFORMANCE");
-    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.01f, 0.04f, -0.91f, &valuePen, "MILESTONES %d", s.mPerformanceMilestones);
+        if (sBadgeLoaded[i]) {
+            sBadgeTextures[i].draw(x, kY, kSize, kSize);
+            if (!unlocked)
+                font::AlphanumericsPrint(font::ALIGN_CENTER, 0.014f, x, kY, &pen, "-");
+        } else {
+            font::AlphanumericsPrint(font::ALIGN_CENTER, 0.012f, x, kY, &pen, "%s", unlocked ? "O" : "-");
+        }
+    }
 
-    // LIFELONG track: gem rank/points across sessions.
-    const float lifeY = -0.84f;
-    drawBadgeIcon(sIconGem, 0.58f, lifeY, 0.06f, "GM", valuePen);
-    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.01f, 0.58f, -0.77f, &labelPen, "LIFELONG");
-    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.01f, 0.58f, -0.91f, &valuePen, "LV %d  PTS %d", lifetimeRank, s.mLifetimeAchievementPoints);
+    vector::pen summaryPen(0.62f, 0.82f, 1.0f, 0.6f, 2);
+    font::AlphanumericsPrint(font::ALIGN_CENTER, 0.011f, 0.0f, -0.885f, &summaryPen,
+                             "RANK %d    BADGES %d/%d    COSMETIC: %s",
+                             achievements::lifetimeRank(),
+                             achievements::badgesUnlocked(),
+                             achievements::badgeCount(),
+                             achievements::cosmetic(achievements::equippedCosmetic()).name);
 }
 
 // Advance the selected gameplay mode by `dir` (+1 next, -1 previous) within
@@ -186,6 +175,10 @@ void run()
             menuHighScores::init();
             game::mMenuScreen = game::MENU_HIGHSCORES;
             break;
+        case ITEM_ACHIEVEMENTS:
+            menuAchievements::init();
+            game::mMenuScreen = game::MENU_ACHIEVEMENTS;
+            break;
         case ITEM_SETTINGS:
             menuSettings::init();
             game::mMenuScreen = game::MENU_SETTINGS;
@@ -206,8 +199,8 @@ void draw()
     menuCommon::drawScrim(-0.20f, -0.95f);
 
     constexpr float kScale = 0.02f;
-    constexpr float kRowStep = 0.115f;
-    constexpr float kFirstY = -0.22f;
+    constexpr float kRowStep = 0.10f;
+    constexpr float kFirstY = -0.18f;
 
     for (int i = 0; i < kNumItems; ++i) {
         const float y = kFirstY - (i * kRowStep);
