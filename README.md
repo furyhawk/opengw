@@ -150,6 +150,13 @@ make -f makefile.macos
 
 ### Linux
 
+One-command setup (recommended):
+
+```sh
+./tools/install_dependencies.sh
+make run
+```
+
 ```sh
 # Debian / Ubuntu
 sudo apt install libsdl3-dev libgl1-mesa-dev
